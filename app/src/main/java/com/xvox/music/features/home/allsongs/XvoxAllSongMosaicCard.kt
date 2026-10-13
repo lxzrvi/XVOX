@@ -59,7 +59,16 @@ fun XvoxAllSongMosaicCard(
 
     @Composable
     fun Labels(onArt: Boolean = false, modifier: Modifier = Modifier) {
-        Column(modifier) {
+        // On-card labels already receive their deliberate 8dp overlay inset. Labels below or
+        // beside artwork need their own corner-safe start/end breathing room.
+        val labelModifier = if (onArt) {
+            modifier
+        } else {
+            modifier
+                .fillMaxWidth()
+                .padding(horizontal = if (dense) 4.dp else 6.dp)
+        }
+        Column(labelModifier) {
             Text(song.title,
                 color = when {
                     current -> colors.primaryAccent

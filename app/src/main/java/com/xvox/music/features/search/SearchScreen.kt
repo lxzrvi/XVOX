@@ -323,7 +323,7 @@ fun SearchScreen(
                         },
                         onRemove = { q -> homeViewModel.removeRecentSearch(q) },
                         onClearAll = { homeViewModel.clearRecentSearches() },
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp)
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
                     )
                 }
             }
@@ -515,7 +515,7 @@ fun SearchScreen(
                                 },
                                 onRemove = { q -> homeViewModel.removeRecentSearch(q) },
                                 onClearAll = { homeViewModel.clearRecentSearches() },
-                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp)
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
                             )
                         }
                     }
@@ -525,7 +525,7 @@ fun SearchScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 14.dp, vertical = 4.dp),
+                                .padding(horizontal = 6.dp, vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Box(
@@ -665,7 +665,7 @@ fun SearchScreen(
                     .fillMaxWidth()
                     .offset(y = searchFieldTop)
                     .background(colors.background)
-                    .padding(start = 14.dp, end = 14.dp, bottom = 4.dp)
+                    .padding(start = 6.dp, end = 6.dp, bottom = 4.dp)
             ) {
                 SearchBarComponent(
                     query = query,
@@ -967,7 +967,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.searchResultsContent(
                 color = colors.primaryAccent,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(start = 14.dp, top = 6.dp, bottom = 2.dp)
+                modifier = Modifier.padding(start = 6.dp, top = 6.dp, bottom = 2.dp)
             )
         }
         item(key = "row_artists") {
@@ -975,8 +975,8 @@ private fun androidx.compose.foundation.lazy.LazyListScope.searchResultsContent(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
                 // The scrolling viewport reaches the full landscape pane; its first/last cards
-                // retain the same 14 dp inset as song cards and portrait search results.
-                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 4.dp)
+                // retain the same compact 6 dp inset as song cards and portrait search results.
+                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 4.dp)
             ) {
                 items(matchingArtists, key = { "art_${it.name}" }) { artist ->
                     SearchArtistCircleItem(
@@ -998,14 +998,14 @@ private fun androidx.compose.foundation.lazy.LazyListScope.searchResultsContent(
                 color = colors.primaryAccent,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(start = 14.dp, top = 8.dp, bottom = 4.dp)
+                modifier = Modifier.padding(start = 6.dp, top = 8.dp, bottom = 4.dp)
             )
         }
         item(key = "row_playlists") {
             LazyRow(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
-                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 4.dp)
+                contentPadding = PaddingValues(horizontal = 6.dp, vertical = 4.dp)
             ) {
                 items(matchingPlaylists, key = { "pl_${it.id}" }) { playlist ->
                     val firstSong = playlist.songIds.firstOrNull()?.let { sid -> allSongs.firstOrNull { it.id == sid } }
@@ -1029,7 +1029,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.searchResultsContent(
                 color = colors.primaryAccent,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(start = 14.dp, top = 8.dp, bottom = 4.dp)
+                modifier = Modifier.padding(start = 6.dp, top = 8.dp, bottom = 4.dp)
             )
         }
         items(matchingSongs, key = { "song_${it.id}" }) { song ->
@@ -1039,7 +1039,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.searchResultsContent(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 14.dp)
+                    .padding(horizontal = 6.dp)
                     .clip(RoundedCornerShape(12.dp))
                     .background(cardColor)
                     .border(0.8.dp, colors.cardBorder.copy(alpha = 0.55f), RoundedCornerShape(12.dp))
@@ -1170,7 +1170,9 @@ private fun SearchPlaylistCompactItem(
         Box(
             modifier = Modifier
                 .size(56.dp)
-                .clip(RoundedCornerShape(9.dp))
+                // Match the compact playlist card exactly so its cover reads as part of the
+                // same rounded box rather than as a separately rounded tile.
+                .clip(cardShape)
                 .background(colors.cardElevated),
             contentAlignment = Alignment.Center
         ) {

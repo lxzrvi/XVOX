@@ -33,11 +33,14 @@ fun XvoxNavigationItem(
                 proximity
         )
 
+    // The selected glyph grows with the persistent travelling-pill position rather than
+    // jumping after a tap. Inactive glyphs are subtly smaller, while all three remain centered
+    // by their identical Box slots.
     val iconScale =
-        1f +
+        0.88f +
+            0.18f * proximity +
             if (dragging) {
-                0.10f *
-                    proximity
+                0.015f * proximity
             } else {
                 0f
             }

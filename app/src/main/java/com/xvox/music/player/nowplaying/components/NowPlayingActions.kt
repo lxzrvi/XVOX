@@ -3,14 +3,19 @@
 package com.xvox.music.player.nowplaying.components
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -47,6 +52,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
@@ -176,8 +182,10 @@ fun NowPlayingActions(
             ) {
             Box(
                 modifier = Modifier
+                    // Do not clip this transition viewport. The incoming/outgoing action pairs
+                    // are intentionally allowed to travel through the dot lane below instead of
+                    // being sliced at the former 42dp rounded box boundary.
                     .height(42.dp)
-                    .clip(RoundedCornerShape(21.dp))
                     .padding(horizontal = 2.dp)
                     .pointerInput(Unit) {
                         var drag = 0f
@@ -198,31 +206,51 @@ fun NowPlayingActions(
                             },
                             onDragCancel = { }
                         )
-                    }
+                    },
+                contentAlignment = Alignment.Center
             ) {
                 AnimatedContent(
                     targetState = pageIndex,
                     transitionSpec = {
                         val slideEasing = CubicBezierEasing(0.22f, 1f, 0.36f, 1f)
-                        if (swipeForward) {
-                            (slideInHorizontally(tween(260, easing = slideEasing)) { it / 2 } +
-                                androidx.compose.animation.scaleIn(initialScale = 0.88f, animationSpec = tween(260, easing = slideEasing)) +
-                                fadeIn(tween(180)))
-                                .togetherWith(
-                                    slideOutHorizontally(tween(240, easing = slideEasing)) { -it / 2 } +
-                                        androidx.compose.animation.scaleOut(targetScale = 0.88f, animationSpec = tween(240, easing = slideEasing)) +
-                                        fadeOut(tween(160))
-                                )
-                        } else {
-                            (slideInHorizontally(tween(260, easing = slideEasing)) { -it / 2 } +
-                                androidx.compose.animation.scaleIn(initialScale = 0.88f, animationSpec = tween(260, easing = slideEasing)) +
-                                fadeIn(tween(180)))
-                                .togetherWith(
-                                    slideOutHorizontally(tween(240, easing = slideEasing)) { it / 2 } +
-                                        androidx.compose.animation.scaleOut(targetScale = 0.88f, animationSpec = tween(240, easing = slideEasing)) +
-                                        fadeOut(tween(160))
-                                )
-                        }
+                        // A left swipe advances: incoming grows up from the page-dot lane on the
+                        // right while outgoing shrinks down toward it on the left. Reversing the
+                        // swipe reverses that horizontal travel; both retain the bottom-centre
+                        // transform origin that visually ties them to the dots.
+                        val direction = if (swipeForward) 1 else -1
+                        (
+                            slideInHorizontally(
+                                initialOffsetX = { it * direction / 2 },
+                                animationSpec = tween(280, easing = slideEasing)
+                            ) +
+                                slideInVertically(
+                                    initialOffsetY = { it / 2 },
+                                    animationSpec = tween(280, easing = slideEasing)
+                                ) +
+                                scaleIn(
+                                    initialScale = 0.32f,
+                                    transformOrigin = TransformOrigin(.5f, 1f),
+                                    animationSpec = tween(280, easing = slideEasing)
+                                ) +
+                                fadeIn(tween(190))
+                            )
+                            .togetherWith(
+                                slideOutHorizontally(
+                                    targetOffsetX = { -it * direction / 2 },
+                                    animationSpec = tween(250, easing = slideEasing)
+                                ) +
+                                    slideOutVertically(
+                                        targetOffsetY = { it / 2 },
+                                        animationSpec = tween(250, easing = slideEasing)
+                                    ) +
+                                    scaleOut(
+                                        targetScale = 0.32f,
+                                        transformOrigin = TransformOrigin(.5f, 1f),
+                                        animationSpec = tween(250, easing = slideEasing)
+                                    ) +
+                                    fadeOut(tween(170))
+                            )
+                            .using(SizeTransform(clip = false))
                     },
                     label = "nowPlaying2by2Cluster"
                 ) { targetPage ->

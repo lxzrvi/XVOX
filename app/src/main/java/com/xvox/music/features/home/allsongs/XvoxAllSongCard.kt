@@ -67,10 +67,13 @@ fun XvoxAllSongCard(
             )
         }
 
+        // Keep title/artist clear of the outer rounded corners, especially on compact cards
+        // where glyphs formerly began directly in the 3dp frame gutter.
         Column(
             modifier = Modifier
                 .weight(1f)
-                .fillMaxWidth(),
+                .fillMaxWidth()
+                .padding(horizontal = if (dense) 4.dp else 6.dp),
             verticalArrangement = Arrangement.Center
         ) {
             Text(

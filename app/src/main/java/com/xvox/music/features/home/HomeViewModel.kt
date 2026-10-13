@@ -16,6 +16,7 @@ import com.xvox.music.features.sourcemode.XvoxSourceMode
 import com.xvox.music.features.playlist.XvoxPlaylistCoverStorage
 import com.xvox.music.media.MediaStoreSongRepository
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -76,6 +77,8 @@ class HomeViewModel(
     private var lastPrefetch: ArtworkPrefetch? = null
     /** Latest page requested while the current quality-preserving artwork warm is in flight. */
     private var pendingPrefetch: ArtworkPrefetch? = null
+    /** The exact warm currently decoding; separate from [lastPrefetch] so cancellation is honest. */
+    private var activePrefetch: ArtworkPrefetch? = null
     private var transitionId = 0L
 
     private var filterConfig = LibraryFilterConfig("A-Z", 0, 0, emptySet())
@@ -508,17 +511,21 @@ class HomeViewModel(
             ),
             requestSize = requestSize.coerceAtLeast(XvoxGridArtworkSize)
         )
-        if (target == lastPrefetch || target == pendingPrefetch) return
+        if (target == lastPrefetch || target == pendingPrefetch || target == activePrefetch) return
 
-        // Do not cancel/decode-restart for every page boundary during a fling. Keep the active
-        // full-quality warm intact, then coalesce to the newest viewport and its real card size.
+        // Artwork is still warmed at each card's exact display resolution, but a rapid fling no
+        // longer lets a stale 16/32-cover decode monopolise CPU after the viewport has moved on.
+        // A tiny quiet-frame debounce coalesces page-boundary signals, then a latest-wins job
+        // warms only the page the user actually settled near. Visual quality is unchanged; scroll
+        // work simply yields to the finger instead of competing with it.
         pendingPrefetch = target
-        if (prefetchJob?.isActive == true) return
+        prefetchJob?.cancel()
         prefetchJob = viewModelScope.launch {
-            while (pendingPrefetch != null) {
-                val next = pendingPrefetch ?: break
-                pendingPrefetch = null
-                lastPrefetch = next
+            delay(72)
+            val next = pendingPrefetch ?: return@launch
+            pendingPrefetch = null
+            activePrefetch = next
+            try {
                 withContext(Dispatchers.IO) {
                     artworkPreloader.warm(
                         songs = songs,
@@ -527,6 +534,9 @@ class HomeViewModel(
                         requestSize = next.requestSize
                     )
                 }
+                lastPrefetch = next
+            } finally {
+                if (activePrefetch == next) activePrefetch = null
             }
         }
     }

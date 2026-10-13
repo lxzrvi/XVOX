@@ -9,7 +9,12 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -29,7 +34,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -241,10 +249,10 @@ fun SettingsScreen(
             }
 
             if (isLandscape) {
-                // Pair cards in explicit full-width grid rows. Row IntrinsicSize.Max and each
-                // child's fillMaxHeight make sibling section cards genuinely equal-height rather
-                // than merely aligning their next lazy-grid line after an uneven blank area.
-                item(key = "settings_pair_appearance_widget", span = { GridItemSpan(maxLineSpan) }) {
+                // Preserve the portrait sequence left-to-right, then top-to-bottom: Appearance →
+                // Recycle Bin → Widgets → Backup & Restore → Support → About. Equal-height pairs
+                // retain the landscape grid's balanced physical rows.
+                item(key = "settings_pair_appearance_recycle", span = { GridItemSpan(maxLineSpan) }) {
                     Row(
                         modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Max),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -253,42 +261,45 @@ fun SettingsScreen(
                             state, settingsViewModel, ::openCustomColorPicker, ::openFontPicker,
                             modifier = Modifier.weight(1f).fillMaxHeight()
                         )
-                        WidgetSectionCard(
-                            onOpenStudio = { showingWidgetStudio = true },
+                        DeletedItemsSectionCard(
+                            onOpen = ::openDeletedItems,
                             modifier = Modifier.weight(1f).fillMaxHeight()
                         )
                     }
                 }
-                item(key = "settings_pair_support_backup", span = { GridItemSpan(maxLineSpan) }) {
+                item(key = "settings_pair_widgets_backup", span = { GridItemSpan(maxLineSpan) }) {
                     Row(
                         modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Max),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        SupportDeveloperCard(Modifier.weight(1f).fillMaxHeight())
+                        WidgetSectionCard(
+                            onOpenStudio = { showingWidgetStudio = true },
+                            modifier = Modifier.weight(1f).fillMaxHeight()
+                        )
                         BackupSectionCard(homeViewModel, Modifier.weight(1f).fillMaxHeight())
                     }
                 }
+                // Support's tier buttons and the comprehensive About guide both need their
+                // natural width/height. Keeping each full-width avoids stretching Support into
+                // About's longer guide lane while retaining the same reading order.
+                item(key = "settings_support", span = { GridItemSpan(maxLineSpan) }) {
+                    SupportDeveloperCard(Modifier.fillMaxWidth())
+                }
                 item(key = "settings_about", span = { GridItemSpan(maxLineSpan) }) {
                     AboutSectionCard(Modifier.fillMaxWidth())
-                }
-                item(key = "settings_deleted_items", span = { GridItemSpan(maxLineSpan) }) {
-                    DeletedItemsSectionCard(onOpen = ::openDeletedItems)
                 }
                 // Source-mode experiments intentionally stay out of the everyday Settings page.
             } else {
                 item(key = "section_appearance") {
                     AppearanceSectionCard(state, settingsViewModel, ::openCustomColorPicker, ::openFontPicker)
                 }
+                // The requested everyday portrait order starts immediately after Appearance.
+                item(key = "section_deleted_items") { DeletedItemsSectionCard(onOpen = ::openDeletedItems) }
                 item(key = "section_widget") {
                     WidgetSectionCard(onOpenStudio = { showingWidgetStudio = true })
                 }
-                item(key = "section_support_dev") { SupportDeveloperCard() }
                 item(key = "section_backup") { BackupSectionCard(homeViewModel) }
-                // Battery and background-playback controls are intentionally kept in their
-                // dedicated surfaces rather than duplicating them in a System/Background card.
-                // Adjacent to About because this is account/library housekeeping rather than a
-                // playback control; it opens the soft-deleted XVOX recycle bin.
-                item(key = "section_deleted_items") { DeletedItemsSectionCard(onOpen = ::openDeletedItems) }
+                item(key = "section_support_dev") { SupportDeveloperCard() }
                 item(key = "section_about") { AboutSectionCard() }
             }
         }
@@ -615,25 +626,106 @@ private fun SupportDeveloperCard(modifier: Modifier = Modifier) {
                     Triple(200, "₹200", "Full Pack 📦"),
                     Triple(500, "₹500", "Treat 🥢")
                 )
-                val supportShape = RoundedCornerShape(14.dp)
-                val supportRed = Color(0xFFD9454E)
-                tiers.forEach { (amount, price, label) ->
-                    Column(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(supportShape)
-                            .background(supportRed)
-                            .border(.8.dp, Color(0xFFFFA0A5).copy(alpha = .72f), supportShape)
-                            .xvoxPressScale { initiatePayment(amount) }
-                            .padding(vertical = 9.dp, horizontal = 2.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(price, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        Text(label, color = Color.White.copy(alpha = .88f), fontSize = 9.5.sp, maxLines = 1)
-                    }
+                tiers.forEachIndexed { treatment, (amount, price, label) ->
+                    SupportTierButton(
+                        amount = amount,
+                        price = price,
+                        label = label,
+                        treatment = treatment,
+                        modifier = Modifier.weight(1f),
+                        onClick = { initiatePayment(amount) }
+                    )
                 }
             }
         }
+    }
+}
+
+/**
+ * Accent-derived support tier with restrained, tier-specific motion. These are intentionally not
+ * fixed-red donation buttons: a custom accent and either theme keep their own visual language.
+ */
+@Composable
+private fun SupportTierButton(
+    amount: Int,
+    price: String,
+    label: String,
+    treatment: Int,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    val colors = XvoxTheme.colors
+    val shape = RoundedCornerShape(14.dp)
+    val transition = rememberInfiniteTransition(label = "supportTierMotion$amount")
+    val duration = when (treatment) {
+        0 -> 2400 // Coffee: a gentle diagonal sheen that breathes back and forth.
+        1 -> 3200 // Burger: a slow, one-way horizontal tide.
+        2 -> 2100 // Full Pack: a quieter vertical breathing treatment.
+        else -> 4100 // Treat: the longest, soft orbital diagonal sweep.
+    }
+    val phase by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = duration, easing = LinearEasing),
+            repeatMode = if (treatment == 0 || treatment == 2) RepeatMode.Reverse else RepeatMode.Restart
+        ),
+        label = "supportTierPhase$amount"
+    )
+
+    val accent = colors.primaryAccent
+    val highlight = lerp(
+        accent,
+        if (colors.isLight) Color.White else colors.cardElevated,
+        if (colors.isLight) .18f else .30f
+    )
+    val depth = lerp(
+        accent,
+        colors.background,
+        if (colors.isLight) .12f else .34f
+    )
+    val ambient = lerp(
+        colors.cardElevated,
+        accent,
+        if (colors.isLight) .34f else .48f
+    )
+    val brush = when (treatment) {
+        0 -> Brush.linearGradient(
+            colors = listOf(depth, accent, highlight, accent, depth),
+            start = Offset(-150f + phase * 300f, -70f),
+            end = Offset(105f + phase * 300f, 95f)
+        )
+        1 -> Brush.horizontalGradient(
+            colors = listOf(ambient, accent, highlight, accent, ambient),
+            startX = -170f + phase * 340f,
+            endX = 100f + phase * 340f
+        )
+        2 -> Brush.verticalGradient(
+            colors = listOf(depth, accent, highlight, accent, depth),
+            startY = -80f + phase * 160f,
+            endY = 108f + phase * 160f
+        )
+        else -> Brush.linearGradient(
+            colors = listOf(ambient, highlight, accent, depth, ambient),
+            start = Offset(130f - phase * 290f, -115f + phase * 150f),
+            end = Offset(-90f + phase * 290f, 130f - phase * 150f)
+        )
+    }
+    val onAccent = xvoxOnAccent(accent)
+
+    Column(
+        modifier = modifier
+            .clip(shape)
+            .background(brush, shape)
+            // Use the same theme-aware border family as Settings cards rather than a hardcoded
+            // bright/red outline.
+            .border(.8.dp, colors.cardBorder.copy(alpha = if (colors.isLight) .88f else .96f), shape)
+            .xvoxPressScale(onClick = onClick)
+            .padding(vertical = 9.dp, horizontal = 2.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(price, color = onAccent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+        Text(label, color = onAccent.copy(alpha = .86f), fontSize = 9.5.sp, maxLines = 1)
     }
 }
 
@@ -697,10 +789,38 @@ private fun SettingsDialogAction(
 
 @Composable
 private fun AboutSectionCard(modifier: Modifier = Modifier) {
+    val colors = XvoxTheme.colors
+    val context = LocalContext.current
+    val haptics = LocalXvoxHaptics.current
     val isLandscape = LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
-    SettingsCardFrame(title = "About XVOX", modifier = modifier) {
-        // When this card shares System's landscape height, distribute its complete About content
-        // through that lane rather than leaving an oversized empty lower half.
+    val shareShape = CircleShape
+    SettingsCardFrame(
+        title = "About XVOX",
+        modifier = modifier,
+        titleAction = {
+            // Share belongs beside the actual About title, keeping the card's primary action
+            // visible without adding another wide control above its feature guide.
+            Box(
+                modifier = Modifier
+                    .size(34.dp)
+                    .clip(shareShape)
+                    .background(colors.cardElevated)
+                    .border(.8.dp, colors.cardBorder.copy(alpha = .78f), shareShape)
+                    .xvoxPressScale {
+                        haptics.tap()
+                        shareXvoxApp(context)
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_xvox_share),
+                    contentDescription = "Share XVOX",
+                    tint = colors.primaryAccent,
+                    modifier = Modifier.size(17.dp)
+                )
+            }
+        }
+    ) {
         AboutSettingsSection(expanded = isLandscape)
     }
 }
@@ -709,6 +829,7 @@ private fun AboutSectionCard(modifier: Modifier = Modifier) {
 private fun SettingsCardFrame(
     title: String,
     modifier: Modifier = Modifier,
+    titleAction: (@Composable () -> Unit)? = null,
     content: @Composable () -> Unit
 ) {
     val colors = XvoxTheme.colors
@@ -723,12 +844,19 @@ private fun SettingsCardFrame(
             .border(1.dp, colors.cardBorder.copy(alpha = if (colors.isLight) 0.8f else 0.72f), shape)
             .padding(horizontal = 14.dp, vertical = 16.dp)
     ) {
-        Text(
-            text = title,
-            color = colors.primaryAccent,
-            fontSize = 15.sp,
-            fontWeight = FontWeight.Bold
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = title,
+                color = colors.primaryAccent,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.weight(1f)
+            )
+            titleAction?.invoke()
+        }
         if (isLandscape) {
             // Paired cards intentionally share a physical bottom. Center each card's own content
             // in the remaining lane instead of leaving an arbitrary blank tail below short cards.

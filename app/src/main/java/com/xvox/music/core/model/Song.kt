@@ -1,7 +1,9 @@
 package com.xvox.music.core.model
 
 import android.net.Uri
+import androidx.compose.runtime.Immutable
 
+@Immutable
 data class Song(
     val id: Long,
     val title: String,

@@ -12,6 +12,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -21,22 +26,57 @@ import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.core.ui.overlay.XvoxBox
+import com.xvox.music.features.settings.components.XvoxTransactionalFooterActions
 import com.xvox.music.features.settings.sections.XvoxThinAmountSlider
 import com.xvox.music.player.nowplaying.XvoxNowPlayingBackgroundStyles
 import kotlin.math.roundToInt
 
-/** Three-dot overflow: select the normal player canvas or a locally blurred current-cover canvas. */
+/**
+ * Three-dot overflow for the local Now Playing canvas. Its controls are deliberately draft-only:
+ * background changes stay in this sheet until Okay, while Cancel/back/scrim dismisses untouched.
+ */
 @Composable
 fun NowPlayingOptionsBox(
     backgroundStyle: String,
     coverBlur: Float,
-    cardTransparency: Float,
     onBackgroundStyleChange: (String) -> Unit,
     onCoverBlurChange: (Float) -> Unit,
-    onCardTransparencyChange: (Float) -> Unit,
     onDismiss: () -> Unit
 ) {
-    XvoxBox(onDismiss = onDismiss, title = "Now Playing Background") {
+    val blurMin = 12f
+    val blurMax = 50f
+    // The displayed rail reads 20%–100%. 50% maps to this retained local cover-blur range.
+    val resetCoverBlur = 26.25f
+    val initialStyle = if (backgroundStyle == XvoxNowPlayingBackgroundStyles.COVER) {
+        XvoxNowPlayingBackgroundStyles.COVER
+    } else {
+        XvoxNowPlayingBackgroundStyles.DEFAULT
+    }
+    var draftBackgroundStyle by remember(backgroundStyle) { mutableStateOf(initialStyle) }
+    var draftCoverBlur by remember(coverBlur) {
+        mutableFloatStateOf(coverBlur.coerceIn(blurMin, blurMax))
+    }
+
+    XvoxBox(
+        onDismiss = onDismiss,
+        title = "Now Playing Background",
+        bottomAction = {
+            XvoxTransactionalFooterActions(
+                onCancel = onDismiss,
+                onReset = {
+                    // Reset is intentionally observable: choose Cover and place its displayed rail
+                    // at exactly 50%, rather than quietly resetting a hidden Default-only value.
+                    draftBackgroundStyle = XvoxNowPlayingBackgroundStyles.COVER
+                    draftCoverBlur = resetCoverBlur
+                },
+                onOkay = {
+                    onBackgroundStyleChange(draftBackgroundStyle)
+                    onCoverBlurChange(draftCoverBlur)
+                    onDismiss()
+                }
+            )
+        }
+    ) {
         val colors = XvoxTheme.colors
         val shape = RoundedCornerShape(14.dp)
         Column(
@@ -44,7 +84,7 @@ fun NowPlayingOptionsBox(
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Text(
-                text = "Choose the player background",
+                text = "Choose the player background. Changes apply when you tap Okay.",
                 color = colors.secondaryText,
                 fontSize = 12.sp
             )
@@ -55,28 +95,25 @@ fun NowPlayingOptionsBox(
                 XvoxBackgroundChoice(
                     label = "Default",
                     description = "XVOX canvas",
-                    selected = backgroundStyle == XvoxNowPlayingBackgroundStyles.DEFAULT,
+                    selected = draftBackgroundStyle == XvoxNowPlayingBackgroundStyles.DEFAULT,
                     shape = shape,
                     modifier = Modifier.weight(1f),
-                    onClick = { onBackgroundStyleChange(XvoxNowPlayingBackgroundStyles.DEFAULT) }
+                    onClick = { draftBackgroundStyle = XvoxNowPlayingBackgroundStyles.DEFAULT }
                 )
                 XvoxBackgroundChoice(
                     label = "Cover",
                     description = "Artwork canvas",
-                    selected = backgroundStyle == XvoxNowPlayingBackgroundStyles.COVER,
+                    selected = draftBackgroundStyle == XvoxNowPlayingBackgroundStyles.COVER,
                     shape = shape,
                     modifier = Modifier.weight(1f),
-                    onClick = { onBackgroundStyleChange(XvoxNowPlayingBackgroundStyles.COVER) }
+                    onClick = { draftBackgroundStyle = XvoxNowPlayingBackgroundStyles.COVER }
                 )
             }
 
-            if (backgroundStyle == XvoxNowPlayingBackgroundStyles.COVER) {
-                // Storage stays in the local 12–50dp blur range. The control deliberately speaks
-                // in an intuitive 20%–100% strength scale instead of exposing implementation
-                // radius numbers to listeners.
-                val blurMin = 12f
-                val blurMax = 50f
-                val normalizedBlur = coverBlur.coerceIn(blurMin, blurMax)
+            if (draftBackgroundStyle == XvoxNowPlayingBackgroundStyles.COVER) {
+                // Storage remains in the local 12–50dp blur range. The rail speaks in an
+                // intuitive 20%–100% strength scale instead of leaking implementation radii.
+                val normalizedBlur = draftCoverBlur.coerceIn(blurMin, blurMax)
                 val blurFraction = (normalizedBlur - blurMin) / (blurMax - blurMin)
                 val blurPercent = (20f + blurFraction * 80f).roundToInt().coerceIn(20, 100)
                 Column(
@@ -101,56 +138,18 @@ fun NowPlayingOptionsBox(
                             fontSize = 11.sp
                         )
                     }
-                    // Reuse the thin, thumb-free EQ rail so Cover blur belongs to the same
-                    // XVOX control family rather than looking like a Material-system outlier.
+                    // Keep the established thin, thumb-free XVOX rail.
                     XvoxThinAmountSlider(
                         value = blurFraction,
                         onValueChange = { fraction ->
-                            onCoverBlurChange(
-                                (blurMin + fraction.coerceIn(0f, 1f) * (blurMax - blurMin))
-                                    .coerceIn(blurMin, blurMax)
-                            )
+                            draftCoverBlur = (
+                                blurMin + fraction.coerceIn(0f, 1f) * (blurMax - blurMin)
+                            ).coerceIn(blurMin, blurMax)
                         },
                         defaultValue = null,
                         contentDescription = "Cover blur $blurPercent percent"
                     )
                 }
-            }
-
-            // Card translucency belongs beside the player canvas choices: the result is visible
-            // immediately behind song cards without reintroducing any global blur machinery.
-            val safeCardTransparency = cardTransparency.coerceIn(0f, .6f)
-            val cardTransparencyPercent = (safeCardTransparency / .6f * 100f).roundToInt()
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(shape)
-                    .background(colors.cardElevated.copy(alpha = .62f))
-                    .border(.8.dp, colors.cardBorder.copy(alpha = .82f), shape)
-                    .padding(horizontal = 12.dp, vertical = 10.dp)
-            ) {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "Song-card transparency",
-                        color = colors.primaryText,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Text(
-                        text = "$cardTransparencyPercent%",
-                        color = colors.secondaryText,
-                        fontSize = 11.sp
-                    )
-                }
-                XvoxThinAmountSlider(
-                    value = safeCardTransparency / .6f,
-                    onValueChange = { fraction ->
-                        onCardTransparencyChange((fraction.coerceIn(0f, 1f) * .6f))
-                    },
-                    defaultValue = 0f,
-                    contentDescription = "Song card transparency $cardTransparencyPercent percent"
-                )
             }
         }
     }

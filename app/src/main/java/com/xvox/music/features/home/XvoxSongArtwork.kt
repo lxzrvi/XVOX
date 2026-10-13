@@ -1,6 +1,9 @@
 package com.xvox.music.features.home
 
 import android.graphics.Bitmap
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -15,6 +18,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.sp
@@ -93,16 +97,47 @@ fun XvoxSongArtwork(
     // do not invalidate composition, so this state lets a freshly decoded cover replace its
     // placeholder immediately without reducing its requested quality.
     var decodedBitmap by remember(cacheKey, baseKey, requestSize) { mutableStateOf(cachedBitmap()) }
-    var previousBitmap by remember { mutableStateOf<Bitmap?>(null) }
-    LaunchedEffect(decodedBitmap) {
-        decodedBitmap?.let { previousBitmap = it }
+    // A retained decoded bitmap has two jobs for full-player callers: it keeps a real old cover
+    // visible while the next original decodes, then becomes the source of an internal image
+    // morph. This avoids a transient card-colour frame between cover identities.
+    var retainedBitmap by remember { mutableStateOf<Bitmap?>(cachedBitmap()) }
+    var morphFromBitmap by remember { mutableStateOf<Bitmap?>(null) }
+    var morphKey by remember { mutableStateOf<String?>(null) }
+    val morphProgress = remember { Animatable(1f) }
+
+    LaunchedEffect(cacheKey, decodedBitmap, keepPreviousOnLoading) {
+        val next = decodedBitmap ?: return@LaunchedEffect
+        val previous = retainedBitmap
+        if (
+            keepPreviousOnLoading &&
+            previous != null &&
+            previous != next &&
+            morphKey != cacheKey
+        ) {
+            morphKey = cacheKey
+            morphFromBitmap = previous
+            // Make the new bitmap the retained fallback immediately. A rapid next change can
+            // therefore blend from the most recently decoded real artwork, never a placeholder.
+            retainedBitmap = next
+            morphProgress.snapTo(0f)
+            morphProgress.animateTo(
+                targetValue = 1f,
+                animationSpec = tween(300, easing = CubicBezierEasing(.22f, 0f, 0f, 1f))
+            )
+            if (morphKey == cacheKey) morphFromBitmap = null
+        } else {
+            retainedBitmap = next
+            if (morphKey != cacheKey) morphFromBitmap = null
+        }
     }
 
-    val visibleBitmap = decodedBitmap ?: previousBitmap.takeIf { keepPreviousOnLoading }
+    val visibleBitmap = decodedBitmap ?: retainedBitmap.takeIf { keepPreviousOnLoading }
     // asImageBitmap() allocations on every parent playback-state recomposition were enough to
     // make a dense library fling feel behind the finger. Keep the exact decoded bitmap/quality;
     // only its lightweight Compose wrapper is memoized.
     val visibleImageBitmap = remember(visibleBitmap) { visibleBitmap?.asImageBitmap() }
+    val decodedImageBitmap = remember(decodedBitmap) { decodedBitmap?.asImageBitmap() }
+    val morphFromImageBitmap = remember(morphFromBitmap) { morphFromBitmap?.asImageBitmap() }
     val request = remember(artwork, requestSize) {
         val builder = ImageRequest.Builder(context)
             .data(artwork)
@@ -122,13 +157,39 @@ fun XvoxSongArtwork(
         modifier = modifier.background(colors.cardElevated),
         contentAlignment = Alignment.Center
     ) {
-        visibleImageBitmap?.let { imageBitmap ->
+        val activeMorph = keepPreviousOnLoading &&
+            decodedImageBitmap != null &&
+            morphFromImageBitmap != null &&
+            morphProgress.value < .999f
+        if (activeMorph) {
+            // One stable image slot owns this premium cover-to-cover morph. The old bitmap remains
+            // genuinely decoded until the new bitmap is visible, so blurred Now Playing backdrops
+            // cannot flash their card surface while songs change.
             Image(
-                bitmap = imageBitmap,
+                bitmap = morphFromImageBitmap!!,
                 contentDescription = null,
                 contentScale = contentScale,
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize().graphicsLayer {
+                    alpha = (1f - morphProgress.value).coerceIn(0f, 1f)
+                }
             )
+            Image(
+                bitmap = decodedImageBitmap!!,
+                contentDescription = null,
+                contentScale = contentScale,
+                modifier = Modifier.fillMaxSize().graphicsLayer {
+                    alpha = morphProgress.value.coerceIn(0f, 1f)
+                }
+            )
+        } else {
+            visibleImageBitmap?.let { imageBitmap ->
+                Image(
+                    bitmap = imageBitmap,
+                    contentDescription = null,
+                    contentScale = contentScale,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
         }
 
         // Do not draw a solid loading layer above a retained full-player cover. Coil paints the

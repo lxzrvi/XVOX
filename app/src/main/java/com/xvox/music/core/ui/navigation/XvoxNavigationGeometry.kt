@@ -27,7 +27,9 @@ object XvoxNavigationGeometry {
     val selectorTravel = 164.dp
     val selectorGrowShift = 16.dp
 
-    val iconSize = 25.dp
+    // Inactive icons deliberately sit a touch smaller; the selected icon scales up continuously
+    // with the travelling pill, so the three slots still share one exact center line.
+    val iconSize = 24.dp
 
     val barRadius = 31.dp
 

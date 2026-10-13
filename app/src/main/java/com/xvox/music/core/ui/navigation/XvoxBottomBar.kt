@@ -72,6 +72,14 @@ fun XvoxBottomBar(
     val pillEdge = pillEdgeBase.copy(
         alpha = pillEdgeBase.alpha * chrome.navBorderAlpha.coerceIn(.42f, 1f) * navSurfaceAlpha.coerceAtLeast(.72f)
     )
+    // Keep the accepted light-mode bar material unchanged. Dark mode instead shares the exact
+    // Settings section-card surface, so the bottom navigation belongs to the same UI family.
+    val defaultNavSurface = if (colors.isLight) colors.background else colors.card
+    // The default dark bar must be the *same* opaque card token as Settings, not a 94%-alpha
+    // approximation blended against the page background. A chosen navbar image still owns its
+    // own alpha treatment below.
+    val appliedNavSurfaceAlpha = if (!colors.isLight && chrome.navigationImageUri.isBlank()) 1f else navSurfaceAlpha
+
     val defaultPillNeutral = if (colors.isLight) {
         // A restrained light gray remains visible on bright app backgrounds without reading as a
         // second accent treatment.
@@ -142,7 +150,7 @@ fun XvoxBottomBar(
                 Box(
                     Modifier
                         .matchParentSize()
-                        .background(colors.background.copy(alpha = navSurfaceAlpha))
+                        .background(defaultNavSurface.copy(alpha = appliedNavSurfaceAlpha))
                 )
             }
         }
@@ -154,7 +162,9 @@ fun XvoxBottomBar(
                     y = topOffset + navBarHeight / 2 - selectorHeight / 2
                 )
                 .graphicsLayer {
-                    // Three destinations remain fixed; only their shared bar width is adjustable.
+                    // The selector start is slot-centre minus half selector width. This dynamic
+                    // formula stays exact even when Appearance changes the nav-bar width, including
+                    // Settings' third slot.
                     translationX = (4.dp + selectorTravel * (motion.position / 2f)).toPx()
                     shape = selectorShape
                     clip = true

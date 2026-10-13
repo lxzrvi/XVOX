@@ -1,7 +1,6 @@
 package com.xvox.music.player.nowplaying
 
 import android.net.Uri
-import androidx.compose.animation.Crossfade
 import androidx.compose.animation.VectorConverter
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
@@ -66,22 +65,19 @@ fun XvoxNowPlayingBackdrop(
             .background(displayed.value)
     ) {
         if (showCover) {
+            // Keep one persistent primary artwork slot in composition at all times. It retains
+            // the last decoded bitmap and morphs internally when its URI changes, which avoids
+            // Crossfade creating a fresh blank image slot at a song boundary.
+            PremiumBlurredCover(
+                artwork = artwork,
+                blur = coverBlur,
+                alpha = if (pagerArtworkTransition) 1f - fraction else 1f
+            )
             if (pagerArtworkTransition) {
-                // During drag/tap/natural completion, blend the same two decoded-art identities
-                // the pager is showing. The outgoing layer stays visible while the next one is
-                // resolving, preventing a flat or abrupt Cover backdrop.
-                PremiumBlurredCover(artwork = artwork, blur = coverBlur, alpha = 1f - fraction)
+                // During drag/tap/natural completion, this is the pager's actual incoming cover.
+                // The persistent primary above remains a real decoded outgoing cover until this
+                // layer is available, so the cover canvas never flashes the card/background tone.
                 PremiumBlurredCover(incomingArtwork, blur = coverBlur, alpha = fraction)
-            } else {
-                // Lyrics/direct navigation has no visible pager. Preserve a tasteful cover-to-
-                // cover fade for that path while normal pager movement uses the live layers above.
-                Crossfade(
-                    targetState = artwork,
-                    animationSpec = tween(300, easing = CubicBezierEasing(.22f, 0f, 0f, 1f)),
-                    label = "nowPlayingCoverBackdropCrossfade"
-                ) { cover ->
-                    PremiumBlurredCover(cover, blur = coverBlur, alpha = 1f)
-                }
             }
             // A gentle tonal veil removes noisy blur artifacts and keeps controls readable while
             // retaining actual cover color—not an opaque unrelated replacement surface.

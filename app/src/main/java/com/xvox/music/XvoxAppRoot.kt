@@ -16,7 +16,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -45,22 +44,16 @@ fun XvoxAppRoot(
     val state by viewModel.state.collectAsState()
     val minimumReady by viewModel.minimumReady.collectAsState()
     val startupProgress by viewModel.progress.collectAsState()
-    // Start the MediaStore/Home and playback jobs during Preparing, but keep their *screen trees*
-    // out of composition while the startup canvas is alive. In particular, do not collect either
-    // state here: a burst of artwork/library updates must never invalidate the loader's frame
-    // loop. The real shell is mounted just after its fade has finished, while Home has continued
-    // loading independently in the background.
+    // Home and playback work begin during Preparing, but the shell itself is mounted only at the
+    // loader's terminal frame. That places the ready Home surface underneath the unchanged loader
+    // before it fades, so the reveal never exposes a black/blank compositor frame.
     var shellMounted by remember { mutableStateOf(false) }
     var startupSequenceReleased by remember { mutableStateOf(false) }
     LaunchedEffect(state) {
         when (state) {
-            AppUiState.Home -> {
-                // Let the loader complete its own fade before a first Home composition can do
-                // decode/layout work on the UI thread. The themed root is already visible, so
-                // this has no blank or intentional loading hold.
-                delay(280)
-                shellMounted = true
-            }
+            // This is also a safety net for process/state restoration. The usual handoff mounts
+            // the shell just before onHomeReady below, while the loader is still fully visible.
+            AppUiState.Home -> shellMounted = true
             AppUiState.Setup -> {
                 shellMounted = false
                 startupSequenceReleased = false
@@ -210,6 +203,11 @@ fun XvoxAppRoot(
                                     homeStartupReady
                                 ) {
                                     startupSequenceReleased = true
+                                    // Mount the already-ready shell underneath the opaque final
+                                    // loader frame first. Calling onHomeReady then starts only the
+                                    // existing loader fade, so its ring-to-bar timing stays intact
+                                    // while Home is revealed directly underneath it.
+                                    shellMounted = true
                                     viewModel.report(1f, "Ready")
                                     viewModel.onHomeReady()
                                 }
