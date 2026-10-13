@@ -140,10 +140,11 @@ private fun DrawScope.drawStartupUnroll(progress: Float, palette: StartupPalette
     }
 
     startupLine(startupPoints(100) { point(it) }, palette.dot)
-    val accentLength = .2f * (1f - startupEase(progress))
-    if (accentLength >= .004f) {
-        startupLine(startupPoints(24) { step -> point(step * accentLength) }, palette.accent)
-    }
+    // Keep a short accent lead alive all the way into the rail. Without this floor, the final
+    // unroll frame and the first fill frame read as a completely empty gray bar for one beat.
+    val terminalAccentLength = .055f
+    val accentLength = terminalAccentLength + (.2f - terminalAccentLength) * (1f - startupEase(progress))
+    startupLine(startupPoints(24) { step -> point(step * accentLength) }, palette.accent)
 }
 
 /** The rail fills with the active XVOX accent. */
@@ -152,14 +153,15 @@ private fun DrawScope.drawStartupLoadBar(progress: Float, complete: Boolean, pal
         points = listOf(Offset(-StartupBarLength / 2f, 0f), Offset(StartupBarLength / 2f, 0f)),
         color = palette.dot
     )
-    val fill = if (complete) 1f else startupEase(startupClamp01(progress))
+    // Match the unroll's retained accent lead, then continue the same full fill clock. The bar
+    // therefore never presents a fully empty track during the ring → bar handoff.
+    val retainedLead = .055f
+    val fill = if (complete) 1f else retainedLead + (1f - retainedLead) * startupEase(startupClamp01(progress))
     val endX = -StartupBarLength / 2f + fill * StartupBarLength
-    if (endX + StartupBarLength / 2f >= .5f) {
-        startupLine(
-            points = listOf(Offset(-StartupBarLength / 2f, 0f), Offset(endX, 0f)),
-            color = palette.accent
-        )
-    }
+    startupLine(
+        points = listOf(Offset(-StartupBarLength / 2f, 0f), Offset(endX, 0f)),
+        color = palette.accent
+    )
 }
 
 /**

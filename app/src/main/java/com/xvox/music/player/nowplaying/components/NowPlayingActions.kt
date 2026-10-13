@@ -2,21 +2,11 @@
 
 package com.xvox.music.player.nowplaying.components
 
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.slideOutVertically
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -43,6 +33,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -56,6 +47,7 @@ import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.xvox.music.R
@@ -65,6 +57,14 @@ import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
 import kotlinx.coroutines.delay
 
 private val XvoxActionEasing = CubicBezierEasing(0.2f, 0f, 0f, 1f)
+
+/** A physical completion for the action-pair swipe after direct finger tracking ends. */
+private data class XvoxActionSwipeSettle(
+    val id: Int,
+    val startOffsetPx: Float,
+    val targetOffsetPx: Float,
+    val targetPage: Int?
+)
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -104,22 +104,74 @@ fun NowPlayingActions(
 ) {
     val colors = XvoxTheme.colors
     val haptics = LocalXvoxHaptics.current
-    val overlays = LocalXvoxOverlayController.current
     var pageIndex by remember { mutableIntStateOf(actionPageIndex.coerceIn(0, 2)) }
-    var swipeForward by remember { mutableStateOf(true) }
     var showIndicator by remember { mutableStateOf(true) }
+    var actionWidthPx by remember { mutableFloatStateOf(0f) }
+    var liveSwipeOffsetPx by remember { mutableFloatStateOf(0f) }
+    var settledSwipeOffsetPx by remember { mutableFloatStateOf(0f) }
+    var actionDragging by remember { mutableStateOf(false) }
+    var settleSerial by remember { mutableIntStateOf(0) }
+    var actionSettle by remember { mutableStateOf<XvoxActionSwipeSettle?>(null) }
+
+    fun normalizedPage(index: Int): Int = ((index % 3) + 3) % 3
+    fun targetForOffset(offset: Float): Int = when {
+        offset < 0f -> normalizedPage(pageIndex + 1)
+        offset > 0f -> normalizedPage(pageIndex - 1)
+        else -> pageIndex
+    }
+    fun startSettle(start: Float, target: Float, targetPage: Int?) {
+        settleSerial += 1
+        settledSwipeOffsetPx = start
+        actionSettle = XvoxActionSwipeSettle(
+            id = settleSerial,
+            startOffsetPx = start,
+            targetOffsetPx = target,
+            targetPage = targetPage
+        )
+    }
+    fun requestActionPage(next: Int, forward: Boolean) {
+        val normalized = normalizedPage(next)
+        if (normalized == pageIndex) return
+        if (actionWidthPx <= 1f) {
+            pageIndex = normalized
+            onActionPageChange(normalized)
+            return
+        }
+        // Forward uses the same right → left physical route as a finger drag; back reverses it.
+        startSettle(
+            start = 0f,
+            target = if (forward) -actionWidthPx else actionWidthPx,
+            targetPage = normalized
+        )
+    }
 
     LaunchedEffect(actionPageIndex) {
         val next = actionPageIndex.coerceIn(0, 2)
-        if (next != pageIndex) pageIndex = next
+        if (next != pageIndex) {
+            actionSettle = null
+            actionDragging = false
+            liveSwipeOffsetPx = 0f
+            settledSwipeOffsetPx = 0f
+            pageIndex = next
+        }
     }
 
-    fun selectActionPage(next: Int, forward: Boolean = next >= pageIndex) {
-        val normalized = ((next % 3) + 3) % 3
-        swipeForward = forward
-        if (normalized != pageIndex) {
-            pageIndex = normalized
-            onActionPageChange(normalized)
+    LaunchedEffect(actionSettle?.id) {
+        val settle = actionSettle ?: return@LaunchedEffect
+        val animation = Animatable(settle.startOffsetPx)
+        animation.animateTo(
+            targetValue = settle.targetOffsetPx,
+            animationSpec = tween(230, easing = XvoxActionEasing)
+        ) {
+            settledSwipeOffsetPx = value
+        }
+        if (actionSettle?.id == settle.id) {
+            settle.targetPage?.let { nextPage ->
+                pageIndex = nextPage
+                onActionPageChange(nextPage)
+            }
+            settledSwipeOffsetPx = 0f
+            actionSettle = null
         }
     }
 
@@ -169,6 +221,25 @@ fun NowPlayingActions(
         }
     }
 
+    @Composable
+    fun ActionPage(page: Int) {
+        NowPlayingActionPage(
+            pageIndex = page,
+            isLiked = isLiked,
+            isInPlaylist = isInPlaylist,
+            equalizerOn = equalizerOn,
+            spaceOn = spaceOn,
+            crossfadeOn = crossfadeOn,
+            surfaceAlpha = surfaceAlpha,
+            onToggleLiked = onToggleLiked,
+            onStarPlaylist = onStarPlaylist,
+            onToggleEqualizer = onToggleEqualizer,
+            onToggleSpace = onToggleSpace,
+            onToggleCrossfade = onToggleCrossfade,
+            onOpenOptions = onOpenOptions
+        )
+    }
+
     val changingActionCluster: @Composable () -> Unit = {
         // Right cluster: 2 action buttons with continuous bidirectional infinite swiping
         NowPlayingEditableTarget(
@@ -180,184 +251,103 @@ fun NowPlayingActions(
                 modifier = Modifier.graphicsLayer(alpha = controlsAlpha.coerceIn(0f, 1f)),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
+            val visualSwipeOffsetPx = if (actionDragging) liveSwipeOffsetPx else settledSwipeOffsetPx
+            val swipeWidth = actionWidthPx.coerceAtLeast(1f)
+            val swipeFraction = (kotlin.math.abs(visualSwipeOffsetPx) / swipeWidth).coerceIn(0f, 1f)
+            val swipeTargetPage = targetForOffset(visualSwipeOffsetPx)
+            // The dot lane sits just beneath this 42dp action row. Use a small fraction of the
+            // measured pair width so its grow/shrink travel stays proportional at every density.
+            val dotLaneTravelPx = (swipeWidth * .18f).coerceAtMost(54f)
+            val showingSwipePair = kotlin.math.abs(visualSwipeOffsetPx) > .25f
+
             Box(
                 modifier = Modifier
-                    // Do not clip this transition viewport. The incoming/outgoing action pairs
-                    // are intentionally allowed to travel through the dot lane below instead of
-                    // being sliced at the former 42dp rounded box boundary.
+                    // Nothing clips the action pair: both controls can travel through the dot
+                    // lane and across the physical swipe direction with the user's finger.
                     .height(42.dp)
                     .padding(horizontal = 2.dp)
-                    .pointerInput(Unit) {
+                    .onSizeChanged { actionWidthPx = it.width.toFloat().coerceAtLeast(1f) }
+                    .pointerInput(pageIndex, actionWidthPx, actionSettle?.id) {
                         var drag = 0f
                         detectHorizontalDragGestures(
-                            onDragStart = { drag = 0f },
+                            onDragStart = {
+                                // A new finger always takes ownership immediately, even if the
+                                // previous release was still settling toward a neighbour.
+                                actionSettle = null
+                                settledSwipeOffsetPx = 0f
+                                liveSwipeOffsetPx = 0f
+                                drag = 0f
+                                actionDragging = true
+                                showIndicator = true
+                            },
                             onHorizontalDrag = { change, dragAmount ->
                                 change.consume()
                                 drag += dragAmount
+                                val width = actionWidthPx.coerceAtLeast(1f)
+                                liveSwipeOffsetPx = drag.coerceIn(-width, width)
                             },
                             onDragEnd = {
-                                if (drag <= -20f) {
-                                    selectActionPage(pageIndex + 1, forward = true)
+                                val width = actionWidthPx.coerceAtLeast(1f)
+                                val start = liveSwipeOffsetPx
+                                // Preserve the established 20px release threshold; only the
+                                // visual route is now direct-manipulation rather than post-release.
+                                val commit = kotlin.math.abs(start) >= 20f
+                                actionDragging = false
+                                liveSwipeOffsetPx = 0f
+                                if (commit) {
                                     haptics.tap()
-                                } else if (drag >= 20f) {
-                                    selectActionPage(pageIndex - 1, forward = false)
-                                    haptics.tap()
+                                    startSettle(
+                                        start = start,
+                                        target = if (start < 0f) -width else width,
+                                        targetPage = targetForOffset(start)
+                                    )
+                                } else {
+                                    startSettle(start = start, target = 0f, targetPage = null)
                                 }
                             },
-                            onDragCancel = { }
+                            onDragCancel = {
+                                val start = liveSwipeOffsetPx
+                                actionDragging = false
+                                liveSwipeOffsetPx = 0f
+                                startSettle(start = start, target = 0f, targetPage = null)
+                            }
                         )
                     },
                 contentAlignment = Alignment.Center
             ) {
-                AnimatedContent(
-                    targetState = pageIndex,
-                    transitionSpec = {
-                        val slideEasing = CubicBezierEasing(0.22f, 1f, 0.36f, 1f)
-                        // A left swipe advances: incoming grows up from the page-dot lane on the
-                        // right while outgoing shrinks down toward it on the left. Reversing the
-                        // swipe reverses that horizontal travel; both retain the bottom-centre
-                        // transform origin that visually ties them to the dots.
-                        val direction = if (swipeForward) 1 else -1
-                        (
-                            slideInHorizontally(
-                                initialOffsetX = { it * direction / 2 },
-                                animationSpec = tween(280, easing = slideEasing)
-                            ) +
-                                slideInVertically(
-                                    initialOffsetY = { it / 2 },
-                                    animationSpec = tween(280, easing = slideEasing)
-                                ) +
-                                scaleIn(
-                                    initialScale = 0.32f,
-                                    transformOrigin = TransformOrigin(.5f, 1f),
-                                    animationSpec = tween(280, easing = slideEasing)
-                                ) +
-                                fadeIn(tween(190))
-                            )
-                            .togetherWith(
-                                slideOutHorizontally(
-                                    targetOffsetX = { -it * direction / 2 },
-                                    animationSpec = tween(250, easing = slideEasing)
-                                ) +
-                                    slideOutVertically(
-                                        targetOffsetY = { it / 2 },
-                                        animationSpec = tween(250, easing = slideEasing)
-                                    ) +
-                                    scaleOut(
-                                        targetScale = 0.32f,
-                                        transformOrigin = TransformOrigin(.5f, 1f),
-                                        animationSpec = tween(250, easing = slideEasing)
-                                    ) +
-                                    fadeOut(tween(170))
-                            )
-                            .using(SizeTransform(clip = false))
-                    },
-                    label = "nowPlaying2by2Cluster"
-                ) { targetPage ->
-                    when (targetPage) {
-                        0 -> {
-                            // Page 1: Star + Like
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                NowPlayingCircleAction(
-                                    resource = R.drawable.ic_xvox_star,
-                                    surfaceAlpha = surfaceAlpha,
-                                    
-                                    active = isInPlaylist,
-                                    contentDescription = "Add to playlist",
-                                    onClick = {
-                                        haptics.tap()
-                                        onStarPlaylist?.invoke()
-                                    }
-                                )
-                                NowPlayingCircleAction(
-                                    resource = if (isLiked) R.drawable.ic_xvox_heart else R.drawable.ic_xvox_heart_outline,
-                                    surfaceAlpha = surfaceAlpha,
-                                    
-                                    active = isLiked,
-                                    contentDescription = if (isLiked) "Unlike" else "Like",
-                                    onClick = {
-                                        haptics.tap()
-                                        onToggleLiked?.invoke()
-                                    }
-                                )
-                            }
+                // Outgoing controls follow the finger left/right and shrink downward toward the
+                // dot lane. This gives a true interactive swipe instead of a post-release slide.
+                Box(
+                    modifier = Modifier.graphicsLayer {
+                        translationX = visualSwipeOffsetPx
+                        translationY = dotLaneTravelPx * swipeFraction
+                        val scale = 1f - .68f * swipeFraction
+                        scaleX = scale
+                        scaleY = scale
+                        alpha = 1f - .38f * swipeFraction
+                        transformOrigin = TransformOrigin(.5f, 1f)
+                    }
+                ) {
+                    key("nowPlayingActionCurrent_$pageIndex") { ActionPage(pageIndex) }
+                }
+
+                if (showingSwipePair) {
+                    // A left drag starts the next pair at the right edge and moves it left with
+                    // the finger; a right drag mirrors that route. It simultaneously grows up
+                    // from the dot lane, so incoming/outgoing controls never crop in their box.
+                    val incomingStart = if (visualSwipeOffsetPx < 0f) swipeWidth else -swipeWidth
+                    Box(
+                        modifier = Modifier.graphicsLayer {
+                            translationX = incomingStart + visualSwipeOffsetPx
+                            translationY = dotLaneTravelPx * (1f - swipeFraction)
+                            val scale = .32f + .68f * swipeFraction
+                            scaleX = scale
+                            scaleY = scale
+                            alpha = .18f + .82f * swipeFraction
+                            transformOrigin = TransformOrigin(.5f, 1f)
                         }
-                        1 -> {
-                            // Page 2: EQ + 3D Sound
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                NowPlayingCircleAction(
-                                    resource = R.drawable.ic_xvox_equalizer,
-                                    surfaceAlpha = surfaceAlpha,
-                                    
-                                    active = equalizerOn,
-                                    contentDescription = "Equalizer",
-                                    onClick = {
-                                        haptics.tap()
-                                        onToggleEqualizer?.invoke()
-                                        overlays.showP("Equalizer: ${if (!equalizerOn) "ON" else "OFF"}")
-                                    },
-                                    onLongClick = if (onOpenOptions != null) ({
-                                        haptics.heavy()
-                                        onOpenOptions("Equalizer")
-                                    }) else null
-                                )
-                                NowPlayingCircleAction(
-                                    resource = R.drawable.ic_xvox_waveform,
-                                    surfaceAlpha = surfaceAlpha,
-                                    
-                                    active = spaceOn,
-                                    contentDescription = "3D Sound",
-                                    onClick = {
-                                        haptics.tap()
-                                        onToggleSpace?.invoke()
-                                        overlays.showP("3D Sound: ${if (!spaceOn) "ON" else "OFF"}")
-                                    },
-                                    onLongClick = if (onOpenOptions != null) ({
-                                        haptics.heavy()
-                                        onOpenOptions("3D sound")
-                                    }) else null
-                                )
-                            }
-                        }
-                        else -> {
-                            // Page 3: Bluetooth + Crossfade
-                            val bluetoothRouted = rememberActualBluetoothRoute()
-                            val enableBluetooth = rememberBluetoothEnableRequest()
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                NowPlayingCircleAction(
-                                    resource = R.drawable.ic_xvox_bluetooth,
-                                    surfaceAlpha = surfaceAlpha,
-                                    
-                                    active = bluetoothRouted,
-                                    contentDescription = "Bluetooth / audio output",
-                                    onClick = if (onOpenOptions != null) ({
-                                        haptics.tap()
-                                        enableBluetooth?.invoke()
-                                        onOpenOptions("Bluetooth")
-                                    }) else null,
-                                    onLongClick = if (onOpenOptions != null) ({
-                                        haptics.heavy()
-                                        onOpenOptions("Bluetooth")
-                                    }) else null
-                                )
-                                NowPlayingCircleAction(
-                                    resource = R.drawable.ic_xvox_crossfade,
-                                    surfaceAlpha = surfaceAlpha,
-                                    
-                                    active = crossfadeOn,
-                                    contentDescription = "Crossfade",
-                                    onClick = {
-                                        haptics.tap()
-                                        onToggleCrossfade?.invoke()
-                                        overlays.showP("Crossfade: ${if (!crossfadeOn) "ON" else "OFF"}")
-                                    },
-                                    onLongClick = if (onOpenOptions != null) ({
-                                        haptics.heavy()
-                                        onOpenOptions("Crossfade")
-                                    }) else null
-                                )
-                            }
-                        }
+                    ) {
+                        key("nowPlayingActionIncoming_$swipeTargetPage") { ActionPage(swipeTargetPage) }
                     }
                 }
             }
@@ -370,8 +360,11 @@ fun NowPlayingActions(
                 horizontalArrangement = Arrangement.spacedBy(5.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                // A committed release highlights its incoming destination while the last short
+                // settle finishes, keeping dots and the travelling pair visually in sync.
+                val indicatedPage = actionSettle?.targetPage ?: pageIndex
                 repeat(3) { dotIdx ->
-                    val isSelected = dotIdx == pageIndex
+                    val isSelected = dotIdx == indicatedPage
                     val dotWidth by animateDpAsState(
                         targetValue = if (isSelected) 12.dp else 4.dp,
                         animationSpec = tween(200),
@@ -391,7 +384,7 @@ fun NowPlayingActions(
                                 indication = null
                             ) {
                                 haptics.tap()
-                                selectActionPage(dotIdx, forward = dotIdx >= pageIndex)
+                                requestActionPage(dotIdx, forward = dotIdx >= pageIndex)
                             }
                     )
                 }
@@ -414,6 +407,132 @@ fun NowPlayingActions(
         Spacer(Modifier.weight(1f))
         if (!utilityOnLeft) key("nowPlayingUtilityPill") { utilityPill() }
         if (!actionsOnLeft) key("nowPlayingChangingActions") { changingActionCluster() }
+    }
+}
+
+/** One of the three two-control action pages; reused by both live swipe layers. */
+@Composable
+private fun NowPlayingActionPage(
+    pageIndex: Int,
+    isLiked: Boolean,
+    isInPlaylist: Boolean,
+    equalizerOn: Boolean,
+    spaceOn: Boolean,
+    crossfadeOn: Boolean,
+    surfaceAlpha: Float,
+    onToggleLiked: (() -> Unit)?,
+    onStarPlaylist: (() -> Unit)?,
+    onToggleEqualizer: (() -> Unit)?,
+    onToggleSpace: (() -> Unit)?,
+    onToggleCrossfade: (() -> Unit)?,
+    onOpenOptions: ((String) -> Unit)?
+) {
+    val haptics = LocalXvoxHaptics.current
+    val overlays = LocalXvoxOverlayController.current
+    when (pageIndex) {
+        0 -> {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                NowPlayingCircleAction(
+                    resource = R.drawable.ic_xvox_star,
+                    surfaceAlpha = surfaceAlpha,
+                    active = isInPlaylist,
+                    contentDescription = "Add to playlist",
+                    onClick = {
+                        haptics.tap()
+                        onStarPlaylist?.invoke()
+                    }
+                )
+                NowPlayingCircleAction(
+                    resource = if (isLiked) R.drawable.ic_xvox_heart else R.drawable.ic_xvox_heart_outline,
+                    surfaceAlpha = surfaceAlpha,
+                    active = isLiked,
+                    contentDescription = if (isLiked) "Unlike" else "Like",
+                    onClick = {
+                        haptics.tap()
+                        onToggleLiked?.invoke()
+                    }
+                )
+            }
+        }
+        1 -> {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                NowPlayingCircleAction(
+                    resource = R.drawable.ic_xvox_equalizer,
+                    surfaceAlpha = surfaceAlpha,
+                    active = equalizerOn,
+                    contentDescription = "Equalizer",
+                    onClick = {
+                        haptics.tap()
+                        onToggleEqualizer?.invoke()
+                        overlays.showP("Equalizer: ${if (!equalizerOn) "ON" else "OFF"}")
+                    },
+                    onLongClick = if (onOpenOptions != null) ({
+                        haptics.heavy()
+                        onOpenOptions("Equalizer")
+                    }) else null
+                )
+                NowPlayingCircleAction(
+                    resource = R.drawable.ic_xvox_waveform,
+                    surfaceAlpha = surfaceAlpha,
+                    active = spaceOn,
+                    contentDescription = "3D Sound",
+                    onClick = {
+                        haptics.tap()
+                        onToggleSpace?.invoke()
+                        overlays.showP("3D Sound: ${if (!spaceOn) "ON" else "OFF"}")
+                    },
+                    onLongClick = if (onOpenOptions != null) ({
+                        haptics.heavy()
+                        onOpenOptions("3D sound")
+                    }) else null
+                )
+            }
+        }
+        else -> {
+            val bluetoothRouted = rememberActualBluetoothRoute()
+            val enableBluetooth = rememberBluetoothEnableRequest()
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                NowPlayingCircleAction(
+                    resource = R.drawable.ic_xvox_bluetooth,
+                    surfaceAlpha = surfaceAlpha,
+                    active = bluetoothRouted,
+                    contentDescription = "Bluetooth / audio output",
+                    onClick = if (onOpenOptions != null) ({
+                        haptics.tap()
+                        enableBluetooth?.invoke()
+                        onOpenOptions("Bluetooth")
+                    }) else null,
+                    onLongClick = if (onOpenOptions != null) ({
+                        haptics.heavy()
+                        onOpenOptions("Bluetooth")
+                    }) else null
+                )
+                NowPlayingCircleAction(
+                    resource = R.drawable.ic_xvox_crossfade,
+                    surfaceAlpha = surfaceAlpha,
+                    active = crossfadeOn,
+                    contentDescription = "Crossfade",
+                    onClick = {
+                        haptics.tap()
+                        onToggleCrossfade?.invoke()
+                        overlays.showP("Crossfade: ${if (!crossfadeOn) "ON" else "OFF"}")
+                    },
+                    onLongClick = if (onOpenOptions != null) ({
+                        haptics.heavy()
+                        onOpenOptions("Crossfade")
+                    }) else null
+                )
+            }
+        }
     }
 }
 

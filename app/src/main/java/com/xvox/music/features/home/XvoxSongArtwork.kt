@@ -14,6 +14,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -48,7 +49,9 @@ fun XvoxSongArtwork(
     modifier: Modifier = Modifier,
     requestSize: Int = XvoxGridArtworkSize,
     contentScale: ContentScale = ContentScale.Crop,
-    keepPreviousOnLoading: Boolean = false
+    keepPreviousOnLoading: Boolean = false,
+    /** Reports only after a real decoded bitmap is ready; useful for layered artwork handoffs. */
+    onArtworkReady: (() -> Unit)? = null
 ) {
     val colors = XvoxTheme.colors
     val context = LocalContext.current
@@ -97,6 +100,10 @@ fun XvoxSongArtwork(
     // do not invalidate composition, so this state lets a freshly decoded cover replace its
     // placeholder immediately without reducing its requested quality.
     var decodedBitmap by remember(cacheKey, baseKey, requestSize) { mutableStateOf(cachedBitmap()) }
+    val latestArtworkReady by rememberUpdatedState(onArtworkReady)
+    LaunchedEffect(cacheKey, decodedBitmap) {
+        if (decodedBitmap != null) latestArtworkReady?.invoke()
+    }
     // A retained decoded bitmap has two jobs for full-player callers: it keeps a real old cover
     // visible while the next original decodes, then becomes the source of an internal image
     // morph. This avoids a transient card-colour frame between cover identities.

@@ -45,7 +45,6 @@ fun XvoxBottomBar(
     val navBarWidth = chrome.navigationBarWidth.coerceIn(190f, 380f).dp.coerceAtMost(availableWidth)
     val slotWidth = navBarWidth / 3f
     val selectorWidth = (slotWidth - 8.dp).coerceAtLeast(52.dp)
-    val selectorTravel = navBarWidth - selectorWidth - 8.dp
     val selectorHeight = (navBarHeight - 8.dp).coerceAtLeast(44.dp)
     val destinations = XvoxDestination.entries
     val selectedIndex = destinations.indexOf(selected)
@@ -60,34 +59,45 @@ fun XvoxBottomBar(
     val parentShape = RoundedCornerShape(navBarHeight / 2f)
     val selectorShape = RoundedCornerShape(selectorHeight / 2f)
 
-    // Appearance › Home chrome overrides for the floating nav bar and its travelling pill.
-    val navSurfaceAlpha = chrome.navBgAlpha.coerceIn(0f, 1f)
-    val navEdgeBase = com.xvox.music.core.ui.chrome.parseHexColor(chrome.navBorder) ?: colors.cardBorder
+    // In dark themes the bar now deliberately mirrors the Mini Player's own background and
+    // transparency controls. Light-mode keeps its accepted page-material treatment unchanged.
+    val usesMiniPlayerDarkSurface = !colors.isLight && chrome.navigationImageUri.isBlank()
+    val requestedNavSurfaceAlpha = chrome.navBgAlpha.coerceIn(0f, 1f)
+    val navSurfaceAlpha = if (usesMiniPlayerDarkSurface) {
+        chrome.miniBgAlpha.coerceIn(0f, 1f)
+    } else {
+        requestedNavSurfaceAlpha
+    }
+    val navEdgeBase = if (usesMiniPlayerDarkSurface) {
+        com.xvox.music.core.ui.chrome.parseHexColor(chrome.miniBorder) ?: colors.cardBorder
+    } else {
+        com.xvox.music.core.ui.chrome.parseHexColor(chrome.navBorder) ?: colors.cardBorder
+    }
+    val navBorderAlpha = if (usesMiniPlayerDarkSurface) {
+        chrome.miniBorderAlpha.coerceIn(.34f, 1f)
+    } else {
+        chrome.navBorderAlpha.coerceIn(.42f, 1f)
+    }
     // Keep a thin themed edge even for a transparent bar/pill; it anchors the control against
     // both light and dark page backgrounds without using a fixed accent colour.
     val navEdge = navEdgeBase.copy(
-        alpha = navEdgeBase.alpha * chrome.navBorderAlpha.coerceIn(.42f, 1f) * navSurfaceAlpha.coerceAtLeast(.72f)
+        alpha = navEdgeBase.alpha * navBorderAlpha * navSurfaceAlpha.coerceAtLeast(.72f)
     )
     val pillEdgeBase = com.xvox.music.core.ui.chrome.parseHexColor(chrome.pillBorder) ?: navEdgeBase
     val pillEdge = pillEdgeBase.copy(
-        alpha = pillEdgeBase.alpha * chrome.navBorderAlpha.coerceIn(.42f, 1f) * navSurfaceAlpha.coerceAtLeast(.72f)
+        alpha = pillEdgeBase.alpha * navBorderAlpha * navSurfaceAlpha.coerceAtLeast(.72f)
     )
-    // Keep the accepted light-mode bar material unchanged. Dark mode instead shares the exact
-    // Settings section-card surface, so the bottom navigation belongs to the same UI family.
-    val defaultNavSurface = if (colors.isLight) colors.background else colors.card
-    // The default dark bar must be the *same* opaque card token as Settings, not a 94%-alpha
-    // approximation blended against the page background. A chosen navbar image still owns its
-    // own alpha treatment below.
-    val appliedNavSurfaceAlpha = if (!colors.isLight && chrome.navigationImageUri.isBlank()) 1f else navSurfaceAlpha
+    val defaultNavSurface = colors.background
+    val appliedNavSurfaceAlpha = navSurfaceAlpha
 
     val defaultPillNeutral = if (colors.isLight) {
         // A restrained light gray remains visible on bright app backgrounds without reading as a
         // second accent treatment.
         androidx.compose.ui.graphics.Color(0xFFB8BBC2)
     } else {
-        // A true neutral gray, deliberately separate from the theme card colour, keeps the dark
-        // selector premium but quiet instead of looking like a black cutout or accent pill.
-        androidx.compose.ui.graphics.Color(0xFF50525A)
+        // A lightly transparent black selector is distinct from the Mini Player-matched dark
+        // navbar without returning to the earlier bright gray pill.
+        androidx.compose.ui.graphics.Color.Black
     }
     val pillBase = com.xvox.music.core.ui.chrome.parseHexColor(chrome.pillColor)
         ?: defaultPillNeutral
@@ -98,6 +108,10 @@ fun XvoxBottomBar(
         val defaultPillAlpha = if (customImageSurface) {
             // Preserve the previously requested completely clear custom-image endpoint.
             navSurfaceAlpha * (1f - navSurfaceAlpha)
+        } else if (!colors.isLight) {
+            // Retain some transparency while keeping the black travelling selector visibly
+            // separate from the Mini Player-matched dark navbar.
+            .56f
         } else {
             // Surface transparency applies to the travelling pill as well. Icons remain the
             // accessible destination cue at the fully transparent endpoint.
@@ -162,10 +176,12 @@ fun XvoxBottomBar(
                     y = topOffset + navBarHeight / 2 - selectorHeight / 2
                 )
                 .graphicsLayer {
-                    // The selector start is slot-centre minus half selector width. This dynamic
-                    // formula stays exact even when Appearance changes the nav-bar width, including
-                    // Settings' third slot.
-                    translationX = (4.dp + selectorTravel * (motion.position / 2f)).toPx()
+                    // Derive directly from each equal slot's centre, rather than a nominal travel
+                    // constant. The selected icon and pill therefore share one exact centre for
+                    // Home, Search, and Settings at every allowed navbar width.
+                    translationX = (
+                        (slotWidth - selectorWidth) / 2f + slotWidth * motion.position
+                    ).toPx()
                     shape = selectorShape
                     clip = true
                 }

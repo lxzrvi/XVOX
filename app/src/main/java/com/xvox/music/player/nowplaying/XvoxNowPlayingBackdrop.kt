@@ -4,13 +4,17 @@ import android.net.Uri
 import androidx.compose.animation.VectorConverter
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Brush
@@ -58,6 +62,26 @@ fun XvoxNowPlayingBackdrop(
     val fraction = artworkTransitionFraction.coerceIn(0f, 1f)
     val pagerArtworkTransition = showCover && incomingArtwork != null &&
         incomingArtwork != artwork && fraction > .0001f
+    // Never let an undecoded incoming layer take over the blurred canvas. The outgoing cover
+    // remains fully painted until the next cover has a real bitmap, then the supplied pager
+    // fraction is released through a short availability ramp instead of a blank-frame flash.
+    var readyArtworkKeys by remember { mutableStateOf(emptySet<String>()) }
+    fun markArtworkReady(uri: Uri?) {
+        val key = uri?.toString() ?: return
+        if (key !in readyArtworkKeys) readyArtworkKeys = readyArtworkKeys + key
+    }
+    val incomingKey = incomingArtwork?.toString()
+    val incomingIsDecoded = incomingKey != null && incomingKey in readyArtworkKeys
+    val incomingAvailability by animateFloatAsState(
+        targetValue = if (pagerArtworkTransition && incomingIsDecoded) 1f else 0f,
+        animationSpec = tween(150, easing = CubicBezierEasing(.22f, 0f, 0f, 1f)),
+        label = "nowPlayingBackdropIncomingAvailability"
+    )
+    val displayedIncomingFraction = if (pagerArtworkTransition) {
+        fraction * incomingAvailability
+    } else {
+        0f
+    }
 
     Box(
         modifier = modifier
@@ -71,13 +95,19 @@ fun XvoxNowPlayingBackdrop(
             PremiumBlurredCover(
                 artwork = artwork,
                 blur = coverBlur,
-                alpha = if (pagerArtworkTransition) 1f - fraction else 1f
+                alpha = 1f - displayedIncomingFraction,
+                onReady = { markArtworkReady(artwork) }
             )
             if (pagerArtworkTransition) {
                 // During drag/tap/natural completion, this is the pager's actual incoming cover.
-                // The persistent primary above remains a real decoded outgoing cover until this
-                // layer is available, so the cover canvas never flashes the card/background tone.
-                PremiumBlurredCover(incomingArtwork, blur = coverBlur, alpha = fraction)
+                // It receives opacity only after its decoded bitmap is ready, so the persistent
+                // primary never drops away to a card-colour/blank frame under a fast swipe.
+                PremiumBlurredCover(
+                    artwork = incomingArtwork,
+                    blur = coverBlur,
+                    alpha = displayedIncomingFraction,
+                    onReady = { markArtworkReady(incomingArtwork) }
+                )
             }
             // A gentle tonal veil removes noisy blur artifacts and keeps controls readable while
             // retaining actual cover color—not an opaque unrelated replacement surface.
@@ -102,7 +132,8 @@ fun XvoxNowPlayingBackdrop(
 private fun PremiumBlurredCover(
     artwork: Uri?,
     blur: Float,
-    alpha: Float
+    alpha: Float,
+    onReady: (() -> Unit)? = null
 ) {
     artwork ?: return
     XvoxSongArtwork(
@@ -113,6 +144,7 @@ private fun PremiumBlurredCover(
         // bitmap while an adjacent one resolves makes the two blurred layers crossfade instead of
         // sticking on an empty/placeholder frame mid-swipe.
         keepPreviousOnLoading = true,
+        onArtworkReady = onReady,
         modifier = Modifier
             .fillMaxSize()
             // Overscan eliminates exposed hard edges as the local blur samples its boundaries.

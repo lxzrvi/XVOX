@@ -658,74 +658,78 @@ private fun SupportTierButton(
     val shape = RoundedCornerShape(14.dp)
     val transition = rememberInfiniteTransition(label = "supportTierMotion$amount")
     val duration = when (treatment) {
-        0 -> 2400 // Coffee: a gentle diagonal sheen that breathes back and forth.
-        1 -> 3200 // Burger: a slow, one-way horizontal tide.
-        2 -> 2100 // Full Pack: a quieter vertical breathing treatment.
-        else -> 4100 // Treat: the longest, soft orbital diagonal sweep.
+        0 -> 2800 // Coffee: slow diagonal drift.
+        1 -> 3600 // Burger: wide horizontal drift.
+        2 -> 3100 // Full Pack: vertical float.
+        else -> 4400 // Treat: long diagonal orbit.
     }
     val phase by transition.animateFloat(
         initialValue = 0f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
             animation = tween(durationMillis = duration, easing = LinearEasing),
-            repeatMode = if (treatment == 0 || treatment == 2) RepeatMode.Reverse else RepeatMode.Restart
+            // Reverse loops have no hard jump at the end of a pass; every tier continuously
+            // drifts as a soft patch rather than restarting a visible stripe.
+            repeatMode = RepeatMode.Reverse
         ),
         label = "supportTierPhase$amount"
     )
 
     val accent = colors.primaryAccent
-    val highlight = lerp(
-        accent,
-        if (colors.isLight) Color.White else colors.cardElevated,
-        if (colors.isLight) .18f else .30f
-    )
-    val depth = lerp(
-        accent,
-        colors.background,
-        if (colors.isLight) .12f else .34f
-    )
-    val ambient = lerp(
-        colors.cardElevated,
-        accent,
-        if (colors.isLight) .34f else .48f
-    )
-    val brush = when (treatment) {
-        0 -> Brush.linearGradient(
-            colors = listOf(depth, accent, highlight, accent, depth),
-            start = Offset(-150f + phase * 300f, -70f),
-            end = Offset(105f + phase * 300f, 95f)
-        )
-        1 -> Brush.horizontalGradient(
-            colors = listOf(ambient, accent, highlight, accent, ambient),
-            startX = -170f + phase * 340f,
-            endX = 100f + phase * 340f
-        )
-        2 -> Brush.verticalGradient(
-            colors = listOf(depth, accent, highlight, accent, depth),
-            startY = -80f + phase * 160f,
-            endY = 108f + phase * 160f
-        )
-        else -> Brush.linearGradient(
-            colors = listOf(ambient, highlight, accent, depth, ambient),
-            start = Offset(130f - phase * 290f, -115f + phase * 150f),
-            end = Offset(-90f + phase * 290f, 130f - phase * 150f)
-        )
+    val patchAlpha = if (colors.isLight) .28f else .42f
+    val mistAlpha = if (colors.isLight) .13f else .20f
+    val primaryCenter = when (treatment) {
+        0 -> Offset(-40f + phase * 150f, 5f + phase * 58f)
+        1 -> Offset(168f - phase * 190f, 48f)
+        2 -> Offset(66f, -48f + phase * 154f)
+        else -> Offset(156f - phase * 196f, -42f + phase * 136f)
     }
-    val onAccent = xvoxOnAccent(accent)
+    val secondaryCenter = when (treatment) {
+        0 -> Offset(138f - phase * 104f, 94f - phase * 42f)
+        1 -> Offset(-24f + phase * 154f, 92f)
+        2 -> Offset(144f, 124f - phase * 136f)
+        else -> Offset(-28f + phase * 172f, 112f - phase * 94f)
+    }
+    val primaryRadius = when (treatment) {
+        0 -> 142f
+        1 -> 178f
+        2 -> 154f
+        else -> 196f
+    }
+    // Two low-alpha radial fields over the Settings surface create diffuse moving colour patches
+    // instead of hard linear bands. Both colours derive from the active accent and current theme.
+    val primaryPatch = Brush.radialGradient(
+        colors = listOf(
+            accent.copy(alpha = patchAlpha),
+            lerp(accent, colors.cardElevated, .56f).copy(alpha = mistAlpha),
+            Color.Transparent
+        ),
+        center = primaryCenter,
+        radius = primaryRadius
+    )
+    val secondaryPatch = Brush.radialGradient(
+        colors = listOf(
+            accent.copy(alpha = patchAlpha * .48f),
+            Color.Transparent
+        ),
+        center = secondaryCenter,
+        radius = primaryRadius * 1.12f
+    )
 
     Column(
         modifier = modifier
             .clip(shape)
-            .background(brush, shape)
-            // Use the same theme-aware border family as Settings cards rather than a hardcoded
-            // bright/red outline.
-            .border(.8.dp, colors.cardBorder.copy(alpha = if (colors.isLight) .88f else .96f), shape)
+            .background(colors.cardElevated, shape)
+            .background(secondaryPatch, shape)
+            .background(primaryPatch, shape)
+            // Donation tiers intentionally have no outline; their soft moving accent fields are
+            // the visual separator instead of a hard Settings-card border.
             .xvoxPressScale(onClick = onClick)
             .padding(vertical = 9.dp, horizontal = 2.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(price, color = onAccent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-        Text(label, color = onAccent.copy(alpha = .86f), fontSize = 9.5.sp, maxLines = 1)
+        Text(price, color = colors.primaryText, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+        Text(label, color = colors.secondaryText.copy(alpha = .88f), fontSize = 9.5.sp, maxLines = 1)
     }
 }
 
