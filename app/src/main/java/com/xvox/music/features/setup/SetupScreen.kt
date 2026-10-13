@@ -150,6 +150,9 @@ fun SetupScreen(
                 .padding(start = 18.dp, end = 18.dp, bottom = 10.dp)
         ) {
             val screenHeight = maxHeight
+            // Capture constraints before entering nested layout scopes, where maxWidth would be
+            // ambiguous with the child receiver.
+            val setupWidth = maxWidth
 
             Text(
                 text = "XVOX",
@@ -203,7 +206,7 @@ fun SetupScreen(
                     // Unlike the form fields, the picker deliberately reaches the physical
                     // screen edges. The carousel owns its own endpoint geometry, so choices stay
                     // fully tappable while the surrounding setup content retains its 18dp inset.
-                    modifier = Modifier.requiredWidth(maxWidth + 36.dp),
+                    modifier = Modifier.requiredWidth(setupWidth + 36.dp),
                     edgeToEdge = true,
                     size = 60.dp
                 )
