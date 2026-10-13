@@ -111,6 +111,32 @@ fun MiniPlayerSettingsBoxContent(
                 )
             }
         )
+
+
+        Spacer(Modifier.height(4.dp))
+        Text("Experiment", color = colors.secondaryText, fontSize = 11.sp)
+        // Blank is deliberate: it restores the accepted theme-derived travelling pill rather
+        // than baking the fresh-install red accent into every navbar.
+        ColorPickerRow(
+            label = "Navbar active-pill color",
+            hex = chrome.pillColor,
+            onColorChange = { color -> onChromeChange(chrome.copy(pillColor = color)) },
+            subtitle = "Auto follows the current theme",
+            showPreview = true
+        )
+
+        val pillTransparency = 1f - chrome.pillAlpha.coerceIn(0f, 1f)
+        MiniPlayerSliderSection("Navbar active-pill transparency · ${(pillTransparency * 100).roundToInt()}%") {
+            XvoxSlider(
+                value = pillTransparency,
+                onValueChange = { transparency ->
+                    onChromeChange(chrome.copy(pillAlpha = 1f - transparency.coerceIn(0f, 1f)))
+                },
+                valueRange = 0f..1f,
+                defaultValue = 0f,
+                valueLabel = { transparency -> "${(transparency.coerceIn(0f, 1f) * 100).roundToInt()}%" }
+            )
+        }
     }
 }
 

@@ -13,13 +13,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -32,11 +30,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
@@ -82,28 +78,43 @@ private fun AudioOutputControls(state: SettingsState, onRouteChange: (String) ->
         ?: "Phone speaker"
 
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Row(
-            Modifier.fillMaxWidth().padding(vertical = 2.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Icon(
-                painter = painterResource(R.drawable.ic_xvox_bluetooth),
-                contentDescription = null,
-                // A connected BT device alone is not enough: accent signals active BT routing.
-                tint = if (actualBluetooth != null) colors.primaryAccent else colors.mutedText,
-                modifier = Modifier.size(20.dp)
-            )
-            Column(Modifier.weight(1f)) {
-                Text("Now playing on", color = colors.secondaryText, fontSize = 11.sp)
-                Text(currentName, color = colors.primaryText, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-            }
-        }
-
-        // The three routing choices share one compact, equal-width row rather than three cards.
+        // Bluetooth status and headset routing are independent, boxed controls.  Keeping each
+        // action inside its own half-width section prevents the old free-floating settings row
+        // from reading as detached from the device it affects.
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(7.dp)
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            AudioOutputSideBox(
+                title = "Bluetooth",
+                detail = actualBluetooth?.let(::describeDevice) ?: "Not connected",
+                active = actualBluetooth != null,
+                actionLabel = "Open settings",
+                modifier = Modifier.weight(1f),
+                onClick = {
+                    haptics.tap()
+                    runCatching { context.startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS)) }
+                }
+            )
+            AudioOutputSideBox(
+                title = "Headset",
+                detail = connectedHeadset?.let(::describeDevice) ?: "No headset connected",
+                active = state.audioOutputRoute == "headset",
+                actionLabel = if (connectedHeadset != null) "Use headset" else "Connect one",
+                modifier = Modifier.weight(1f),
+                onClick = {
+                    haptics.tap()
+                    if (connectedHeadset != null) onRouteChange("headset")
+                    else overlays.showP("Connect a headset first")
+                }
+            )
+        }
+
+        // Automatic and phone routes are compact alternatives; headset selection remains in its
+        // own contained section above so connected-device controls never spill across the sheet.
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             OutputRouteSegment("Auto", state.audioOutputRoute == "auto", Modifier.weight(1f)) {
                 haptics.tap()
@@ -113,38 +124,75 @@ private fun AudioOutputControls(state: SettingsState, onRouteChange: (String) ->
                 haptics.tap()
                 onRouteChange("phone")
             }
-            OutputRouteSegment("Headset", state.audioOutputRoute == "headset", Modifier.weight(1f)) {
-                haptics.tap()
-                if (connectedHeadset != null) {
-                    onRouteChange("headset")
-                } else {
-                    overlays.showP("Connect a headset first")
-                }
-            }
         }
 
         Text(
             when (state.audioOutputRoute) {
                 "phone" -> "Playing through the built-in speaker"
                 "headset" -> if (connectedHeadset != null) "Requested: ${describeDevice(connectedHeadset)}" else "No headset connected"
-                else -> "Automatically follows the system audio route"
+                else -> "Now playing on $currentName · follows the system route"
             },
             color = colors.secondaryText,
             fontSize = 11.sp
         )
+    }
+}
 
-        Spacer(Modifier.height(1.dp))
-        Row(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
-                .background(colors.cardElevated)
-                .xvoxPressScale {
-                    haptics.tap()
-                    runCatching { context.startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS)) }
-                }
-                .padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
+@Composable
+private fun AudioOutputSideBox(
+    title: String,
+    detail: String,
+    active: Boolean,
+    actionLabel: String,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    val colors = XvoxTheme.colors
+    val shape = RoundedCornerShape(14.dp)
+    Column(
+        modifier = modifier
+            .height(112.dp)
+            .clip(shape)
+            .background(if (active) colors.accentSoft else colors.cardElevated)
+            .border(
+                width = if (active) 1.dp else .8.dp,
+                color = if (active) colors.primaryAccent else colors.cardBorder.copy(alpha = .72f),
+                shape = shape
+            )
+            .padding(horizontal = 11.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Text(
+            text = title,
+            color = if (active) colors.primaryAccent else colors.primaryText,
+            fontSize = 12.5.sp,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1
+        )
+        Text(
+            text = detail,
+            color = colors.secondaryText,
+            fontSize = 10.5.sp,
+            lineHeight = 13.sp,
+            maxLines = 2,
+            modifier = Modifier.weight(1f)
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(28.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .background(if (active) colors.primaryAccent.copy(alpha = .18f) else colors.card.copy(alpha = .72f))
+                .xvoxPressScale(onClick = onClick),
+            contentAlignment = Alignment.Center
         ) {
-            Text("Open Bluetooth settings", color = colors.primaryAccent, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+            Text(
+                text = actionLabel,
+                color = colors.primaryAccent,
+                fontSize = 10.5.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1
+            )
         }
     }
 }

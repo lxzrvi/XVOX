@@ -12,7 +12,7 @@
 
         <!-- Use the supplied canonical XVOX mark rather than the launcher foreground on splash. -->
         <item name="windowSplashScreenAnimatedIcon">
-            @drawable/xvox
+            @drawable/xvox_splash_small
         </item>
 
         <item name="postSplashScreenTheme">

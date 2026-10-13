@@ -167,8 +167,8 @@ fun XvoxPlaylistPickerBoxContent(
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Box(
-                modifier = Modifier.weight(1f).height(44.dp).clip(RoundedCornerShape(12.dp))
-                    .background(colors.card).border(0.9.dp, colors.cardBorder, RoundedCornerShape(12.dp))
+                modifier = Modifier.weight(1f).height(44.dp).clip(RoundedCornerShape(22.dp))
+                    .background(colors.card).border(0.9.dp, colors.cardBorder, RoundedCornerShape(22.dp))
                     .xvoxPressScale(onClick = onCancel),
                 contentAlignment = Alignment.Center
             ) {
@@ -185,13 +185,13 @@ fun XvoxPlaylistPickerBoxContent(
             )
             val borderWidth by animateDpAsState(if (canAdd) 1.4.dp else 1.dp, tween(180), label = "add_border_w")
             Box(
-                modifier = Modifier.weight(1.5f).height(44.dp).clip(RoundedCornerShape(12.dp))
-                    .background(fill).border(borderWidth, borderColor, RoundedCornerShape(12.dp))
+                modifier = Modifier.weight(1.5f).height(44.dp).clip(RoundedCornerShape(22.dp))
+                    .background(fill).border(borderWidth, borderColor, RoundedCornerShape(22.dp))
                     .xvoxPressScale(enabled = canAdd) { selectedPlaylistId?.let { onAddToPlaylist(it) } },
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = if (canAdd) "Add to playlist" else "Select playlist",
+                    text = if (canAdd) "Add to playlist" else "Select Playlist",
                     color = if (canAdd) colors.background else colors.secondaryText,
                     fontSize = 13.sp, fontWeight = FontWeight.Bold
                 )

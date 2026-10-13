@@ -12,8 +12,8 @@ fun Song.toMediaItem(mediaId: String = id.toString()): MediaItem {
         .setMediaMetadata(MediaMetadata.Builder()
             .setTitle(title)
             .setArtist(artist)
-            // Android's media notification loads this content URI lazily only for a coverless
-            // item, yielding the same seeded XVOX wave artwork instead of a generic placeholder.
+            // Android's media notification loads this local URI lazily for a coverless item,
+            // yielding the same supplied XVOX default cover instead of a generic placeholder.
             .setArtworkUri(artworkUri ?: XvoxFallbackArtworkProvider.uriForSong(id))
             .setExtras(Bundle().apply {
                 putString("xvox_original_uri", contentUri.toString())

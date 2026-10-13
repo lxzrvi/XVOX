@@ -26,7 +26,7 @@ import kotlinx.coroutines.launch
 class XvoxNowPlayingPaletteState internal constructor(
     private val loader: XvoxArtworkPaletteLoader,
     initial: Color,
-    initialWaveColors: XvoxPalette
+    initialFallbackColors: XvoxPalette
 ) {
     // Mirror the loader's full song/artwork identity here too. A media source can update an
     // artwork/content URI without changing the numeric row ID.
@@ -37,10 +37,9 @@ class XvoxNowPlayingPaletteState internal constructor(
     private var pinnedSongKey: String? = null
     /** Invalidates a late palette result after a swipe, shuffle reflow, or another song selection. */
     private var visualGeneration = 0L
-    /** Current theme/accent recipe for deterministic per-song wave palettes. */
-    private var waveColors by mutableStateOf(initialWaveColors)
+    /** Current theme recipe for the supplied default-cover treatment. */
+    private var fallbackColors by mutableStateOf(initialFallbackColors)
     private var pinnedSongUsesThemeFallback = false
-    private var pinnedFallbackSeed: Int? = null
 
     var color by mutableStateOf(initial)
         private set
@@ -56,35 +55,39 @@ class XvoxNowPlayingPaletteState internal constructor(
 
     private fun knownColor(song: Song): Color? {
         val key = song.xvoxArtworkPaletteKey()
-        return if (usesThemeFallback(song)) waveFallback(song)
+        return if (usesThemeFallback(song)) defaultCoverFallback()
         else cache[key] ?: loader.cachedColor(song.artworkUri, key)
     }
 
-    private fun waveFallback(song: Song): Color =
-        xvoxWavePalette(song.id.hashCode(), waveColors).dominant
+    /**
+     * The supplied dark cover is intentionally neutral.  Its light inverse also remains neutral,
+     * so the player canvas follows the active theme surface instead of inventing a song-specific
+     * accent/wave palette behind the exact fallback artwork.
+     */
+    private fun defaultCoverFallback(): Color = xvoxWavePalette(0, fallbackColors).dominant
 
     private suspend fun resolvedColor(song: Song): Color {
-        if (song.artworkUri == null) return waveFallback(song)
+        if (song.artworkUri == null) return defaultCoverFallback()
         val key = song.xvoxArtworkPaletteKey()
         val extracted = cache[key] ?: loader.load(song.artworkUri, key)
-        // A bad URI uses exactly the same seeded, theme-aware palette as its visible wave art.
-        return if (loader.usedFallback(song.artworkUri, key)) waveFallback(song) else extracted
+        // A bad URI uses the same theme-aware canvas as the visible supplied default cover.
+        return if (loader.usedFallback(song.artworkUri, key)) defaultCoverFallback() else extracted
     }
 
     fun getOrFallback(song: Song?): Color {
         if (song == null) return color
-        // Default Now Playing intentionally takes its canvas from this exact song's patterned
-        // fallback palette, so coverless songs no longer collapse into one red/accent backdrop.
-        if (usesThemeFallback(song)) return waveFallback(song)
+        // Default Now Playing takes its canvas from the same active-theme treatment as the
+        // supplied fallback artwork—neutral dark as-is, or its light inverse—not a generated wave.
+        if (usesThemeFallback(song)) return defaultCoverFallback()
         // An unprepared cover keeps the live player backdrop until its IO palette is available.
         // This avoids flashing a synthetic hash colour when browsing or opening a selected song.
         return knownColor(song) ?: color
     }
 
-    fun updateWaveColors(next: XvoxPalette) {
-        waveColors = next
-        pinnedFallbackSeed?.let { seed ->
-            if (!isCoverTransitionInProgress) color = xvoxWavePalette(seed, next).dominant
+    fun updateFallbackColors(next: XvoxPalette) {
+        fallbackColors = next
+        if (pinnedSongUsesThemeFallback && !isCoverTransitionInProgress) {
+            color = defaultCoverFallback()
         }
     }
 
@@ -99,7 +102,6 @@ class XvoxNowPlayingPaletteState internal constructor(
             // Update only when that identity is still pinned and not between two covers.
             if (pinnedSongKey == key && !isCoverTransitionInProgress) {
                 pinnedSongUsesThemeFallback = usesThemeFallback(song)
-                pinnedFallbackSeed = song.id.hashCode().takeIf { pinnedSongUsesThemeFallback }
                 color = resolved
             }
         } finally {
@@ -131,10 +133,9 @@ class XvoxNowPlayingPaletteState internal constructor(
     fun pin(song: Song) {
         pinnedSongKey = song.xvoxArtworkPaletteKey()
         pinnedSongUsesThemeFallback = usesThemeFallback(song)
-        pinnedFallbackSeed = song.id.hashCode().takeIf { pinnedSongUsesThemeFallback }
         visualGeneration++
         isCoverTransitionInProgress = false
-        if (pinnedSongUsesThemeFallback) color = waveFallback(song)
+        if (pinnedSongUsesThemeFallback) color = defaultCoverFallback()
         else knownColor(song)?.let { color = it }
     }
 
@@ -155,7 +156,6 @@ class XvoxNowPlayingPaletteState internal constructor(
             !isCoverTransitionInProgress
         ) {
             pinnedSongUsesThemeFallback = usesThemeFallback(song)
-            pinnedFallbackSeed = song.id.hashCode().takeIf { pinnedSongUsesThemeFallback }
             color = resolved
         }
     }
@@ -170,7 +170,6 @@ class XvoxNowPlayingPaletteState internal constructor(
             visualGeneration++
         }
         pinnedSongUsesThemeFallback = usesThemeFallback(base)
-        pinnedFallbackSeed = base.id.hashCode().takeIf { pinnedSongUsesThemeFallback }
         val amount = fraction.coerceIn(0f, 1f)
         val from = getOrFallback(base)
         val to = adjacent?.let { getOrFallback(it) } ?: from
@@ -188,19 +187,19 @@ fun rememberXvoxNowPlayingPalette(
     val context = LocalContext.current
     val loader = remember { XvoxArtworkPaletteLoader(context) }
     val colors = XvoxTheme.colors
-    val initialWaveFallback = xvoxWavePalette(song.id.hashCode(), colors).dominant
+    val initialDefaultCoverFallback = xvoxWavePalette(0, colors).dominant
     val state = remember {
         // A first-frame miss keeps the canvas stable until real cover analysis is ready.
-        // Coverless songs use their own exact wave dominant from the first visible frame.
+        // Coverless songs use their exact theme-derived default-cover canvas from frame one.
         val initialColor = if (
             song.artworkUri == null || loader.usedFallback(song.artworkUri, song.xvoxArtworkPaletteKey())
-        ) initialWaveFallback
+        ) initialDefaultCoverFallback
         else loader.cachedColor(song.artworkUri, song.xvoxArtworkPaletteKey()) ?: colors.background
         XvoxNowPlayingPaletteState(loader, initialColor, colors)
     }
 
     LaunchedEffect(colors) {
-        state.updateWaveColors(colors)
+        state.updateFallbackColors(colors)
     }
 
     var hasShownInitialPalette by remember { mutableStateOf(false) }

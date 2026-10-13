@@ -103,7 +103,9 @@ fun XvoxBottomBar(
             // This is intentionally a translucent travelling wash, never an opaque selector.
             (.08f + .12f * navSurfaceAlpha) * navSurfaceAlpha
         }
-        pillBase.copy(alpha = pillBase.alpha * defaultPillAlpha)
+        // Transparency is meaningful for both Auto and an explicit picker colour.  Previously
+        // Auto ignored the persisted experiment slider, which made the setting look broken.
+        pillBase.copy(alpha = pillBase.alpha * defaultPillAlpha * chrome.pillAlpha.coerceIn(0f, 1f))
     } else pillBase.copy(alpha = pillBase.alpha * chrome.pillAlpha.coerceIn(0f, 1f) * navSurfaceAlpha)
 
     val isLandscape = androidx.compose.ui.platform.LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE

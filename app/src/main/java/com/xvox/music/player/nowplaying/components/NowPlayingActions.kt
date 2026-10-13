@@ -271,7 +271,10 @@ fun NowPlayingActions(
                     .height(42.dp)
                     .padding(horizontal = 2.dp)
                     .onSizeChanged { actionWidthPx = it.width.toFloat().coerceAtLeast(1f) }
-                    .pointerInput(pageIndex, actionWidthPx, actionSettle?.id) {
+                    .pointerInput(actionWidthPx) {
+                        // pageIndex is deliberately not a key: crossing a full page width mutates
+                        // it while this finger is still down, and keying the recognizer to that
+                        // state would cancel the gesture exactly at the cyclic handoff.
                         var drag = 0f
                         detectHorizontalDragGestures(
                             onDragStart = {
@@ -286,8 +289,25 @@ fun NowPlayingActions(
                             },
                             onHorizontalDrag = { change, dragAmount ->
                                 change.consume()
-                                drag += dragAmount
                                 val width = actionWidthPx.coerceAtLeast(1f)
+                                drag += dragAmount
+
+                                // Do not stop at a completed edge while the finger remains down.
+                                // Each full width becomes the new logical page and leaves only
+                                // the residual displacement on screen, so one long swipe can
+                                // visibly travel around the three-page ring indefinitely.
+                                while (drag <= -width) {
+                                    val next = normalizedPage(pageIndex + 1)
+                                    pageIndex = next
+                                    onActionPageChange(next)
+                                    drag += width
+                                }
+                                while (drag >= width) {
+                                    val previous = normalizedPage(pageIndex - 1)
+                                    pageIndex = previous
+                                    onActionPageChange(previous)
+                                    drag -= width
+                                }
                                 liveSwipeOffsetPx = drag.coerceIn(-width, width)
                             },
                             onDragEnd = {
@@ -400,29 +420,17 @@ fun NowPlayingActions(
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
-        // The two control families read as one intentionally tight horizontal system rather than
-        // opposite screen-edge islands. Their configured sides still determine order only.
-        horizontalArrangement = Arrangement.Center
+        // Restore the intended left/right lanes: the utility pill begins at its left anchor and
+        // the six-option action ring stays at its right anchor.  When two groups occupy one
+        // side, their 6dp gutter matches the circles' own visual rhythm rather than looking like
+        // the old over-centred cluster.
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        var hasPlacedCluster = false
-        if (utilityOnLeft) {
-            key("nowPlayingUtilityPill") { utilityPill() }
-            hasPlacedCluster = true
-        }
-        if (actionsOnLeft) {
-            if (hasPlacedCluster) Spacer(Modifier.width(6.dp))
-            key("nowPlayingChangingActions") { changingActionCluster() }
-            hasPlacedCluster = true
-        }
-        if (!utilityOnLeft) {
-            if (hasPlacedCluster) Spacer(Modifier.width(6.dp))
-            key("nowPlayingUtilityPill") { utilityPill() }
-            hasPlacedCluster = true
-        }
-        if (!actionsOnLeft) {
-            if (hasPlacedCluster) Spacer(Modifier.width(6.dp))
-            key("nowPlayingChangingActions") { changingActionCluster() }
-        }
+        if (utilityOnLeft) key("nowPlayingUtilityPill") { utilityPill() }
+        if (actionsOnLeft) key("nowPlayingChangingActions") { changingActionCluster() }
+        Spacer(Modifier.weight(1f))
+        if (!utilityOnLeft) key("nowPlayingUtilityPill") { utilityPill() }
+        if (!actionsOnLeft) key("nowPlayingChangingActions") { changingActionCluster() }
     }
 }
 

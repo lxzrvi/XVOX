@@ -21,10 +21,7 @@ import com.xvox.music.player.session.XvoxPlaybackService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
-import kotlin.math.PI
-import kotlin.math.floor
 import kotlin.math.roundToInt
-import kotlin.math.sin
 
 object XvoxWidgetHelper {
     const val ACTION_PLAY_PAUSE = "com.xvox.music.widget.ACTION_PLAY_PAUSE"
@@ -39,7 +36,7 @@ object XvoxWidgetHelper {
         val duration: Long = 0, val transparency: Float = .25f, val theme: String = "Dynamic", val customColor: String = "#171717",
         val showLogo: Boolean = true, val cornerRadiusDp: Int = 24, val paddingX: Int = 10, val paddingY: Int = 8,
         val customization: WidgetCustomization = WidgetCustomization(),
-        /** Stable identity for a RemoteViews-compatible missing/failed-cover wave pattern. */
+        /** Retained stable identity for callers; missing/failed covers share the supplied artwork. */
         val fallbackSeed: Int = 11,
         /** App-level accent, kept separate from the widget's optional custom surface colour. */
         val appAccentColor: String = "Red"
@@ -105,21 +102,16 @@ object XvoxWidgetHelper {
             "Glass" -> Color.rgb(30, 30, 34); "Custom" -> color(c = state.customColor, fallback = Color.DKGRAY)
             else -> state.artworkUri?.let { colours.get(it.toString()) } ?: Color.rgb(24, 24, 27)
         }
-        // RemoteViews cannot host the Compose fallback, so render the same seeded wave concept
-        // into a bitmap whenever the URI is absent or decoding failed.
-        val fallbackAccent = widgetAccentColor(
-            state.appAccentColor,
-            light = ColorUtils.calculateLuminance(base) > .5
-        )
-        val wavePalette = widgetWavePalette(state.fallbackSeed, base, fallbackAccent)
-        val art = decodedArtwork ?: widgetWaveArtwork(
-            context,
-            state.fallbackSeed,
-            wavePalette.surface,
-            wavePalette.stripe
-        )
+        // RemoteViews cannot host the Compose renderer, so decode the exact same bundled cover
+        // when URI artwork is absent or unreadable.  Its light treatment follows the widget's
+        // effective surface, while dark widgets retain the supplied PNG untouched.
+        val fallbackLight = state.theme == "Light" ||
+            (state.theme !in setOf("AMOLED", "Dark", "Glass", "Custom") &&
+                ColorUtils.calculateLuminance(base) > .5)
+        val fallbackAccent = widgetAccentColor(state.appAccentColor, light = fallbackLight)
+        val art = decodedArtwork ?: widgetDefaultArtwork(context, fallbackLight, fallbackAccent)
         val artworkKey = state.artworkUri?.toString()?.let { "$it:${state.fallbackSeed}" }
-            ?: "wave:${state.fallbackSeed}:${wavePalette.surface}:${wavePalette.stripe}"
+            ?: "xvox_default:$fallbackLight:$fallbackAccent"
         val fg = if (!full && ColorUtils.calculateLuminance(base) > .5 && state.transparency < .7) Color.rgb(17, 17, 17) else Color.WHITE
         val background = ColorUtils.setAlphaComponent(base, ((1 - state.transparency.coerceIn(0f, 1f)) * 255).roundToInt())
         val views = RemoteViews(context.packageName, if (narrow) R.layout.widget_xvox_player_custom_narrow else R.layout.widget_xvox_player)
@@ -406,45 +398,6 @@ object XvoxWidgetHelper {
         images.put(key, out)
         return out
     }
-    private data class WidgetWavePalette(val surface: Int, val stripe: Int)
-
-    /** Per-song spectrum variation while retaining the active app/widget accent as its source. */
-    private fun widgetWavePalette(seed: Int, base: Int, accent: Int): WidgetWavePalette {
-        val hsl = FloatArray(3)
-        ColorUtils.colorToHSL(accent, hsl)
-        val variation = widgetSeedUnit(seed, 41)
-        val offsets = floatArrayOf(-7f, 38f, 83f, 129f, 174f, 220f, 266f, 313f)
-        val lane = widgetSeedIndex(seed, 73, offsets.size)
-        val baseHue = if (hsl[1] < .08f) 0f else hsl[0]
-        val hue = (baseHue + offsets[lane] + (variation - .5f) * 18f + 360f) % 360f
-        val saturation = (
-            if (hsl[1] < .15f) .60f
-            else .46f + hsl[1] * .40f + (variation - .5f) * .12f
-        ).coerceIn(.42f, .88f)
-        val light = ColorUtils.calculateLuminance(base) > .5
-        val lightness = if (light) (.43f + variation * .12f).coerceIn(.43f, .55f)
-        else (.48f + variation * .15f).coerceIn(.48f, .63f)
-        val stripe = ColorUtils.HSLToColor(floatArrayOf(hue, saturation, lightness))
-        return WidgetWavePalette(
-            surface = ColorUtils.blendARGB(base, stripe, if (light) .12f else .18f),
-            stripe = stripe
-        )
-    }
-
-    private fun widgetSeedIndex(seed: Int, salt: Int, bound: Int): Int {
-        var value = seed * 1103515245 + salt * 12345
-        value = value xor (value ushr 16)
-        return (value and Int.MAX_VALUE) % bound
-    }
-
-    private fun widgetSeedUnit(seed: Int, salt: Int): Float {
-        var value = seed * 1103515245 + salt * 12345
-        value = value xor (value ushr 13)
-        value *= 1274126177
-        value = value xor (value ushr 16)
-        return (value and Int.MAX_VALUE).toFloat() / Int.MAX_VALUE.toFloat()
-    }
-
     /** Mirrors the app accent contract without requiring Compose inside a RemoteViews process. */
     private fun widgetAccentColor(value: String, light: Boolean): Int = when {
         value.startsWith("#") -> runCatching { Color.parseColor(value) }
@@ -457,89 +410,57 @@ object XvoxWidgetHelper {
     }
 
     /**
-     * Bitmap/Canvas equivalent of [com.xvox.music.features.home.WavePatternSquare] for widgets.
-     * RemoteViews cannot run Compose, but missing and failed URI artwork still gets a per-song,
-     * theme/accent-aware cover with the supplied centered XVOX mark rather than a generic icon.
+     * Bitmap/Canvas equivalent of the shared Compose default-cover renderer.  Widgets receive the
+     * supplied PNG rather than an independently generated wave; only light mode is inverted, and
+     * the single XVOX mark stays physically centred with the active app accent.
      */
-    private fun widgetWaveArtwork(context: Context, seed: Int, dark: Int, bright: Int): Bitmap {
-        val key = "wave:$seed:$dark:$bright"
+    private fun widgetDefaultArtwork(context: Context, light: Boolean, accent: Int): Bitmap {
+        val key = "xvox_default:$light:$accent"
         images.get(key)?.let { return it }
         val size = 360
-        val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
-        val pixels = IntArray(size * size)
-        val darkRed = Color.red(dark)
-        val darkGreen = Color.green(dark)
-        val darkBlue = Color.blue(dark)
-        val brightRed = Color.red(bright)
-        val brightGreen = Color.green(bright)
-        val brightBlue = Color.blue(bright)
-        val scale = 1080f / size
-        val period = 92f
-        for (py in 0 until size) {
-            for (px in 0 until size) {
-                val x = px * scale
-                val y = py * scale
-                val noiseOne = widgetWaveNoise(x, y, 230f, seed)
-                val noiseTwo = widgetWaveNoise(x, y, 230f, seed + 1)
-                val noiseThree = widgetWaveNoise(x, y, 110f, seed + 2)
-                val warpedX = x + 70f * noiseOne
-                val warpedY = y + 85f * noiseTwo + 28f * noiseThree + 22f * sin(warpedX / 85f)
-                var stripe = .5f + .5f * sin(warpedY / period * 2f * PI.toFloat())
-                stripe = ((stripe - .5f) * 1.6f + .5f).coerceIn(0f, 1f)
-                stripe = stripe * stripe * (3f - 2f * stripe)
-                pixels[py * size + px] = Color.rgb(
-                    (darkRed + (brightRed - darkRed) * stripe).roundToInt().coerceIn(0, 255),
-                    (darkGreen + (brightGreen - darkGreen) * stripe).roundToInt().coerceIn(0, 255),
-                    (darkBlue + (brightBlue - darkBlue) * stripe).roundToInt().coerceIn(0, 255)
+        val source = checkNotNull(
+            BitmapFactory.decodeResource(
+                context.resources,
+                R.drawable.xvox_default,
+                BitmapFactory.Options().apply { inPreferredConfig = Bitmap.Config.ARGB_8888 }
+            )
+        ) { "Bundled XVOX default cover is unavailable" }
+        val scaled = Bitmap.createScaledBitmap(source, size, size, true)
+        if (scaled !== source) source.recycle()
+        val bitmap = if (light) {
+            Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888).also { output ->
+                Canvas(output).drawBitmap(
+                    scaled,
+                    0f,
+                    0f,
+                    Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
+                        colorFilter = ColorMatrixColorFilter(
+                            ColorMatrix(
+                                floatArrayOf(
+                                    -1f, 0f, 0f, 0f, 255f,
+                                    0f, -1f, 0f, 0f, 255f,
+                                    0f, 0f, -1f, 0f, 255f,
+                                    0f, 0f, 0f, 1f, 0f
+                                )
+                            )
+                        )
+                    }
                 )
+                scaled.recycle()
             }
-        }
-        bitmap.setPixels(pixels, 0, size, 0, 0, size, size)
-
-        val canvas = Canvas(bitmap)
-        val lockupTint = if (ColorUtils.calculateLuminance(dark) < .42) {
-            Color.argb(224, 255, 255, 255)
         } else {
-            Color.argb(184, 0, 0, 0)
+            scaled
         }
-        // Match Compose and notification fallback art: only the supplied mark, centered and
-        // proportionate to the artwork square, with no small text lockup in a corner.
+
         val markSize = (size * .34f).roundToInt()
         val left = (size - markSize) / 2
-        val top = (size - markSize) / 2
         ResourcesCompat.getDrawable(context.resources, R.drawable.xvox, null)?.mutate()?.let { mark ->
-            mark.setTint(lockupTint)
-            mark.setBounds(left, top, left + markSize, top + markSize)
-            mark.draw(canvas)
+            mark.setTint(if (light) accent else Color.WHITE)
+            mark.setBounds(left, left, left + markSize, left + markSize)
+            mark.draw(Canvas(bitmap))
         }
         images.put(key, bitmap)
         return bitmap
-    }
-
-    private fun widgetWaveHash(ix: Int, iy: Int, seed: Int): Float {
-        var value = ix * 374761393 + iy * 668265263 + seed * 1274126177
-        value = (value xor (value ushr 13)) * 1274126177
-        value = value xor (value ushr 16)
-        return (value and 0xFFFF) / 32767.5f - 1f
-    }
-
-    private fun widgetWaveFade(value: Float): Float =
-        value * value * value * (value * (value * 6f - 15f) + 10f)
-
-    private fun widgetWaveNoise(x: Float, y: Float, cell: Float, seed: Int): Float {
-        val gridX = x / cell
-        val gridY = y / cell
-        val indexX = floor(gridX).toInt()
-        val indexY = floor(gridY).toInt()
-        val fractionX = widgetWaveFade(gridX - indexX)
-        val fractionY = widgetWaveFade(gridY - indexY)
-        val topLeft = widgetWaveHash(indexX, indexY, seed)
-        val topRight = widgetWaveHash(indexX + 1, indexY, seed)
-        val bottomLeft = widgetWaveHash(indexX, indexY + 1, seed)
-        val bottomRight = widgetWaveHash(indexX + 1, indexY + 1, seed)
-        val top = topLeft + (topRight - topLeft) * fractionX
-        val bottom = bottomLeft + (bottomRight - bottomLeft) * fractionX
-        return (top + (bottom - top) * fractionY) * 2.2f
     }
 
     private fun artwork(context: Context, uri: Uri?): Bitmap? {

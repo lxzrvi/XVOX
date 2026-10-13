@@ -5,8 +5,8 @@ import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
-import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -22,7 +22,6 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -31,6 +30,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -72,12 +72,6 @@ fun XvoxNowPlayingProgress(
         mutableFloatStateOf(0f)
     }
 
-    var dragAnchorFraction by remember {
-        mutableFloatStateOf(0f)
-    }
-    var dragAnchorX by remember {
-        mutableFloatStateOf(0f)
-    }
     // A tap/drag seek paints its chosen position immediately and holds it until playback catches
     // up. This prevents the old progress sample briefly drawing again before the player reports
     // the new position—the double-bar/repeat effect users can otherwise see after a seek.
@@ -105,7 +99,6 @@ fun XvoxNowPlayingProgress(
             0f
         }
 
-    val latestRealFraction by rememberUpdatedState(realFraction)
     // Playback callbacks arrive in discrete samples. Interpolate the visual rail between samples
     // so every style travels continuously, while a finger drag always remains exact/direct.
     val animatedFraction by animateFloatAsState(
@@ -204,48 +197,51 @@ fun XvoxNowPlayingProgress(
                 .fillMaxWidth()
                 .height(if (showTime) 18.dp else 12.dp)
                 .pointerInput(duration) {
-                    detectHorizontalDragGestures(
-                        onDragStart = { offset ->
-                            if (duration > 0L && size.width > 0) {
-                                pendingSeekFraction = null
-                                dragging = true
-                                dragAnchorFraction = latestRealFraction
-                                dragAnchorX = offset.x
-                                dragFraction = latestRealFraction
-                            }
-                        },
-                        onHorizontalDrag = { change, _ ->
-                            change.consume()
-                            if (dragging && size.width > 0) {
-                                dragFraction =
-                                    (dragAnchorFraction +
-                                        (change.position.x - dragAnchorX) / size.width)
-                                        .coerceIn(0f, 1f)
-                            }
-                        },
-                        onDragEnd = {
-                            if (duration > 0L && dragging) requestSeek(dragFraction)
-                            dragging = false
-                        },
-                        onDragCancel = {
-                            dragging = false
+                    // A single recognizer owns this rail.  The previous independent tap and drag
+                    // detectors could both report one release, producing a second seek sample and
+                    // the visible accent-line jump that followed it.
+                    awaitEachGesture {
+                        val down = awaitFirstDown(
+                            requireUnconsumed = false,
+                            pass = PointerEventPass.Initial
+                        )
+                        if (duration <= 0L || size.width <= 0) {
+                            do {
+                                val event = awaitPointerEvent(PointerEventPass.Initial)
+                            } while (event.changes.any { it.pressed })
+                            return@awaitEachGesture
                         }
-                    )
-                }
-                .pointerInput(duration) {
-                    detectTapGestures { point ->
-                        if (
-                            duration > 0L &&
-                            size.width > 0
-                        ) {
-                            val fraction =
-                                (point.x / size.width)
-                                    .coerceIn(0f, 1f)
 
-                            // requestSeek gates a drag-release event that a second recognizer
-                            // might also classify as this tap.
-                            requestSeek(fraction)
+                        val start = down.position
+                        val slop = viewConfiguration.touchSlop
+                        var mode = 0 // 0 = tap candidate, 1 = horizontal seek, 2 = another gesture
+                        var released = false
+                        while (!released) {
+                            val event = awaitPointerEvent(PointerEventPass.Initial)
+                            val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                            val dx = change.position.x - start.x
+                            val dy = change.position.y - start.y
+                            if (mode == 0 && dx * dx + dy * dy > slop * slop) {
+                                mode = if (abs(dx) >= abs(dy)) 1 else 2
+                                if (mode == 1) {
+                                    pendingSeekFraction = null
+                                    dragging = true
+                                    dragFraction = (change.position.x / size.width).coerceIn(0f, 1f)
+                                }
+                            }
+                            if (mode == 1) {
+                                change.consume()
+                                dragFraction = (change.position.x / size.width).coerceIn(0f, 1f)
+                            }
+                            if (!change.pressed || event.changes.none { it.pressed }) {
+                                when (mode) {
+                                    0 -> requestSeek((start.x / size.width).coerceIn(0f, 1f))
+                                    1 -> requestSeek(dragFraction)
+                                }
+                                released = true
+                            }
                         }
+                        dragging = false
                     }
                 },
             contentAlignment = Alignment.Center

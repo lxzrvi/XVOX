@@ -26,6 +26,17 @@ android {
     // Keep the universal APK download compact; native libraries are extracted on install.
     packaging { jniLibs.useLegacyPackaging = true }
 
+    sourceSets {
+        getByName("main") {
+            // The supplied artwork stays at res/default_cover as the canonical source requested
+            // by the product. AGP 9 source directories no longer expose file filters, so compile
+            // the byte-identical drawable-nodpi copy from a dedicated valid resource root instead
+            // of ever asking aapt to interpret `default_cover` as a resource type.
+            res.directories.clear()
+            res.directories.add("src/main/android-res")
+        }
+    }
+
     buildFeatures {
         compose = true
     }

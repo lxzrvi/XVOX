@@ -250,9 +250,9 @@ fun SettingsScreen(
 
             if (isLandscape) {
                 // Preserve the portrait sequence left-to-right, then top-to-bottom: Appearance →
-                // Recycle Bin → Widgets → Backup & Restore → Support → About. Equal-height pairs
-                // retain the landscape grid's balanced physical rows.
-                item(key = "settings_pair_appearance_recycle", span = { GridItemSpan(maxLineSpan) }) {
+                // Background Playback → Recycle Bin → Widgets → Backup & Restore → Support → About.
+                // Equal-height pairs retain the landscape grid's balanced physical rows.
+                item(key = "settings_pair_appearance_background_playback", span = { GridItemSpan(maxLineSpan) }) {
                     Row(
                         modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Max),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -261,23 +261,30 @@ fun SettingsScreen(
                             state, settingsViewModel, ::openCustomColorPicker, ::openFontPicker,
                             modifier = Modifier.weight(1f).fillMaxHeight()
                         )
-                        DeletedItemsSectionCard(
-                            onOpen = ::openDeletedItems,
+                        BackgroundPlaybackSectionCard(
+                            state = state,
+                            viewModel = settingsViewModel,
                             modifier = Modifier.weight(1f).fillMaxHeight()
                         )
                     }
                 }
-                item(key = "settings_pair_widgets_backup", span = { GridItemSpan(maxLineSpan) }) {
+                item(key = "settings_pair_recycle_widgets", span = { GridItemSpan(maxLineSpan) }) {
                     Row(
                         modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Max),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
+                        DeletedItemsSectionCard(
+                            onOpen = ::openDeletedItems,
+                            modifier = Modifier.weight(1f).fillMaxHeight()
+                        )
                         WidgetSectionCard(
                             onOpenStudio = { showingWidgetStudio = true },
                             modifier = Modifier.weight(1f).fillMaxHeight()
                         )
-                        BackupSectionCard(homeViewModel, Modifier.weight(1f).fillMaxHeight())
                     }
+                }
+                item(key = "settings_backup", span = { GridItemSpan(maxLineSpan) }) {
+                    BackupSectionCard(homeViewModel, Modifier.fillMaxWidth())
                 }
                 // Support's tier buttons and the comprehensive About guide both need their
                 // natural width/height. Keeping each full-width avoids stretching Support into
@@ -293,7 +300,10 @@ fun SettingsScreen(
                 item(key = "section_appearance") {
                     AppearanceSectionCard(state, settingsViewModel, ::openCustomColorPicker, ::openFontPicker)
                 }
-                // The requested everyday portrait order starts immediately after Appearance.
+                // Keep Background Playback immediately above Recycle Bin in the everyday order.
+                item(key = "section_background_playback") {
+                    BackgroundPlaybackSectionCard(state, settingsViewModel)
+                }
                 item(key = "section_deleted_items") { DeletedItemsSectionCard(onOpen = ::openDeletedItems) }
                 item(key = "section_widget") {
                     WidgetSectionCard(onOpenStudio = { showingWidgetStudio = true })
@@ -730,6 +740,18 @@ private fun SupportTierButton(
     ) {
         Text(price, color = colors.primaryText, fontSize = 12.sp, fontWeight = FontWeight.Bold)
         Text(label, color = colors.secondaryText.copy(alpha = .88f), fontSize = 9.5.sp, maxLines = 1)
+    }
+}
+
+/** Keeps the accepted background-playback permission behaviour on the main Settings landing page. */
+@Composable
+private fun BackgroundPlaybackSectionCard(
+    state: SettingsState,
+    viewModel: SettingsViewModel,
+    modifier: Modifier = Modifier
+) {
+    SettingsCardFrame(title = "Background Playback", modifier = modifier) {
+        NotifySettingsSection(state, viewModel)
     }
 }
 

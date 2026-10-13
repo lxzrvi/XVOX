@@ -11,6 +11,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -24,7 +25,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
@@ -40,7 +40,6 @@ import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.features.settings.SettingsState
 import com.xvox.music.features.settings.SettingsViewModel
-import com.xvox.music.features.settings.components.SettingsAccordionItem
 import com.xvox.music.features.settings.components.SettingsControlsEditor
 import com.xvox.music.features.settings.components.SettingsToggle
 import com.xvox.music.features.settings.components.XvoxSlider
@@ -92,11 +91,6 @@ private fun ThreeDSoundContent(
     onBalance: (Float) -> Unit
 ) {
     val colors = XvoxTheme.colors
-    var expandedGroup by remember { mutableStateOf<String?>(null) }
-
-    fun toggle(group: String) {
-        expandedGroup = if (expandedGroup == group) null else group
-    }
 
     SettingsControlsEditor(controls = {
         ThreeDSoundPreview(
@@ -110,19 +104,17 @@ private fun ThreeDSoundContent(
 
         Spacer(Modifier.height(8.dp))
 
-        SettingsToggle(
-            title = "3D sound",
-            subtitle = "Widen, move and place the sound around you",
-            checked = state.stereoWidening,
-            onChange = onStereoWidening
-        )
+        ThreeDSoundOptionBox {
+            SettingsToggle(
+                title = "3D sound",
+                subtitle = "Widen, move and place the sound around you",
+                checked = state.stereoWidening,
+                onChange = onStereoWidening
+            )
+        }
 
         if (state.stereoWidening) {
-            SettingsAccordionItem(
-                title = "Spatial Stage",
-                expanded = expandedGroup == "Spatial",
-                onToggle = { toggle("Spatial") }
-            ) {
+            ThreeDSoundOptionBox(title = "Spatial Stage") {
                 EqL("Width · ${(state.surroundWidth * 100).roundToInt()}%")
                 XvoxSlider(
                     state.surroundWidth,
@@ -142,11 +134,7 @@ private fun ThreeDSoundContent(
                 )
             }
 
-            SettingsAccordionItem(
-                title = "Motion & Orbit",
-                expanded = expandedGroup == "Motion",
-                onToggle = { toggle("Motion") }
-            ) {
+            ThreeDSoundOptionBox(title = "Motion & Orbit") {
                 val orbitOptions = listOf(0 to "Off", 2 to "2s", 4 to "4s", 6 to "6s", 8 to "8s", 12 to "12s", 15 to "15s")
                 EqL("Orbit speed · ${if (state.surroundPanSpeed <= 0) "Off" else "${state.surroundPanSpeed}s per sweep"}")
                 Row(
@@ -179,11 +167,7 @@ private fun ThreeDSoundContent(
                 }
             }
 
-            SettingsAccordionItem(
-                title = "Acoustics & Balance",
-                expanded = expandedGroup == "Acoustics",
-                onToggle = { toggle("Acoustics") }
-            ) {
+            ThreeDSoundOptionBox(title = "Acoustics & Balance") {
                 EqL("HRTF / Spatial binaural · ${(state.hrtf * 100).roundToInt()}%")
                 XvoxSlider(
                     state.hrtf,
@@ -200,11 +184,7 @@ private fun ThreeDSoundContent(
                 XvoxSlider(state.balance, onBalance, -1f..1f, defaultValue = 0f)
             }
         } else {
-            SettingsAccordionItem(
-                title = "Acoustics & Balance",
-                expanded = expandedGroup == "Acoustics",
-                onToggle = { toggle("Acoustics") }
-            ) {
+            ThreeDSoundOptionBox(title = "Acoustics & Balance") {
                 val balText = if (state.balance < -0.05f) "Left ${(abs(state.balance) * 100).roundToInt()}%"
                 else if (state.balance > 0.05f) "Right ${(state.balance * 100).roundToInt()}%"
                 else "Center"
@@ -213,6 +193,30 @@ private fun ThreeDSoundContent(
             }
         }
     })
+}
+
+/** Groups every 3D slider/toggle into a single bounded section in sheets and Settings. */
+@Composable
+private fun ThreeDSoundOptionBox(
+    title: String? = null,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    val colors = XvoxTheme.colors
+    val shape = RoundedCornerShape(14.dp)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(colors.cardElevated.copy(alpha = .64f))
+            .border(.8.dp, colors.cardBorder.copy(alpha = .78f), shape)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(5.dp)
+    ) {
+        title?.let {
+            Text(it, color = colors.primaryAccent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+        }
+        content()
+    }
 }
 
 @Composable

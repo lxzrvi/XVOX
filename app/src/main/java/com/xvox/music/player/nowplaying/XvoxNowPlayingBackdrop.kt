@@ -35,7 +35,7 @@ import com.xvox.music.features.home.XvoxSongArtwork
 fun XvoxNowPlayingBackdrop(
     dominant: Color,
     artwork: Uri?,
-    /** Song identity stays non-null even when [artwork] is null, preserving a unique fallback. */
+    /** Song identity remains non-null even when [artwork] is null, preserving stable handoff keys. */
     artworkKey: String,
     artworkSeed: Int,
     incomingArtwork: Uri? = null,
@@ -76,21 +76,21 @@ fun XvoxNowPlayingBackdrop(
     )
     val keepCoverLayer = showCoverTarget || coverLayerAlpha > .001f
     val fraction = artworkTransitionFraction.coerceIn(0f, 1f)
-    // Incoming identity—not URI—defines a transition. This lets two coverless songs blend their
-    // distinct wave patterns, and avoids treating a shared URI as a new visual identity.
+    // Incoming identity—not URI—defines a transition. This preserves a stable fallback handoff
+    // between coverless songs and avoids treating a shared URI as a new visual identity.
     val pagerArtworkTransition = showCoverTarget && incomingArtworkKey != null &&
         incomingArtworkKey != artworkKey && fraction > .0001f
 
     // An incoming layer is never allowed to take over before it is drawable. A decoded bitmap,
-    // error fallback, or no-cover wave reports readiness; the outgoing cover stays visible until
+    // error fallback, or no-cover default art reports readiness; the outgoing cover stays visible until
     // then, eliminating blank/glitch frames during swipes and lyrics navigation.
     var readyArtworkKeys by remember { mutableStateOf(emptySet<String>()) }
     fun markArtworkReady(key: String?) {
         key ?: return
         if (key !in readyArtworkKeys) readyArtworkKeys = readyArtworkKeys + key
     }
-    // Null artwork also waits for its generated wave bitmap. That lets a real cover ↔ no-cover
-    // handoff blend rather than revealing the local surface for a frame.
+    // Null artwork also waits for its bundled default-cover bitmap. That lets a real cover ↔
+    // no-cover handoff blend rather than revealing the local surface for a frame.
     val incomingAvailable = incomingArtworkKey != null && incomingArtworkKey in readyArtworkKeys
     val incomingAvailability = remember(incomingArtworkKey) { Animatable(0f) }
     LaunchedEffect(incomingArtworkKey, pagerArtworkTransition, incomingAvailable) {
@@ -126,7 +126,7 @@ fun XvoxNowPlayingBackdrop(
     ) {
         if (keepCoverLayer) {
             // Keep one persistent primary slot in composition. XvoxSongArtwork retains/morphs a
-            // decoded outgoing bitmap (or wave fallback) while the settled/lyrics song changes.
+            // decoded outgoing bitmap (or bundled fallback) while the settled/lyrics song changes.
             PremiumBlurredCover(
                 artwork = artwork,
                 fallbackSeed = artworkSeed,

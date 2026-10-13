@@ -57,7 +57,7 @@
         </activity>
 
         <!-- Media controllers such as Android Auto resolve the artwork URI outside this process.
-             This provider exposes only generated, non-library PNG fallback art for that purpose. -->
+             This provider exposes the bundled, non-library XVOX default-cover PNG for that purpose. -->
         <provider
             android:name=".artwork.XvoxFallbackArtworkProvider"
             android:authorities="com.xvox.music.fallbackart"

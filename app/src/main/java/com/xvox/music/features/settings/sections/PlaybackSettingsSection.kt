@@ -1,20 +1,23 @@
 package com.xvox.music.features.settings.sections
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
 import com.xvox.music.features.settings.SettingsState
 import com.xvox.music.features.settings.SettingsViewModel
-import com.xvox.music.features.settings.components.SettingsAccordionItem
 import com.xvox.music.features.settings.components.SettingsControlsEditor
 import com.xvox.music.features.settings.components.SettingsToggle
 import com.xvox.music.features.settings.components.XvoxSlider
@@ -71,11 +74,6 @@ private fun PlaybackSettingsContent(
     onClashControl: (Float) -> Unit,
     onBeatSync: (Boolean) -> Unit
 ) {
-    var expandedGroup by remember { mutableStateOf<String?>(null) }
-    fun toggle(group: String) {
-        expandedGroup = if (expandedGroup == group) null else group
-    }
-
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (showPreview) com.xvox.music.features.settings.components.CrossfadeSettingsPreview(state)
 
@@ -93,11 +91,9 @@ private fun PlaybackSettingsContent(
         )
 
         if (state.crossfade) {
-            SettingsAccordionItem(
-                title = "Transition Length · ${state.crossfadeDuration}s",
-                expanded = expandedGroup == "Duration",
-                onToggle = { toggle("Duration") }
-            ) {
+            // Each live amount has its own clear material rather than leaving a rail loose among
+            // toggles.  This holds both the label and slider together in short and tall sheets.
+            CrossfadeOptionBox(title = "Transition length · ${state.crossfadeDuration}s") {
                 XvoxSlider(
                     value = state.crossfadeDuration.toFloat(),
                     onValueChange = { onDuration(it.roundToInt()) },
@@ -108,11 +104,7 @@ private fun PlaybackSettingsContent(
                 )
             }
 
-            SettingsAccordionItem(
-                title = "Smart Blend & Beat Align",
-                expanded = expandedGroup == "Blend",
-                onToggle = { toggle("Blend") }
-            ) {
+            CrossfadeOptionBox(title = "Smart blend & beat align") {
                 SettingsToggle("Seamless Blend", null, state.crossfadeSmart, onSmartBlend)
                 if (state.crossfadeSmart) {
                     Spacer(Modifier.height(8.dp))
@@ -136,5 +128,33 @@ private fun PlaybackSettingsContent(
 fun PlaybackSettingsEditor(state: SettingsState, viewModel: SettingsViewModel) {
     SettingsControlsEditor(
         controls = { PlaybackSettingsSection(state, viewModel, showPreview = false) }
+    )
+}
+
+/** A boxed crossfade control group keeps its label and slider visibly associated. */
+@Composable
+private fun CrossfadeOptionBox(
+    title: String,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    val colors = com.xvox.music.core.design.theme.XvoxTheme.colors
+    val shape = RoundedCornerShape(14.dp)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(colors.cardElevated.copy(alpha = .64f))
+            .border(.8.dp, colors.cardBorder.copy(alpha = .78f), shape)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(5.dp),
+        content = {
+            androidx.compose.material3.Text(
+                text = title,
+                color = colors.primaryText,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+            content()
+        }
     )
 }

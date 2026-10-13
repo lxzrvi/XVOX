@@ -12,8 +12,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -389,10 +387,13 @@ fun XvoxSheet(
                     .takeIf { it > 0f }
                     ?.let { with(density) { it.coerceIn(1f, contentBoundedMaxHeightPx()).toDp() } }
                 val sheetShape = RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp)
-                val sheetSizing = if (requestedHeight != null) {
-                    Modifier.height(requestedHeight)
-                } else {
-                    Modifier.heightIn(max = maxSheetHeight)
+                val sheetSizing = when {
+                    // Equalizer has a deliberately fixed footer.  Give its scrollable option body
+                    // the bounded viewport instead of letting a tall editor compress the three
+                    // Cancel / Reset / Okay controls at the lower edge.
+                    presentation == XvoxBoxPresentation.EQUALIZER -> Modifier.height(maxSheetHeight)
+                    requestedHeight != null -> Modifier.height(requestedHeight)
+                    else -> Modifier.heightIn(max = maxSheetHeight)
                 }
 
                 AnimatedVisibility(
@@ -511,7 +512,9 @@ fun XvoxSheet(
                         }
                         // Only fixed (overflowing) sheets fill their bounded viewport. Compact
                         // content keeps its intrinsic height instead of gaining blank space.
-                        val bodyViewport = if (requestedHeight != null) Modifier.weight(1f) else Modifier
+                        val bodyViewport = if (
+                            requestedHeight != null || presentation == XvoxBoxPresentation.EQUALIZER
+                        ) Modifier.weight(1f) else Modifier
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -607,6 +610,13 @@ private fun XvoxCenteredBox(
     val dismiss by rememberUpdatedState(onDismiss)
     var visible by remember { mutableStateOf(false) }
     var closing by remember { mutableStateOf(false) }
+    // The Dialog paints one full-screen, opacity-only scrim.  It never scales or translates with
+    // a centred sheet, so the sheet is the only moving layer in every overlay presentation.
+    val scrimAlpha by animateFloatAsState(
+        targetValue = if (visible) .48f else 0f,
+        animationSpec = tween(190, easing = XvoxBoxEasing),
+        label = "centeredSheetScrimAlpha"
+    )
     val swallowInteraction = remember { MutableInteractionSource() }
 
     fun close() {
@@ -671,15 +681,21 @@ private fun XvoxCenteredBox(
             Box(
                 Modifier
                     .matchParentSize()
-                    .background(scrimColor.copy(alpha = .48f))
+                    .background(scrimColor.copy(alpha = scrimAlpha))
                     .clickable(remember { MutableInteractionSource() }, indication = null) { close() }
             )
             AnimatedVisibility(
                 visible = visible,
-                enter = fadeIn(tween(150, easing = XvoxBoxEasing)) +
-                    scaleIn(initialScale = .94f, animationSpec = tween(200, easing = XvoxBoxEasing)),
-                exit = fadeOut(tween(120, easing = XvoxBoxEasing)) +
-                    scaleOut(targetScale = .96f, animationSpec = tween(150, easing = XvoxBoxEasing))
+                // Match the bottom-sheet rule: no scale/morph animation on the backdrop, only
+                // this surface rises into place over the full static scrim.
+                enter = slideInVertically(
+                    initialOffsetY = { fullHeight -> fullHeight / 2 },
+                    animationSpec = tween(220, easing = XvoxBoxEasing)
+                ) + fadeIn(tween(150, easing = XvoxBoxEasing)),
+                exit = slideOutVertically(
+                    targetOffsetY = { fullHeight -> fullHeight / 2 },
+                    animationSpec = tween(180, easing = XvoxBoxEasing)
+                ) + fadeOut(tween(120, easing = XvoxBoxEasing))
             ) {
                 Column(
                     modifier = Modifier

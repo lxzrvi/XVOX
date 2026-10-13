@@ -97,7 +97,9 @@ fun XvoxNowPlayingArtworkPager(
     onSettledPage: (Int, Song) -> Unit,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(0.dp),
-    pageSpacing: Dp = 12.dp,
+    // Zero spacing keeps the incoming cover opaque through the handoff instead of revealing a
+    // transient backdrop strip between pages.
+    pageSpacing: Dp = 0.dp,
     /** Insets the cover inside an edge-clipped page without exposing neighbouring artwork. */
     artworkHorizontalInset: Dp = 0.dp,
     /** 0dp lets an edge-to-edge landscape deck touch all screen boundaries. */
@@ -338,9 +340,12 @@ private fun XvoxNowPlayingArtworkPage(
             .graphicsLayer {
                 // Now Playing artwork has one intentional treatment: Depth. It remains
                 // responsive to native pager drag while the background owns its own variety.
-                scaleX = if (applyDepth) 1f - .20f * amount else 1f
+                // Keep both adjacent covers fully opaque.  The former alpha dip exposed the
+                // changing backdrop in the pager seam, which read as a cover jump/flicker during
+                // Previous/Next even when both original-quality images were already warm.
+                scaleX = if (applyDepth) 1f - .08f * amount else 1f
                 scaleY = scaleX
-                alpha = if (applyDepth) 1f - .36f * amount else 1f
+                alpha = 1f
             }
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },

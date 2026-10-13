@@ -106,7 +106,7 @@ private fun Color.xvoxReadableCoverLyricColor(): Color {
 private class XvoxNowPlayingBackdropState(initialSong: Song?) {
     var artwork by mutableStateOf(initialSong?.artworkUri)
         private set
-    // URI alone is not enough: two coverless songs are both null but must retain distinct wave
+    // URI alone is not enough: two coverless songs are both null but still need distinct stable
     // identities while their pager/background blend travels.
     var artworkKey by mutableStateOf(initialSong?.xvoxArtworkPaletteKey() ?: "xvox_fallback_initial")
         private set
@@ -1103,7 +1103,9 @@ fun XvoxNowPlaying(
                             onSettledPage = { settledIndex, settledSong -> commitSettledPreview(settledIndex, settledSong) },
                             modifier = Modifier.fillMaxSize(),
                             contentPadding = PaddingValues(horizontal = currentPadH),
-                            pageSpacing = 12.dp,
+                            // An opaque zero-gap deck hands the incoming cover directly to the
+                            // outgoing one; the backdrop continues its own palette blend below.
+                            pageSpacing = 0.dp,
                             repeatMode = repeatMode
                         )
                         }
@@ -1416,7 +1418,10 @@ fun XvoxNowPlaying(
                                         )
                                         applyThreeDSoundDraft()
                                     },
-                                    onOkay = { activeSettingsBox = null }
+                                    onOkay = {
+                                        applyThreeDSoundDraft(optionDraft)
+                                        activeSettingsBox = null
+                                    }
                                 )
                             }
                         }
@@ -1435,7 +1440,10 @@ fun XvoxNowPlaying(
                                         )
                                         applyCrossfadeDraft()
                                     },
-                                    onOkay = { activeSettingsBox = null }
+                                    onOkay = {
+                                        applyCrossfadeDraft(optionDraft)
+                                        activeSettingsBox = null
+                                    }
                                 )
                             }
                         }
@@ -1443,7 +1451,10 @@ fun XvoxNowPlaying(
                             {
                                 XvoxTransactionalFooterActions(
                                     onCancel = { activeSettingsBox = null },
-                                    onOkay = { activeSettingsBox = null }
+                                    onOkay = {
+                                        applyBluetoothDraft(optionDraft)
+                                        activeSettingsBox = null
+                                    }
                                 )
                             }
                         }
@@ -1463,7 +1474,10 @@ fun XvoxNowPlaying(
                                         )
                                         applyLyricsDraft(optionDraft)
                                     },
-                                    onDone = { activeSettingsBox = null }
+                                    onDone = {
+                                        applyLyricsDraft(optionDraft)
+                                        activeSettingsBox = null
+                                    }
                                 )
                             }
                         }

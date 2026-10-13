@@ -26,7 +26,6 @@ import coil3.compose.AsyncImage
 import coil3.request.CachePolicy
 import coil3.request.ImageRequest
 import coil3.size.Precision
-import kotlinx.coroutines.withContext
 import com.xvox.music.artwork.XvoxArtworkCache
 import com.xvox.music.artwork.XvoxImageWork
 import com.xvox.music.core.design.theme.XvoxTheme
@@ -34,16 +33,6 @@ import com.xvox.music.core.design.theme.XvoxTheme
 const val XvoxGridArtworkSize = 256
 const val XvoxRecentArtworkSize = 512
 const val XvoxNowPlayingArtworkSize = 0
-
-/** Keep tiny/list fallbacks cheap; full player artwork retains a higher-quality seeded wave. */
-private fun fallbackBitmapSizeFor(requestSize: Int): Int = when {
-    // Full-player art still needs a dense source for its local blur/crossfade path.
-    requestSize <= 0 -> 420
-    // A wave is geometric rather than photographic: library and Mini Player cells stay sharp at
-    // this density while their cancellable generation and cache footprint are quartered.
-    requestSize <= XvoxGridArtworkSize -> 128
-    else -> requestSize.coerceIn(160, 360)
-}
 
 /**
  * Shared artwork renderer.
@@ -61,13 +50,13 @@ fun XvoxSongArtwork(
     keepPreviousOnLoading: Boolean = false,
     /** The surrounding transition already rendered this decoded incoming cover at full opacity. */
     skipDecodedMorph: Boolean = false,
-    /** Use the same wave as a bitmap so a local blurred backdrop can morph it with real covers. */
+    /** Use the bundled default cover as a bitmap so a local blur can morph it with real covers. */
     renderFallbackAsBitmap: Boolean = false,
     /** Fallback mark behavior follows the surface; visible artwork always centers the XVOX mark. */
     fallbackBrand: XvoxFallbackBrand = XvoxFallbackBrand.STANDARD,
-    /** Stable per-song identity for a missing/failed cover's wave pattern. */
+    /** Retained only as a stable caller identity; every fallback now shares the supplied cover. */
     fallbackSeed: Int? = null,
-    /** Reports after either a decoded bitmap or the generated fallback is ready. */
+    /** Reports after either decoded artwork or the bundled fallback is ready. */
     onArtworkReady: (() -> Unit)? = null
 ) {
     val colors = XvoxTheme.colors
@@ -75,38 +64,30 @@ fun XvoxSongArtwork(
     val latestArtworkReady by rememberUpdatedState(onArtworkReady)
 
     if (artwork == null && !renderFallbackAsBitmap) {
-        // Regular card art is immediately drawable and retains the Compose lockup. The local
-        // blurred Now Playing path opts into a bitmap below so it can blend this wave with a
-        // decoded old/new cover instead of jumping when lyrics Next/Previous changes tracks.
+        // Regular card art is immediately drawable.  The local blurred Now Playing path opts
+        // into a bitmap below so it can blend the supplied cover with decoded old/new artwork.
         LaunchedEffect(fallbackSeed) { latestArtworkReady?.invoke() }
         WavePatternSquare(
             modifier = modifier,
             seed = fallbackSeed ?: 11,
-            bitmapSize = fallbackBitmapSizeFor(requestSize),
+            bitmapSize = requestSize,
             brand = fallbackBrand
         )
         return
     }
 
-    val baseKey = remember(artwork, fallbackSeed) {
-        artwork?.let(XvoxArtworkCache::keyFor) ?: "xvox_wave_${fallbackSeed ?: 11}"
+    val baseKey = remember(artwork) {
+        artwork?.let(XvoxArtworkCache::keyFor) ?: "xvox_default_cover"
     }
-    val resolvedFallbackSeed = fallbackSeed ?: baseKey.hashCode()
-    val fallbackPalette = remember(resolvedFallbackSeed, colors) {
-        xvoxWavePalette(resolvedFallbackSeed, colors)
+    val defaultCoverKey = remember(colors.isLight) {
+        "xvox_default_cover_v1:${if (colors.isLight) "light" else "dark"}"
     }
-    val fallbackDark = fallbackPalette.surface
-    val fallbackBright = fallbackPalette.stripe
-    val fallbackBitmapSize = fallbackBitmapSizeFor(requestSize)
-    val fallbackPatternKey = remember(fallbackDark, fallbackBright, resolvedFallbackSeed, fallbackBitmapSize) {
-        xvoxWavePatternKey(fallbackDark, fallbackBright, resolvedFallbackSeed, fallbackBitmapSize)
-    }
-    val cacheKey = remember(baseKey, requestSize, artwork, renderFallbackAsBitmap, fallbackPatternKey) {
-        if (artwork == null && renderFallbackAsBitmap) fallbackPatternKey else "${baseKey}_$requestSize"
+    val cacheKey = remember(baseKey, requestSize, artwork, renderFallbackAsBitmap, defaultCoverKey) {
+        if (artwork == null && renderFallbackAsBitmap) defaultCoverKey else "${baseKey}_$requestSize"
     }
 
     fun cachedBitmap(): Bitmap? {
-        if (artwork == null && renderFallbackAsBitmap) return xvoxCachedWaveBitmap(fallbackPatternKey)
+        if (artwork == null && renderFallbackAsBitmap) return XvoxArtworkCache.get(defaultCoverKey)
         return when {
             requestSize == 0 -> XvoxArtworkCache.get("${baseKey}_0")
             requestSize >= 1024 -> {
@@ -136,19 +117,17 @@ fun XvoxSongArtwork(
     var decodedBitmap by remember(cacheKey, baseKey, requestSize) { mutableStateOf(cachedBitmap()) }
     var artworkFailed by remember(cacheKey, baseKey, requestSize) { mutableStateOf(false) }
     var fallbackRequested by remember(cacheKey) { mutableStateOf(artwork == null && renderFallbackAsBitmap) }
-    LaunchedEffect(fallbackPatternKey, renderFallbackAsBitmap, artwork, fallbackRequested) {
+    LaunchedEffect(defaultCoverKey, renderFallbackAsBitmap, artwork, fallbackRequested) {
         if (renderFallbackAsBitmap && (artwork == null || fallbackRequested) && decodedBitmap == null) {
-            val wave = xvoxCachedWaveBitmap(fallbackPatternKey)
-                ?: withContext(XvoxImageWork.waveContext) {
-                    xvoxBuildWaveBitmap(fallbackBitmapSize, resolvedFallbackSeed, fallbackDark, fallbackBright).also {
-                        xvoxCacheWaveBitmap(fallbackPatternKey, it)
-                    }
-                }
-            decodedBitmap = wave
+            // The default cover is decoded once on the bounded artwork worker.  Unlike the old
+            // procedural fallback, a dense coverless All Songs page creates no per-card pixels.
+            decodedBitmap = kotlinx.coroutines.withContext(XvoxImageWork.decoderContext) {
+                xvoxDefaultCoverBitmap(context, colors.isLight)
+            }
         }
     }
     LaunchedEffect(cacheKey, decodedBitmap, artworkFailed, renderFallbackAsBitmap) {
-        // A permanent decoder failure still has a fully generated fallback, so callers waiting to
+        // A permanent decoder failure still has the bundled fallback, so callers waiting to
         // blend an incoming cover must be released instead of holding the previous cover forever.
         if (decodedBitmap != null || (artworkFailed && !renderFallbackAsBitmap)) latestArtworkReady?.invoke()
     }
@@ -234,20 +213,22 @@ fun XvoxSongArtwork(
             decodedImageBitmap != null &&
             morphFromImageBitmap != null &&
             morphProgress.value < .999f
-        if (artwork == null && renderFallbackAsBitmap && visibleImageBitmap == null) {
-            // First generation happens off the main thread. Use the branded Compose wave only for
-            // that brief empty initial state; a retained cover stays visible on an actual handoff.
+        if (renderFallbackAsBitmap && visibleImageBitmap == null) {
+            // The bitmap decode happens off the main thread.  Paint the same supplied cover for
+            // the first frame—even while a real URI is resolving—so a failed cover cannot reveal
+            // a generic card colour beneath the local Now Playing blur.  Loading artwork omits
+            // the mark because this temporary bitmap is purely a backdrop source.
             WavePatternSquare(
                 modifier = Modifier.fillMaxSize(),
-                seed = resolvedFallbackSeed,
-                bitmapSize = fallbackBitmapSize,
-                brand = fallbackBrand
+                seed = fallbackSeed ?: 11,
+                bitmapSize = requestSize,
+                brand = if (artwork == null || artworkFailed) fallbackBrand else XvoxFallbackBrand.NONE
             )
         } else if (artworkFailed && visibleImageBitmap == null) {
             WavePatternSquare(
                 modifier = Modifier.fillMaxSize(),
-                seed = resolvedFallbackSeed,
-                bitmapSize = fallbackBitmapSize,
+                seed = fallbackSeed ?: 11,
+                bitmapSize = requestSize,
                 brand = fallbackBrand
             )
         } else if (awaitingMorphStart) {
@@ -304,7 +285,7 @@ fun XvoxSongArtwork(
                         decodedBitmap = bitmap
                     } ?: run {
                         // A non-bitmap result cannot participate in the retained-bitmap morph.
-                        // The Now Playing bitmap path turns this into a wave source; regular
+                        // The Now Playing bitmap path turns this into the bundled cover; regular
                         // cards still render their branded Compose fallback below.
                         artworkFailed = true
                         if (renderFallbackAsBitmap) fallbackRequested = true

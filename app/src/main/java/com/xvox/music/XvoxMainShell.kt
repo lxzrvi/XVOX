@@ -318,10 +318,17 @@ fun XvoxMainShell(
                         primary = false,
                         modifier = Modifier.weight(1f),
                         onClick = {
-                            // The sheet has one product control: restore its accepted Default
-                            // motion without mutating unrelated persisted chrome preferences.
+                            // Restore every control exposed by this sheet without touching the
+                            // wider Chrome editor.  Auto pill colour retains theme-aware light /
+                            // dark behaviour instead of hard-coding the fresh-install red accent.
                             val reset = miniPlayerNavLive.copy(
-                                miniPlayerTransitionStyle = com.xvox.music.core.ui.miniplayer.XvoxPlayerTransitionMotion.DefaultStyle
+                                miniCoverStyle = "default",
+                                miniCoverBlur = 26.25f,
+                                miniBgAlpha = .94f,
+                                navBgAlpha = .94f,
+                                miniPlayerTransitionStyle = com.xvox.music.core.ui.miniplayer.XvoxPlayerTransitionMotion.DefaultStyle,
+                                pillColor = "",
+                                pillAlpha = 1f
                             )
                             miniPlayerNavLive = reset
                             settingsViewModel.setChromeStyle { reset }

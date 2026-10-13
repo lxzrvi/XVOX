@@ -22,12 +22,17 @@ object XvoxNowPlayingBackgroundStyles {
         if (value.equals(COVER, ignoreCase = true)) COVER else DEFAULT
 }
 
-/** Preserve Default's original adaptive-cover source; missing analysis falls back to accent. */
+/**
+ * Default keeps its adaptive cover source.  When artwork analysis is unavailable, callers supply
+ * the theme-derived default-cover palette; the final guard remains theme-neutral rather than
+ * falling back to the fresh-install red accent.
+ */
 @Composable
 fun xvoxNowPlayingBackgroundColor(
     @Suppress("UNUSED_PARAMETER") style: String,
     dominant: Color
 ): Color {
     val colors = XvoxTheme.colors
-    return dominant.takeIf { it != Color.Unspecified && it != Color.Transparent } ?: colors.primaryAccent
+    val neutralFallback = if (colors.isLight) colors.cardElevated else colors.background
+    return dominant.takeIf { it != Color.Unspecified && it != Color.Transparent } ?: neutralFallback
 }

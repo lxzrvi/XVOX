@@ -60,7 +60,6 @@ jobs:
               # Navigation & Core Headers (Fill / Bold)
               ("house", "fill", "ic_xvox_home.xml"),
               ("magnifying-glass", "bold", "ic_xvox_search.xml"),
-              ("magnifying-glass", "bold", "ic_xvox_search_action.xml"),
               ("gear-six", "fill", "ic_xvox_settings.xml"),
               ("sliders-horizontal", "fill", "ic_xvox_equalizer.xml"),
               ("timer", "fill", "ic_xvox_timer.xml"),
