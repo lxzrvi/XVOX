@@ -108,13 +108,10 @@ fun XvoxBottomBar(
         val defaultPillAlpha = if (customImageSurface) {
             // Preserve the previously requested completely clear custom-image endpoint.
             navSurfaceAlpha * (1f - navSurfaceAlpha)
-        } else if (!colors.isLight) {
-            // Retain some transparency while keeping the black travelling selector visibly
-            // separate from the Mini Player-matched dark navbar.
-            .56f
         } else {
-            // Surface transparency applies to the travelling pill as well. Icons remain the
-            // accessible destination cue at the fully transparent endpoint.
+            // Match the accepted light-mode translucency curve in dark mode too. The near-black
+            // selector remains distinct from the Mini Player-matched rail, but it never returns
+            // to an opaque cutout when the user has chosen a transparent navbar material.
             (.28f + .20f * navSurfaceAlpha) * navSurfaceAlpha
         }
         pillBase.copy(alpha = pillBase.alpha * defaultPillAlpha)

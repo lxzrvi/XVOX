@@ -80,6 +80,7 @@ fun ArtistInfoDialog(
                 } else if (artist.coverSong != null) {
                     XvoxSongArtwork(
                         artwork = artist.coverSong.artworkUri,
+                        fallbackSeed = artist.coverSong.id.hashCode(),
                         requestSize = 100,
                         modifier = Modifier.size(36.dp)
                     )

@@ -90,8 +90,16 @@ fun XvoxAllSongMosaicCard(
     fun Cover(modifier: Modifier = Modifier) {
         // Single-unit tiles share the same 256px request/cache key as the standard All Songs
         // card, so vertical next-page warming removes decode work without compromising quality.
-        XvoxSongArtwork(song.artworkUri, requestSize = if (widthUnits == 1f && heightUnits == 1f) XvoxGridArtworkSize else XvoxRecentArtworkSize,
-            modifier = modifier.clip(artShape))
+        XvoxSongArtwork(
+            artwork = song.artworkUri,
+            fallbackSeed = song.id.hashCode(),
+            requestSize = if (widthUnits == 1f && heightUnits == 1f) {
+                XvoxGridArtworkSize
+            } else {
+                XvoxRecentArtworkSize
+            },
+            modifier = modifier.clip(artShape)
+        )
     }
 
     Box(modifier.xvoxSongPress(onClick, onLongClick, pressedScale = 0.96f, hapticOnTap = false).clip(shape)

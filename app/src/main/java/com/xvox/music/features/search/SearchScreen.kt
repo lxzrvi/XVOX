@@ -1059,6 +1059,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.searchResultsContent(
                 ) {
                     XvoxSongArtwork(
                         artwork = song.artworkUri,
+                        fallbackSeed = song.id.hashCode(),
                         requestSize = 100,
                         modifier = Modifier.fillMaxSize()
                     )
@@ -1115,9 +1116,10 @@ private fun SearchArtistCircleItem(
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()
                 )
-            } else if (artist.coverSong?.artworkUri != null) {
+            } else if (artist.coverSong != null) {
                 XvoxSongArtwork(
                     artwork = artist.coverSong.artworkUri,
+                    fallbackSeed = artist.coverSong.id.hashCode(),
                     requestSize = 128,
                     modifier = Modifier.fillMaxSize()
                 )
@@ -1183,9 +1185,10 @@ private fun SearchPlaylistCompactItem(
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()
                 )
-            } else if (coverSong?.artworkUri != null) {
+            } else if (coverSong != null) {
                 XvoxSongArtwork(
                     artwork = coverSong.artworkUri,
+                    fallbackSeed = coverSong.id.hashCode(),
                     requestSize = 128,
                     modifier = Modifier.fillMaxSize()
                 )
@@ -1256,6 +1259,7 @@ private fun SearchSongRow(
         ) {
             XvoxSongArtwork(
                 artwork = song.artworkUri,
+                fallbackSeed = song.id.hashCode(),
                 requestSize = 100,
                 modifier = Modifier.fillMaxSize()
             )

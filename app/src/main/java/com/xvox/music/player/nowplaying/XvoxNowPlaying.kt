@@ -103,17 +103,31 @@ private fun Color.xvoxReadableCoverLyricColor(): Color {
  * child prevents a cover swipe from invalidating the full control/lyrics tree on every pixel.
  */
 @Stable
-private class XvoxNowPlayingBackdropState(initialArtwork: android.net.Uri?) {
-    var artwork by mutableStateOf(initialArtwork)
+private class XvoxNowPlayingBackdropState(initialSong: Song?) {
+    var artwork by mutableStateOf(initialSong?.artworkUri)
+        private set
+    // URI alone is not enough: two coverless songs are both null but must retain distinct wave
+    // identities while their pager/background blend travels.
+    var artworkKey by mutableStateOf(initialSong?.xvoxArtworkPaletteKey() ?: "xvox_fallback_initial")
+        private set
+    var artworkSeed by mutableIntStateOf(initialSong?.id?.hashCode() ?: 11)
         private set
     var incomingArtwork by mutableStateOf<android.net.Uri?>(null)
+        private set
+    var incomingArtworkKey by mutableStateOf<String?>(null)
+        private set
+    var incomingArtworkSeed by mutableIntStateOf(11)
         private set
     var artworkTransitionFraction by mutableFloatStateOf(0f)
         private set
 
-    fun update(base: android.net.Uri?, incoming: android.net.Uri?, fraction: Float) {
-        artwork = base
-        incomingArtwork = incoming
+    fun update(base: Song?, incoming: Song?, fraction: Float) {
+        artwork = base?.artworkUri
+        artworkKey = base?.xvoxArtworkPaletteKey() ?: "xvox_fallback_initial"
+        artworkSeed = base?.id?.hashCode() ?: 11
+        incomingArtwork = incoming?.artworkUri
+        incomingArtworkKey = incoming?.xvoxArtworkPaletteKey()
+        incomingArtworkSeed = incoming?.id?.hashCode() ?: 11
         artworkTransitionFraction = fraction.coerceIn(0f, 1f)
     }
 }
@@ -129,7 +143,11 @@ private fun XvoxNowPlayingBackdropLayer(
     XvoxNowPlayingBackdrop(
         dominant = paletteState.color,
         artwork = backdropState.artwork,
+        artworkKey = backdropState.artworkKey,
+        artworkSeed = backdropState.artworkSeed,
         incomingArtwork = backdropState.incomingArtwork,
+        incomingArtworkKey = backdropState.incomingArtworkKey,
+        incomingArtworkSeed = backdropState.incomingArtworkSeed,
         artworkTransitionFraction = backdropState.artworkTransitionFraction,
         style = style,
         coverBlur = coverBlur,
@@ -297,7 +315,7 @@ fun XvoxNowPlaying(
     var previewGestureActive by remember { mutableStateOf(false) }
     // The backdrop follows the pager's actual outgoing/incoming covers, not merely the audible
     // song. Its state stays local to the draw layer so cover drag frames do not recompose controls.
-    val backdropState = remember { XvoxNowPlayingBackdropState(song.artworkUri) }
+    val backdropState = remember { XvoxNowPlayingBackdropState(song) }
     var previewCommitJob by remember { mutableStateOf<Job?>(null) }
     var previewCommitVersion by remember { mutableIntStateOf(0) }
     // Lyrics replaces the visible pager, so its Next/Previous path commits directly and records
@@ -323,7 +341,7 @@ fun XvoxNowPlaying(
         if (!holdPagerPaletteDuringShuffle && (baseIsAudible || previewGestureActive || isActivePagerTravel)) {
             val safeFraction = fraction.coerceIn(0f, 1f)
             paletteState.blend(base, adjacent, safeFraction)
-            backdropState.update(base.artworkUri, adjacent?.artworkUri, safeFraction)
+            backdropState.update(base, adjacent, safeFraction)
         }
     }
 
@@ -332,7 +350,7 @@ fun XvoxNowPlaying(
     // preview card behind the orb/aurora canvas.
     LaunchedEffect(song.xvoxArtworkPaletteKey(), isLyricsShowing) {
         if (isLyricsShowing) {
-            backdropState.update(song.artworkUri, null, 0f)
+            backdropState.update(song, null, 0f)
             // There is no pager underneath lyrics to emit palette frames. Resolve the same cover
             // directly; XvoxArtworkLyrics animates this live colour into its orb/aurora canvas.
             paletteState.show(song)

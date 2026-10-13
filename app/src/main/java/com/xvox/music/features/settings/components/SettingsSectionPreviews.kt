@@ -337,7 +337,9 @@ fun WidgetSizePreview(state: SettingsState, columns: Int = 3, rows: Int = 1) {
             cornerRadiusDp = state.widgetCornerRadius,
             paddingX = state.widgetPaddingX,
             paddingY = state.widgetPaddingY,
-            customization = c
+            customization = c,
+            fallbackSeed = "Your favourite track".hashCode(),
+            appAccentColor = state.accentColor
         )
     }
     val views by produceState<android.widget.RemoteViews?>(null, display, width, height) {

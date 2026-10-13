@@ -8,7 +8,6 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -22,14 +21,14 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.sp
 import coil3.BitmapImage
 import coil3.compose.AsyncImage
 import coil3.request.CachePolicy
 import coil3.request.ImageRequest
 import coil3.size.Precision
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import com.xvox.music.artwork.XvoxArtworkCache
-import com.xvox.music.core.design.theme.XvoxLogoFont
 import com.xvox.music.core.design.theme.XvoxTheme
 
 const val XvoxGridArtworkSize = 256
@@ -50,49 +49,66 @@ fun XvoxSongArtwork(
     requestSize: Int = XvoxGridArtworkSize,
     contentScale: ContentScale = ContentScale.Crop,
     keepPreviousOnLoading: Boolean = false,
-    /** Reports only after a real decoded bitmap is ready; useful for layered artwork handoffs. */
+    /** The surrounding transition already rendered this decoded incoming cover at full opacity. */
+    skipDecodedMorph: Boolean = false,
+    /** Use the same wave as a bitmap so a local blurred backdrop can morph it with real covers. */
+    renderFallbackAsBitmap: Boolean = false,
+    /** Stable per-song identity for a missing/failed cover's wave pattern. */
+    fallbackSeed: Int? = null,
+    /** Reports after either a decoded bitmap or the generated fallback is ready. */
     onArtworkReady: (() -> Unit)? = null
 ) {
     val colors = XvoxTheme.colors
     val context = LocalContext.current
+    val latestArtworkReady by rememberUpdatedState(onArtworkReady)
 
-    if (artwork == null) {
-        Box(
-            modifier = modifier.background(colors.cardElevated),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = "X",
-                color = colors.mutedText,
-                fontFamily = XvoxLogoFont,
-                fontSize = 20.sp
-            )
-        }
+    if (artwork == null && !renderFallbackAsBitmap) {
+        // Regular card art is immediately drawable and retains the Compose lockup. The local
+        // blurred Now Playing path opts into a bitmap below so it can blend this wave with a
+        // decoded old/new cover instead of jumping when lyrics Next/Previous changes tracks.
+        LaunchedEffect(fallbackSeed) { latestArtworkReady?.invoke() }
+        WavePatternSquare(
+            modifier = modifier,
+            seed = fallbackSeed ?: 11
+        )
         return
     }
 
-    val baseKey = remember(artwork) { XvoxArtworkCache.keyFor(artwork) }
-    val cacheKey = remember(baseKey, requestSize) { "${baseKey}_$requestSize" }
+    val baseKey = remember(artwork, fallbackSeed) {
+        artwork?.let(XvoxArtworkCache::keyFor) ?: "xvox_wave_${fallbackSeed ?: 11}"
+    }
+    val resolvedFallbackSeed = fallbackSeed ?: baseKey.hashCode()
+    val fallbackDark = if (colors.isLight) colors.cardElevated else colors.background
+    val fallbackBright = colors.primaryAccent
+    val fallbackPatternKey = remember(fallbackDark, fallbackBright, resolvedFallbackSeed) {
+        xvoxWavePatternKey(fallbackDark, fallbackBright, resolvedFallbackSeed, 360)
+    }
+    val cacheKey = remember(baseKey, requestSize, artwork, renderFallbackAsBitmap, fallbackPatternKey) {
+        if (artwork == null && renderFallbackAsBitmap) fallbackPatternKey else "${baseKey}_$requestSize"
+    }
 
-    fun cachedBitmap(): Bitmap? = when {
-        requestSize == 0 -> XvoxArtworkCache.get("${baseKey}_0")
-        requestSize >= 1024 -> {
-            XvoxArtworkCache.get(cacheKey)
-                ?: XvoxArtworkCache.get("${baseKey}_1024")
-                ?: XvoxArtworkCache.get("${baseKey}_0")
-        }
-        requestSize >= 512 -> {
-            XvoxArtworkCache.get(cacheKey)
-                ?: XvoxArtworkCache.get("${baseKey}_512")
-                ?: XvoxArtworkCache.get("${baseKey}_1024")
-                ?: XvoxArtworkCache.get("${baseKey}_0")
-        }
-        else -> {
-            XvoxArtworkCache.get(cacheKey)
-                ?: XvoxArtworkCache.get("${baseKey}_256")
-                ?: XvoxArtworkCache.get(baseKey)
-                ?: XvoxArtworkCache.get("${baseKey}_512")
-                ?: XvoxArtworkCache.get("${baseKey}_0")
+    fun cachedBitmap(): Bitmap? {
+        if (artwork == null && renderFallbackAsBitmap) return xvoxCachedWaveBitmap(fallbackPatternKey)
+        return when {
+            requestSize == 0 -> XvoxArtworkCache.get("${baseKey}_0")
+            requestSize >= 1024 -> {
+                XvoxArtworkCache.get(cacheKey)
+                    ?: XvoxArtworkCache.get("${baseKey}_1024")
+                    ?: XvoxArtworkCache.get("${baseKey}_0")
+            }
+            requestSize >= 512 -> {
+                XvoxArtworkCache.get(cacheKey)
+                    ?: XvoxArtworkCache.get("${baseKey}_512")
+                    ?: XvoxArtworkCache.get("${baseKey}_1024")
+                    ?: XvoxArtworkCache.get("${baseKey}_0")
+            }
+            else -> {
+                XvoxArtworkCache.get(cacheKey)
+                    ?: XvoxArtworkCache.get("${baseKey}_256")
+                    ?: XvoxArtworkCache.get(baseKey)
+                    ?: XvoxArtworkCache.get("${baseKey}_512")
+                    ?: XvoxArtworkCache.get("${baseKey}_0")
+            }
         }
     }
 
@@ -100,9 +116,23 @@ fun XvoxSongArtwork(
     // do not invalidate composition, so this state lets a freshly decoded cover replace its
     // placeholder immediately without reducing its requested quality.
     var decodedBitmap by remember(cacheKey, baseKey, requestSize) { mutableStateOf(cachedBitmap()) }
-    val latestArtworkReady by rememberUpdatedState(onArtworkReady)
-    LaunchedEffect(cacheKey, decodedBitmap) {
-        if (decodedBitmap != null) latestArtworkReady?.invoke()
+    var artworkFailed by remember(cacheKey, baseKey, requestSize) { mutableStateOf(false) }
+    var fallbackRequested by remember(cacheKey) { mutableStateOf(artwork == null && renderFallbackAsBitmap) }
+    LaunchedEffect(fallbackPatternKey, renderFallbackAsBitmap, artwork, fallbackRequested) {
+        if (renderFallbackAsBitmap && (artwork == null || fallbackRequested) && decodedBitmap == null) {
+            val wave = xvoxCachedWaveBitmap(fallbackPatternKey)
+                ?: withContext(Dispatchers.Default) {
+                    xvoxBuildWaveBitmap(360, resolvedFallbackSeed, fallbackDark, fallbackBright).also {
+                        xvoxCacheWaveBitmap(fallbackPatternKey, it)
+                    }
+                }
+            decodedBitmap = wave
+        }
+    }
+    LaunchedEffect(cacheKey, decodedBitmap, artworkFailed, renderFallbackAsBitmap) {
+        // A permanent decoder failure still has a fully generated fallback, so callers waiting to
+        // blend an incoming cover must be released instead of holding the previous cover forever.
+        if (decodedBitmap != null || (artworkFailed && !renderFallbackAsBitmap)) latestArtworkReady?.invoke()
     }
     // A retained decoded bitmap has two jobs for full-player callers: it keeps a real old cover
     // visible while the next original decodes, then becomes the source of an internal image
@@ -112,11 +142,12 @@ fun XvoxSongArtwork(
     var morphKey by remember { mutableStateOf<String?>(null) }
     val morphProgress = remember { Animatable(1f) }
 
-    LaunchedEffect(cacheKey, decodedBitmap, keepPreviousOnLoading) {
+    LaunchedEffect(cacheKey, decodedBitmap, keepPreviousOnLoading, skipDecodedMorph) {
         val next = decodedBitmap ?: return@LaunchedEffect
         val previous = retainedBitmap
         if (
             keepPreviousOnLoading &&
+            !skipDecodedMorph &&
             previous != null &&
             previous != next &&
             morphKey != cacheKey
@@ -134,17 +165,34 @@ fun XvoxSongArtwork(
             if (morphKey == cacheKey) morphFromBitmap = null
         } else {
             retainedBitmap = next
-            if (morphKey != cacheKey) morphFromBitmap = null
+            // If the background pager already showed this exact incoming bitmap at full opacity,
+            // cancel any stale old-cover morph instead of replaying it during the handoff frame.
+            if (skipDecodedMorph || morphKey != cacheKey) {
+                morphFromBitmap = null
+                if (skipDecodedMorph) morphKey = cacheKey
+            }
         }
     }
 
-    val visibleBitmap = decodedBitmap ?: retainedBitmap.takeIf { keepPreviousOnLoading }
+    val visibleBitmap = decodedBitmap ?: retainedBitmap.takeIf {
+        keepPreviousOnLoading && (!artworkFailed || renderFallbackAsBitmap && fallbackRequested)
+    }
     // asImageBitmap() allocations on every parent playback-state recomposition were enough to
     // make a dense library fling feel behind the finger. Keep the exact decoded bitmap/quality;
     // only its lightweight Compose wrapper is memoized.
     val visibleImageBitmap = remember(visibleBitmap) { visibleBitmap?.asImageBitmap() }
+    val retainedImageBitmap = remember(retainedBitmap) { retainedBitmap?.asImageBitmap() }
     val decodedImageBitmap = remember(decodedBitmap) { decodedBitmap?.asImageBitmap() }
     val morphFromImageBitmap = remember(morphFromBitmap) { morphFromBitmap?.asImageBitmap() }
+    // On a cached/direct track change, composition can see the new bitmap one frame before the
+    // morph coroutine installs its old source. Keep painting the retained cover for that frame so
+    // lyrics Next/Previous never flashes new → old → new.
+    val awaitingMorphStart = keepPreviousOnLoading &&
+        !skipDecodedMorph &&
+        decodedImageBitmap != null &&
+        retainedImageBitmap != null &&
+        retainedBitmap != decodedBitmap &&
+        morphKey != cacheKey
     val request = remember(artwork, requestSize) {
         val builder = ImageRequest.Builder(context)
             .data(artwork)
@@ -168,7 +216,28 @@ fun XvoxSongArtwork(
             decodedImageBitmap != null &&
             morphFromImageBitmap != null &&
             morphProgress.value < .999f
-        if (activeMorph) {
+        if (artwork == null && renderFallbackAsBitmap && visibleImageBitmap == null) {
+            // First generation happens off the main thread. Use the branded Compose wave only for
+            // that brief empty initial state; a retained cover stays visible on an actual handoff.
+            WavePatternSquare(
+                modifier = Modifier.fillMaxSize(),
+                seed = resolvedFallbackSeed
+            )
+        } else if (artworkFailed && visibleImageBitmap == null) {
+            WavePatternSquare(
+                modifier = Modifier.fillMaxSize(),
+                seed = resolvedFallbackSeed
+            )
+        } else if (awaitingMorphStart) {
+            // The launched morph begins immediately after this composition. Holding the old frame
+            // for one beat avoids exposing a decoded target before its matching blend exists.
+            Image(
+                bitmap = retainedImageBitmap!!,
+                contentDescription = null,
+                contentScale = contentScale,
+                modifier = Modifier.fillMaxSize()
+            )
+        } else if (activeMorph) {
             // One stable image slot owns this premium cover-to-cover morph. The old bitmap remains
             // genuinely decoded until the new bitmap is visible, so blurred Now Playing backdrops
             // cannot flash their card surface while songs change.
@@ -201,7 +270,7 @@ fun XvoxSongArtwork(
 
         // Do not draw a solid loading layer above a retained full-player cover. Coil paints the
         // newly decoded original-resolution image transparently over it when it is ready.
-        if (decodedBitmap == null) {
+        if (artwork != null && decodedBitmap == null && !artworkFailed) {
             AsyncImage(
                 model = request,
                 contentDescription = null,
@@ -211,7 +280,17 @@ fun XvoxSongArtwork(
                         XvoxArtworkCache.put(cacheKey, bitmap)
                         if (requestSize == 0) XvoxArtworkCache.put("${baseKey}_0", bitmap)
                         decodedBitmap = bitmap
+                    } ?: run {
+                        // A non-bitmap result cannot participate in the retained-bitmap morph.
+                        // The Now Playing bitmap path turns this into a wave source; regular
+                        // cards still render their branded Compose fallback below.
+                        artworkFailed = true
+                        if (renderFallbackAsBitmap) fallbackRequested = true
                     }
+                },
+                onError = {
+                    artworkFailed = true
+                    if (renderFallbackAsBitmap) fallbackRequested = true
                 },
                 modifier = Modifier.fillMaxSize()
             )
@@ -232,6 +311,7 @@ fun XvoxSongArtwork(
         modifier = modifier,
         requestSize = requestSize,
         contentScale = contentScale,
-        keepPreviousOnLoading = keepPreviousOnLoading
+        keepPreviousOnLoading = keepPreviousOnLoading,
+        fallbackSeed = song?.id?.hashCode()
     )
 }

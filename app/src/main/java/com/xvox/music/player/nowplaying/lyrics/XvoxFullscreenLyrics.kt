@@ -516,6 +516,7 @@ fun XvoxFullscreenLyrics(
                     ) {
                         XvoxSongArtwork(
                             artwork = song.artworkUri,
+                            fallbackSeed = song.id.hashCode(),
                             requestSize = 128,
                             modifier = Modifier
                                 .size(40.dp)

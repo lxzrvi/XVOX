@@ -61,6 +61,7 @@ fun SearchSongCard(
     ) {
         XvoxSongArtwork(
             artwork = song.artworkUri,
+            fallbackSeed = song.id.hashCode(),
             requestSize = 112,
             modifier = Modifier
                 .size(52.dp)

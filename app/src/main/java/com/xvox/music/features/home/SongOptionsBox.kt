@@ -133,6 +133,7 @@ fun SongOptionsBox(
             ) {
                 XvoxSongArtwork(
                     artwork = song.artworkUri,
+                    fallbackSeed = song.id.hashCode(),
                     requestSize = 192,
                     modifier = Modifier.fillMaxSize()
                 )

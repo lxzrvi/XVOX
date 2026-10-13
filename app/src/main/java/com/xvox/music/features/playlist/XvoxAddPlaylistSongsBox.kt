@@ -152,6 +152,7 @@ fun XvoxAddPlaylistSongsBox(
                     ) {
                         XvoxSongArtwork(
                             artwork = song.artworkUri,
+                            fallbackSeed = song.id.hashCode(),
                             requestSize = 96,
                             modifier = Modifier.size(42.dp).clip(RoundedCornerShape(8.dp))
                         )

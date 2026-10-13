@@ -21,7 +21,10 @@ import com.xvox.music.player.session.XvoxPlaybackService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
+import kotlin.math.PI
+import kotlin.math.floor
 import kotlin.math.roundToInt
+import kotlin.math.sin
 
 object XvoxWidgetHelper {
     const val ACTION_PLAY_PAUSE = "com.xvox.music.widget.ACTION_PLAY_PAUSE"
@@ -35,7 +38,11 @@ object XvoxWidgetHelper {
         val isPlaying: Boolean = false, val isLiked: Boolean = false, val currentPosition: Long = 0,
         val duration: Long = 0, val transparency: Float = .25f, val theme: String = "Dynamic", val customColor: String = "#171717",
         val showLogo: Boolean = true, val cornerRadiusDp: Int = 24, val paddingX: Int = 10, val paddingY: Int = 8,
-        val customization: WidgetCustomization = WidgetCustomization()
+        val customization: WidgetCustomization = WidgetCustomization(),
+        /** Stable identity for a RemoteViews-compatible missing/failed-cover wave pattern. */
+        val fallbackSeed: Int = 11,
+        /** App-level accent, kept separate from the widget's optional custom surface colour. */
+        val appAccentColor: String = "Red"
     )
     private val images = object : LruCache<String, Bitmap>(8 * 1024 * 1024) {
         override fun sizeOf(key: String, value: Bitmap) = value.allocationByteCount
@@ -62,7 +69,9 @@ object XvoxWidgetHelper {
             duration.takeIf { it > 0 } ?: song?.duration ?: 0, style.transparency, style.theme, style.customColor,
             // Base customization only: buildRemoteViews swaps in the entry saved for the size
             // it is actually drawing.
-            style.showLogo, style.radius, style.paddingX, style.paddingY, style.customization)
+            style.showLogo, style.radius, style.paddingX, style.paddingY, style.customization,
+            fallbackSeed = song?.id?.hashCode() ?: 11,
+            appAccentColor = repository.accentColor.first())
     }
     suspend fun buildRemoteViews(
         context: Context,
@@ -90,12 +99,21 @@ object XvoxWidgetHelper {
         val narrow = iw < 140 && ih >= 120
         val tiny = iw < 110 && ih < 120
         val full = c.fullCover || (tiny && c.coverPlacement == "auto")
-        val art = artwork(context, state.artworkUri)
+        val decodedArtwork = artwork(context, state.artworkUri)
         val base = when (state.theme) {
             "AMOLED" -> Color.BLACK; "Light" -> Color.rgb(245, 245, 245); "Dark" -> Color.rgb(20, 20, 20)
             "Glass" -> Color.rgb(30, 30, 34); "Custom" -> color(c = state.customColor, fallback = Color.DKGRAY)
             else -> state.artworkUri?.let { colours.get(it.toString()) } ?: Color.rgb(24, 24, 27)
         }
+        // RemoteViews cannot host the Compose fallback, so render the same seeded wave concept
+        // into a bitmap whenever the URI is absent or decoding failed.
+        val fallbackAccent = widgetAccentColor(
+            state.appAccentColor,
+            light = ColorUtils.calculateLuminance(base) > .5
+        )
+        val art = decodedArtwork ?: widgetWaveArtwork(context, state.fallbackSeed, base, fallbackAccent)
+        val artworkKey = state.artworkUri?.toString()?.let { "$it:${state.fallbackSeed}" }
+            ?: "wave:${state.fallbackSeed}:$base:$fallbackAccent"
         val fg = if (!full && ColorUtils.calculateLuminance(base) > .5 && state.transparency < .7) Color.rgb(17, 17, 17) else Color.WHITE
         val background = ColorUtils.setAlphaComponent(base, ((1 - state.transparency.coerceIn(0f, 1f)) * 255).roundToInt())
         val views = RemoteViews(context.packageName, if (narrow) R.layout.widget_xvox_player_custom_narrow else R.layout.widget_xvox_player)
@@ -109,7 +127,7 @@ object XvoxWidgetHelper {
         views.setImageViewBitmap(R.id.widget_bg, surface(iw, ih, spec.radius, background,
             color(c.borderColor, ColorUtils.setAlphaComponent(fg, 50)), c.borderWidth, density,
             photo = if (full) art else null, shade = if (full) c.fullCoverShade else 0f,
-            photoKey = state.artworkUri?.toString().orEmpty(), photoOpacity = if (full) 1 - state.transparency else 1f,
+            photoKey = artworkKey, photoOpacity = if (full) 1 - state.transparency else 1f,
             photoInsetX = if (full) (c.coverMarginX + c.coverPaddingX).coerceAtLeast(0) else 0,
             photoInsetY = if (full) (c.coverMarginY + c.coverPaddingY).coerceAtLeast(0) else 0))
         val slots = listOf(R.id.widget_top_left, R.id.widget_top_center, R.id.widget_top_right, R.id.widget_bottom_left,
@@ -170,13 +188,13 @@ object XvoxWidgetHelper {
             child.setImageViewBitmap(R.id.widget_item_bg, surface(coverSide, coverSide, radius, background,
                 color(c.coverBorderColor, fg), c.coverBorderWidth, density))
             child.setImageViewBitmap(R.id.widget_item_image, surface(artSide, artSide, (radius - minOf(paddingX, paddingY)).coerceAtLeast(0f), Color.TRANSPARENT,
-                Color.TRANSPARENT, 0f, density, photo = art, photoKey = state.artworkUri.toString()))
+                Color.TRANSPARENT, 0f, density, photo = art, photoKey = artworkKey))
             // Positive values inset the artwork; negative values push it out past the card edge.
             child.setViewPadding(R.id.widget_item_image, px(paddingX.coerceAtLeast(0)), px(paddingY.coerceAtLeast(0)),
                 px(paddingX.coerceAtLeast(0)), px(paddingY.coerceAtLeast(0)))
             applyOffset(child, R.id.widget_item_image, minOf(paddingX, 0), minOf(paddingY, 0))
             if (art == null) {
-                child.setImageViewResource(R.id.widget_item_image, R.drawable.ic_xvox_music_note)
+                child.setImageViewResource(R.id.widget_item_image, R.drawable.xvox_mark)
                 child.setInt(R.id.widget_item_image, "setColorFilter", fg)
                 child.setViewPadding(R.id.widget_item_image, px(6), px(6), px(6), px(6))
             }
@@ -387,6 +405,113 @@ object XvoxWidgetHelper {
         images.put(key, out)
         return out
     }
+    /** Mirrors the app accent contract without requiring Compose inside a RemoteViews process. */
+    private fun widgetAccentColor(value: String, light: Boolean): Int = when {
+        value.startsWith("#") -> runCatching { Color.parseColor(value) }
+            .getOrDefault(if (light) Color.rgb(10, 10, 10) else Color.WHITE)
+        value.equals("Blue", ignoreCase = true) || value.equals("XVOX Blue", ignoreCase = true) ->
+            if (light) Color.rgb(0, 122, 255) else Color.rgb(10, 132, 255)
+        value.equals("Red", ignoreCase = true) || value.equals("XVOX Red", ignoreCase = true) ->
+            Color.rgb(240, 30, 44)
+        else -> if (light) Color.rgb(10, 10, 10) else Color.WHITE
+    }
+
+    /**
+     * Bitmap/Canvas equivalent of [com.xvox.music.features.home.WavePatternSquare] for widgets.
+     * RemoteViews cannot run Compose, but missing and failed URI artwork still gets a per-song,
+     * theme/accent-aware cover with the supplied brand lockup rather than a generic note icon.
+     */
+    private fun widgetWaveArtwork(context: Context, seed: Int, dark: Int, bright: Int): Bitmap {
+        val key = "wave:$seed:$dark:$bright"
+        images.get(key)?.let { return it }
+        val size = 360
+        val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+        val pixels = IntArray(size * size)
+        val darkRed = Color.red(dark)
+        val darkGreen = Color.green(dark)
+        val darkBlue = Color.blue(dark)
+        val brightRed = Color.red(bright)
+        val brightGreen = Color.green(bright)
+        val brightBlue = Color.blue(bright)
+        val scale = 1080f / size
+        val period = 92f
+        for (py in 0 until size) {
+            for (px in 0 until size) {
+                val x = px * scale
+                val y = py * scale
+                val noiseOne = widgetWaveNoise(x, y, 230f, seed)
+                val noiseTwo = widgetWaveNoise(x, y, 230f, seed + 1)
+                val noiseThree = widgetWaveNoise(x, y, 110f, seed + 2)
+                val warpedX = x + 70f * noiseOne
+                val warpedY = y + 85f * noiseTwo + 28f * noiseThree + 22f * sin(warpedX / 85f)
+                var stripe = .5f + .5f * sin(warpedY / period * 2f * PI.toFloat())
+                stripe = ((stripe - .5f) * 1.6f + .5f).coerceIn(0f, 1f)
+                stripe = stripe * stripe * (3f - 2f * stripe)
+                pixels[py * size + px] = Color.rgb(
+                    (darkRed + (brightRed - darkRed) * stripe).roundToInt().coerceIn(0, 255),
+                    (darkGreen + (brightGreen - darkGreen) * stripe).roundToInt().coerceIn(0, 255),
+                    (darkBlue + (brightBlue - darkBlue) * stripe).roundToInt().coerceIn(0, 255)
+                )
+            }
+        }
+        bitmap.setPixels(pixels, 0, size, 0, 0, size, size)
+
+        val canvas = Canvas(bitmap)
+        val lockupTint = if (ColorUtils.calculateLuminance(dark) < .42) {
+            Color.argb(224, 255, 255, 255)
+        } else {
+            Color.argb(184, 0, 0, 0)
+        }
+        val inset = (size * .065f).roundToInt()
+        val markSize = (size * .055f).roundToInt().coerceAtLeast(12)
+        val gap = (size * .012f).roundToInt().coerceAtLeast(3)
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.SUBPIXEL_TEXT_FLAG).apply {
+            color = lockupTint
+            typeface = ResourcesCompat.getFont(context, R.font.xvoxcinzeldecorative)
+            textSize = size * .044f
+            letterSpacing = .045f
+        }
+        val text = "XVOX"
+        val textWidth = paint.measureText(text)
+        val left = (size - inset - markSize - gap - textWidth).roundToInt().coerceAtLeast(inset)
+        val baseline = (size - inset).toFloat()
+        ResourcesCompat.getDrawable(context.resources, R.drawable.xvox, null)?.mutate()?.let { mark ->
+            mark.setTint(lockupTint)
+            val top = (baseline - markSize + paint.fontMetrics.descent).roundToInt()
+            mark.setBounds(left, top, left + markSize, top + markSize)
+            mark.draw(canvas)
+        }
+        canvas.drawText(text, left + markSize + gap.toFloat(), baseline, paint)
+        images.put(key, bitmap)
+        return bitmap
+    }
+
+    private fun widgetWaveHash(ix: Int, iy: Int, seed: Int): Float {
+        var value = ix * 374761393 + iy * 668265263 + seed * 1274126177
+        value = (value xor (value ushr 13)) * 1274126177
+        value = value xor (value ushr 16)
+        return (value and 0xFFFF) / 32767.5f - 1f
+    }
+
+    private fun widgetWaveFade(value: Float): Float =
+        value * value * value * (value * (value * 6f - 15f) + 10f)
+
+    private fun widgetWaveNoise(x: Float, y: Float, cell: Float, seed: Int): Float {
+        val gridX = x / cell
+        val gridY = y / cell
+        val indexX = floor(gridX).toInt()
+        val indexY = floor(gridY).toInt()
+        val fractionX = widgetWaveFade(gridX - indexX)
+        val fractionY = widgetWaveFade(gridY - indexY)
+        val topLeft = widgetWaveHash(indexX, indexY, seed)
+        val topRight = widgetWaveHash(indexX + 1, indexY, seed)
+        val bottomLeft = widgetWaveHash(indexX, indexY + 1, seed)
+        val bottomRight = widgetWaveHash(indexX + 1, indexY + 1, seed)
+        val top = topLeft + (topRight - topLeft) * fractionX
+        val bottom = bottomLeft + (bottomRight - bottomLeft) * fractionX
+        return (top + (bottom - top) * fractionY) * 2.2f
+    }
+
     private fun artwork(context: Context, uri: Uri?): Bitmap? {
         if (uri == null) return null
         val key = "source:$uri"; images.get(key)?.let { return it }

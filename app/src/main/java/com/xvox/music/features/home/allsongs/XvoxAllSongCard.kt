@@ -60,6 +60,7 @@ fun XvoxAllSongCard(
         ) {
             XvoxSongArtwork(
                 artwork = song.artworkUri,
+                fallbackSeed = song.id.hashCode(),
                 requestSize = XvoxGridArtworkSize,
                 modifier = Modifier
                     .fillMaxSize()

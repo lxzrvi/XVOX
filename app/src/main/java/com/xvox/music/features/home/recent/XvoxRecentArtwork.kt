@@ -72,6 +72,7 @@ fun XvoxRecentArtwork(
     ) {
         XvoxSongArtwork(
             artwork = song.artworkUri,
+            fallbackSeed = song.id.hashCode(),
             requestSize = XvoxRecentArtworkSize,
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize()

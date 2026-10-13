@@ -174,6 +174,7 @@ private fun WidgetStudioLivePreview(
         state.widgetCornerRadius,
         state.widgetPaddingX,
         state.widgetPaddingY,
+        state.accentColor,
         currentSong,
         playerState.isPlaying,
         playerState.currentSongId
@@ -195,7 +196,9 @@ private fun WidgetStudioLivePreview(
             cornerRadiusDp = state.widgetCornerRadius,
             paddingX = state.widgetPaddingX,
             paddingY = state.widgetPaddingY,
-            customization = customization
+            customization = customization,
+            fallbackSeed = currentSong?.id?.hashCode() ?: 11,
+            appAccentColor = state.accentColor
         )
     }
     val remoteViews by produceState<android.widget.RemoteViews?>(

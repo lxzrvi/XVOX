@@ -203,18 +203,36 @@ fun XvoxNowPlayingArtworkPager(
         }
     }
 
-    // Real-time backdrop color crossfading matching finger/pager position with zero latency.
+    // Keep one outgoing/incoming pair for an entire drag/Next/Previous travel. Pager.currentPage
+    // switches at the midpoint, so deriving the pair directly from it used to reverse base and
+    // adjacent covers halfway through the same gesture—the source of the Cover-background flash.
     LaunchedEffect(pager, queue, occurrenceIds) {
+        var stableBasePage = pager.settledPage.coerceIn(0, queue.lastIndex)
         snapshotFlow {
-            Pair(pager.currentPage, pager.currentPageOffsetFraction)
-        }.collect { (page, offset) ->
-            val curr = queue.getOrNull(page)
-            val adj = if (offset > 0.0001f) queue.getOrNull(page + 1)
-            else if (offset < -0.0001f) queue.getOrNull(page - 1)
-            else null
-
-            if (curr != null) {
-                palette(curr, adj, abs(offset))
+            Triple(
+                pager.currentPage + pager.currentPageOffsetFraction,
+                pager.isScrollInProgress,
+                pager.settledPage
+            )
+        }.collect { (rawPagePosition, moving, settledPage) ->
+            if (!moving) {
+                stableBasePage = settledPage.coerceIn(0, queue.lastIndex)
+                queue.getOrNull(stableBasePage)?.let { settledSong ->
+                    palette(settledSong, null, 0f)
+                }
+            } else {
+                val baseIndex = stableBasePage.coerceIn(0, queue.lastIndex)
+                val deltaFromBase = rawPagePosition - baseIndex
+                val direction = when {
+                    deltaFromBase > .0001f -> 1
+                    deltaFromBase < -.0001f -> -1
+                    else -> 0
+                }
+                val adjacentIndex = (baseIndex + direction).takeIf { it in queue.indices }
+                val amount = abs(deltaFromBase).coerceIn(0f, 1f)
+                queue.getOrNull(baseIndex)?.let { baseSong ->
+                    palette(baseSong, adjacentIndex?.let(queue::get), amount)
+                }
             }
         }
     }
@@ -340,6 +358,7 @@ private fun XvoxNowPlayingArtworkPage(
         ) {
             XvoxSongArtwork(
                 artwork = song.artworkUri,
+                fallbackSeed = song.id.hashCode(),
                 requestSize = XvoxNowPlayingArtworkSize,
                 // Never replace the outgoing decoded cover with a flat placeholder while the
                 // next original-quality image is resolving; this removes playback/queue flicker.

@@ -125,6 +125,7 @@ fun XvoxMiniPlayerCard(
             val alphaFraction = chrome.miniBgAlpha.coerceIn(0f, 1f)
             XvoxSongArtwork(
                 artwork = song.artworkUri,
+                fallbackSeed = song.id.hashCode(),
                 requestSize = 512,
                 modifier = Modifier
                     .fillMaxSize()
@@ -180,6 +181,7 @@ fun XvoxMiniPlayerCard(
                     ) { visualSong ->
                         XvoxSongArtwork(
                             artwork = visualSong.artworkUri,
+                            fallbackSeed = visualSong.id.hashCode(),
                             requestSize = 160,
                             modifier = Modifier.fillMaxSize()
                         )

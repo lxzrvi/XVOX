@@ -129,6 +129,7 @@ fun HiddenSongsSettingsSection(
                             if (song != null) {
                                 XvoxSongArtwork(
                                     artwork = song.artworkUri,
+                                    fallbackSeed = song.id.hashCode(),
                                     requestSize = 96,
                                     modifier = Modifier.size(38.dp).clip(RoundedCornerShape(6.dp))
                                 )

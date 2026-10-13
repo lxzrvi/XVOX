@@ -172,6 +172,7 @@ fun XvoxPlaylistCoverEditor(
                 ) {
                     XvoxSongArtwork(
                         artwork = song.artworkUri,
+                        fallbackSeed = song.id.hashCode(),
                         requestSize = 112,
                         modifier = Modifier
                             .fillMaxWidth()

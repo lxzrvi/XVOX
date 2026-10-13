@@ -197,6 +197,7 @@ fun CreatePlaylistBox(
                 ) {
                     XvoxSongArtwork(
                         artwork = song.artworkUri,
+                        fallbackSeed = song.id.hashCode(),
                         requestSize = 96,
                         modifier = Modifier
                             .size(38.dp)

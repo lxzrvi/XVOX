@@ -550,6 +550,7 @@ private fun QueueItemRow(
         ) {
             XvoxSongArtwork(
                 artwork = song.artworkUri,
+                fallbackSeed = song.id.hashCode(),
                 requestSize = 160,
                 modifier = Modifier.fillMaxSize()
             )

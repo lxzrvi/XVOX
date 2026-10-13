@@ -49,6 +49,7 @@ fun XvoxPlaylistCover(
     if (selectedCovers.size == 1) {
         XvoxSongArtwork(
             artwork = selectedCovers.first().artworkUri,
+            fallbackSeed = selectedCovers.first().id.hashCode(),
             requestSize = requestSize,
             modifier = modifier,
         )
@@ -82,6 +83,7 @@ fun XvoxPlaylistCover(
     if (coverSongs.size == 1) {
         XvoxSongArtwork(
             artwork = coverSongs.first().artworkUri,
+            fallbackSeed = coverSongs.first().id.hashCode(),
             requestSize = requestSize,
             modifier = modifier,
         )
@@ -93,7 +95,8 @@ fun XvoxPlaylistCover(
             Row(modifier = Modifier.weight(1f)) {
                 repeat(2) { column ->
                     val index = row * 2 + column
-                    val art = coverSongs.getOrNull(index)?.artworkUri ?: coverSongs.firstOrNull()?.artworkUri
+                    val coverSong = coverSongs.getOrNull(index) ?: coverSongs.firstOrNull()
+                    val art = coverSong?.artworkUri
                     Box(
                         modifier = Modifier
                             .weight(1f)
@@ -101,6 +104,7 @@ fun XvoxPlaylistCover(
                     ) {
                         XvoxSongArtwork(
                             artwork = art,
+                            fallbackSeed = coverSong?.id?.hashCode(),
                             requestSize = requestSize,
                             modifier = Modifier.fillMaxSize(),
                         )

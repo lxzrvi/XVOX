@@ -159,6 +159,7 @@ fun ArtistCircleItem(
             } else if (artist.coverSong != null) {
                 XvoxSongArtwork(
                     artwork = artist.coverSong.artworkUri,
+                    fallbackSeed = artist.coverSong.id.hashCode(),
                     requestSize = 256,
                     modifier = Modifier.fillMaxSize()
                 )

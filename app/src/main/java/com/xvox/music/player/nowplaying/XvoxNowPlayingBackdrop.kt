@@ -4,7 +4,6 @@ import android.net.Uri
 import androidx.compose.animation.VectorConverter
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -35,7 +34,12 @@ import com.xvox.music.features.home.XvoxSongArtwork
 fun XvoxNowPlayingBackdrop(
     dominant: Color,
     artwork: Uri?,
+    /** Song identity stays non-null even when [artwork] is null, preserving a unique fallback. */
+    artworkKey: String,
+    artworkSeed: Int,
     incomingArtwork: Uri? = null,
+    incomingArtworkKey: String? = null,
+    incomingArtworkSeed: Int = 11,
     artworkTransitionFraction: Float = 0f,
     style: String = XvoxNowPlayingBackgroundStyles.DEFAULT,
     coverBlur: Float = 24f,
@@ -47,10 +51,12 @@ fun XvoxNowPlayingBackdrop(
 
     LaunchedEffect(target, isCoverTransitionInProgress) {
         if (isCoverTransitionInProgress) {
-            // Pager frames already provide a precise blend. Do not make the background trail the
-            // actual artwork while someone swipes.
+            // The pager supplies a stable physical blend every frame. Snap only to that already
+            // blended colour, rather than letting an independent animation trail the finger.
             displayed.snapTo(target)
         } else {
+            // Lyrics next/previous has no visible pager, so its cover-matched canvas receives a
+            // deliberate smooth morph rather than an abrupt palette jump.
             displayed.animateTo(
                 targetValue = target,
                 animationSpec = tween<Color>(320, easing = CubicBezierEasing(.2f, 0f, 0f, 1f))
@@ -58,30 +64,53 @@ fun XvoxNowPlayingBackdrop(
         }
     }
 
-    val showCover = style == XvoxNowPlayingBackgroundStyles.COVER && artwork != null
+    val showCover = style == XvoxNowPlayingBackgroundStyles.COVER
     val fraction = artworkTransitionFraction.coerceIn(0f, 1f)
-    val pagerArtworkTransition = showCover && incomingArtwork != null &&
-        incomingArtwork != artwork && fraction > .0001f
-    // Never let an undecoded incoming layer take over the blurred canvas. The outgoing cover
-    // remains fully painted until the next cover has a real bitmap, then the supplied pager
-    // fraction is released through a short availability ramp instead of a blank-frame flash.
+    // Incoming identity—not URI—defines a transition. This lets two coverless songs blend their
+    // distinct wave patterns, and avoids treating a shared URI as a new visual identity.
+    val pagerArtworkTransition = showCover && incomingArtworkKey != null &&
+        incomingArtworkKey != artworkKey && fraction > .0001f
+
+    // An incoming layer is never allowed to take over before it is drawable. A decoded bitmap,
+    // error fallback, or no-cover wave reports readiness; the outgoing cover stays visible until
+    // then, eliminating blank/glitch frames during swipes and lyrics navigation.
     var readyArtworkKeys by remember { mutableStateOf(emptySet<String>()) }
-    fun markArtworkReady(uri: Uri?) {
-        val key = uri?.toString() ?: return
+    fun markArtworkReady(key: String?) {
+        key ?: return
         if (key !in readyArtworkKeys) readyArtworkKeys = readyArtworkKeys + key
     }
-    val incomingKey = incomingArtwork?.toString()
-    val incomingIsDecoded = incomingKey != null && incomingKey in readyArtworkKeys
-    val incomingAvailability by animateFloatAsState(
-        targetValue = if (pagerArtworkTransition && incomingIsDecoded) 1f else 0f,
-        animationSpec = tween(150, easing = CubicBezierEasing(.22f, 0f, 0f, 1f)),
-        label = "nowPlayingBackdropIncomingAvailability"
-    )
+    // Null artwork also waits for its generated wave bitmap. That lets a real cover ↔ no-cover
+    // handoff blend rather than revealing the local surface for a frame.
+    val incomingAvailable = incomingArtworkKey != null && incomingArtworkKey in readyArtworkKeys
+    val incomingAvailability = remember(incomingArtworkKey) { Animatable(0f) }
+    LaunchedEffect(incomingArtworkKey, pagerArtworkTransition, incomingAvailable) {
+        when {
+            !pagerArtworkTransition -> incomingAvailability.snapTo(0f)
+            !incomingAvailable -> incomingAvailability.snapTo(0f)
+            else -> {
+                // Restart a short release ramp for each incoming identity. It hides decoder timing
+                // without decoupling the actual blend from the foreground pager's fraction.
+                incomingAvailability.snapTo(0f)
+                incomingAvailability.animateTo(
+                    targetValue = 1f,
+                    animationSpec = tween(150, easing = CubicBezierEasing(.22f, 0f, 0f, 1f))
+                )
+            }
+        }
+    }
     val displayedIncomingFraction = if (pagerArtworkTransition) {
-        fraction * incomingAvailability
+        fraction * incomingAvailability.value
     } else {
         0f
     }
+    // Once the pager has shown its incoming cover at the endpoint, the persistent primary slot
+    // must adopt that decoded bitmap directly. Otherwise its own old→new morph would replay the
+    // outgoing cover for one frame after the incoming layer is removed.
+    var completedIncomingKey by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(pagerArtworkTransition, incomingArtworkKey) {
+        if (pagerArtworkTransition) completedIncomingKey = incomingArtworkKey
+    }
+    val primaryAlreadyShownByPager = !pagerArtworkTransition && artworkKey == completedIncomingKey
 
     Box(
         modifier = modifier
@@ -89,28 +118,30 @@ fun XvoxNowPlayingBackdrop(
             .background(displayed.value)
     ) {
         if (showCover) {
-            // Keep one persistent primary artwork slot in composition at all times. It retains
-            // the last decoded bitmap and morphs internally when its URI changes, which avoids
-            // Crossfade creating a fresh blank image slot at a song boundary.
+            // Keep one persistent primary slot in composition. XvoxSongArtwork retains/morphs a
+            // decoded outgoing bitmap (or wave fallback) while the settled/lyrics song changes.
             PremiumBlurredCover(
                 artwork = artwork,
+                fallbackSeed = artworkSeed,
+                skipDecodedMorph = primaryAlreadyShownByPager,
                 blur = coverBlur,
                 alpha = 1f - displayedIncomingFraction,
-                onReady = { markArtworkReady(artwork) }
+                onReady = { markArtworkReady(artworkKey) }
             )
             if (pagerArtworkTransition) {
-                // During drag/tap/natural completion, this is the pager's actual incoming cover.
-                // It receives opacity only after its decoded bitmap is ready, so the persistent
-                // primary never drops away to a card-colour/blank frame under a fast swipe.
+                // The incoming layer uses the same progress as the foreground cover. Its identity
+                // remains stable across Pager.currentPage's midpoint hand-off, so roles cannot
+                // swap and flash halfway through a finger drag.
                 PremiumBlurredCover(
                     artwork = incomingArtwork,
+                    fallbackSeed = incomingArtworkSeed,
                     blur = coverBlur,
                     alpha = displayedIncomingFraction,
-                    onReady = { markArtworkReady(incomingArtwork) }
+                    onReady = { markArtworkReady(incomingArtworkKey) }
                 )
             }
             // A gentle tonal veil removes noisy blur artifacts and keeps controls readable while
-            // retaining actual cover color—not an opaque unrelated replacement surface.
+            // retaining actual cover/wave colour—not an opaque unrelated replacement surface.
             Box(
                 Modifier
                     .fillMaxSize()
@@ -131,11 +162,12 @@ fun XvoxNowPlayingBackdrop(
 @Composable
 private fun PremiumBlurredCover(
     artwork: Uri?,
+    fallbackSeed: Int,
+    skipDecodedMorph: Boolean = false,
     blur: Float,
     alpha: Float,
     onReady: (() -> Unit)? = null
 ) {
-    artwork ?: return
     XvoxSongArtwork(
         artwork = artwork,
         requestSize = XvoxNowPlayingArtworkSize,
@@ -144,6 +176,9 @@ private fun PremiumBlurredCover(
         // bitmap while an adjacent one resolves makes the two blurred layers crossfade instead of
         // sticking on an empty/placeholder frame mid-swipe.
         keepPreviousOnLoading = true,
+        skipDecodedMorph = skipDecodedMorph,
+        renderFallbackAsBitmap = true,
+        fallbackSeed = fallbackSeed,
         onArtworkReady = onReady,
         modifier = Modifier
             .fillMaxSize()

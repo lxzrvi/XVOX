@@ -171,6 +171,7 @@ private fun XvoxFullArtPager(
             ) {
                 XvoxSongArtwork(
                     artwork = queue[qIndex].artworkUri,
+                    fallbackSeed = queue[qIndex].id.hashCode(),
                     requestSize = 2048,
                     modifier = Modifier.fillMaxSize()
                 )
