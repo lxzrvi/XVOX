@@ -68,8 +68,7 @@ fun XvoxBottomBar(
         alpha = navEdgeBase.alpha * navBorderAlpha * navSurfaceAlpha
     )
     val pillEdgeBase = com.xvox.music.core.ui.chrome.parseHexColor(chrome.pillBorder) ?: navEdgeBase
-    // A default dark selector needs no harsh capsule edge. Explicit user-selected borders remain
-    // respected, but the travelling pill itself stays as transparent as the accepted light mode.
+    // The active selector has the Settings-card surface, while its edge remains a quiet outline.
     val pillEdgeStrength = if (!colors.isLight && chrome.pillBorder.isBlank()) .14f else 1f
     val pillEdge = pillEdgeBase.copy(
         alpha = pillEdgeBase.alpha * navBorderAlpha * navSurfaceAlpha * pillEdgeStrength
@@ -77,38 +76,10 @@ fun XvoxBottomBar(
     val defaultNavSurface = colors.background
     val appliedNavSurfaceAlpha = navSurfaceAlpha
 
-    val defaultPillNeutral = if (colors.isLight) {
-        // A restrained light gray remains visible on bright app backgrounds without reading as a
-        // second accent treatment.
-        androidx.compose.ui.graphics.Color(0xFFB8BBC2)
-    } else {
-        // The dark travelling pill has one deliberate neutral base. Its alpha still follows the
-        // exact same transparency curve as the accepted light pill below.
-        androidx.compose.ui.graphics.Color(0xFF292928)
-    }
-    // Dark-mode navigation has one mandated active-pill colour. Ignore any retained legacy
-    // custom fill there; light mode deliberately preserves its established configurable behavior.
-    val pillBase = if (colors.isLight) {
-        com.xvox.music.core.ui.chrome.parseHexColor(chrome.pillColor) ?: defaultPillNeutral
-    } else {
-        defaultPillNeutral // #292928
-    }
-    val customImageSurface = chrome.navigationImageUri.isNotBlank()
-    val useAutomaticPillOpacity = !colors.isLight || chrome.pillColor.isBlank()
-    val pillFill = if (useAutomaticPillOpacity) {
-        // At 0% transparency a custom navbar image is the surface itself—do not wash a default
-        // theme pill over it. Dark mode follows this same established automatic-pill curve.
-        val defaultPillAlpha = if (customImageSurface) {
-            // Preserve the previously requested completely clear custom-image endpoint.
-            navSurfaceAlpha * (1f - navSurfaceAlpha)
-        } else {
-            // Dark mode intentionally shares the established light-pill opacity curve. Only the
-            // neutral base differs (#292928 in dark), so navbar transparency remains predictable
-            // and light mode is unchanged.
-            (.28f + .20f * navSurfaceAlpha) * navSurfaceAlpha
-        }
-        pillBase.copy(alpha = pillBase.alpha * defaultPillAlpha * chrome.pillAlpha.coerceIn(0f, 1f))
-    } else pillBase.copy(alpha = pillBase.alpha * chrome.pillAlpha.coerceIn(0f, 1f) * navSurfaceAlpha)
+    // Match the Settings section-box material exactly in both themes. The active selector must
+    // remain opaque even when navbar/pill transparency preferences are lowered, so an underlying
+    // route or custom navbar artwork can never bleed through it.
+    val pillFill = colors.card.copy(alpha = 1f)
 
     val isLandscape = androidx.compose.ui.platform.LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
     // Device-orientation baselines requested for the chrome remain separate from the editable

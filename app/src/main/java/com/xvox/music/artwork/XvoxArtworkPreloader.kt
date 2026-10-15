@@ -11,6 +11,9 @@ import com.xvox.music.core.model.Song
 import com.xvox.music.features.home.XvoxGridArtworkSize
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.coroutineContext
@@ -38,13 +41,14 @@ class XvoxArtworkPreloader(context: Context) {
         if (start >= end) return@withContext
         val loader = SingletonImageLoader.get(app)
         val uris = songs.subList(start, end).mapNotNull { it.artworkUri }.distinct()
-        for (uri in uris) {
+
+        suspend fun warmUri(uri: Any) {
             coroutineContext.ensureActive()
             // Warm the exact size that the forthcoming card asks Coil to decode. In particular,
             // non-unit mosaic tiles retain their 512px request and Now Playing retains original
             // artwork rather than falling back to a thumbnail during a fast gesture.
             val key = "${XvoxArtworkCache.keyFor(uri)}_$exactSize"
-            if (XvoxArtworkCache.get(key) != null) continue
+            if (XvoxArtworkCache.get(key) != null) return
             try {
                 val builder = ImageRequest.Builder(app)
                     .data(uri)
@@ -58,7 +62,20 @@ class XvoxArtworkPreloader(context: Context) {
                 }
                 val result = loader.execute(builder.build())
                 (result.image as? BitmapImage)?.bitmap?.let { XvoxArtworkCache.put(key, it) }
-            } catch (cancelled: CancellationException) { throw cancelled } catch (_: Exception) { /* A missing cover must not delay the next visible card. */ }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                // A missing cover must not delay the next visible card.
+            }
+        }
+
+        if (originalQuality) {
+            // The Now Playing pager has only its immediate three-cover runway. Decode that small
+            // window concurrently so the first left or right swipe does not wait behind the other
+            // adjacent cover and flash a temporary fallback before its actual artwork arrives.
+            coroutineScope { uris.map { uri -> async { warmUri(uri) } }.awaitAll() }
+        } else {
+            for (uri in uris) warmUri(uri)
         }
     }
     suspend fun warmVisible(songs: List<Song>) { warm(songs, 0, 16, XvoxGridArtworkSize) }

@@ -40,9 +40,10 @@ fun XvoxPlaylistCard(
     selected: Boolean = false
 ) {
     val colors = XvoxTheme.colors
-    // The cover uses this very same corner language as its containing card; clipping at both
-    // levels keeps the bitmap edge smooth during press-scale motion and cover replacement.
+    // The artwork sits inside a 3dp card frame. Reducing its radius by that inset keeps the two
+    // curves concentric, so the visible image corner exactly matches the containing box radius.
     val shape = RoundedCornerShape(16.dp)
+    val coverShape = RoundedCornerShape(13.dp)
 
     Column(
         modifier = modifier
@@ -61,11 +62,11 @@ fun XvoxPlaylistCard(
             coverSongIds = playlist.coverSongIds,
             customCoverUri = playlist.customCoverUri,
             requestSize = 192,
-            coverShape = shape,
+            coverShape = coverShape,
             modifier = Modifier
                 .fillMaxWidth()
                 .then(if (longCard) Modifier.weight(1f) else Modifier.aspectRatio(1f))
-                .clip(shape)
+                .clip(coverShape)
         )
 
         // Reserve the exact row-like metadata band instead of letting a smaller font scale

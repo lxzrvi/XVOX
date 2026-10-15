@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -80,7 +81,7 @@ fun XvoxSongArtwork(
         artwork?.let(XvoxArtworkCache::keyFor) ?: "xvox_default_cover"
     }
     val defaultCoverKey = remember(colors.isLight) {
-        "xvox_default_cover_v1:${if (colors.isLight) "light" else "dark"}"
+        "xvox_default_cover_v2:${if (colors.isLight) "light" else "dark"}"
     }
     val cacheKey = remember(baseKey, requestSize, artwork, renderFallbackAsBitmap, defaultCoverKey) {
         if (artwork == null && renderFallbackAsBitmap) defaultCoverKey else "${baseKey}_$requestSize"
@@ -134,6 +135,15 @@ fun XvoxSongArtwork(
     var decodedBitmap by remember(cacheKey, baseKey, requestSize) { mutableStateOf(cachedOriginalBitmap()) }
     var artworkFailed by remember(cacheKey, baseKey, requestSize) { mutableStateOf(false) }
     var fallbackRequested by remember(cacheKey) { mutableStateOf(artwork == null && renderFallbackAsBitmap) }
+    // Original-quality adjacent pages can be composed a frame before the preloader completes.
+    // Listen only for that narrow full-player case so the cache write becomes a visible bridge on
+    // the first swipe rather than leaving a one-frame fallback flicker.
+    if (keepPreviousOnLoading && requestSize == 0 && artwork != null && decodedBitmap == null) {
+        val artworkCacheRevision by XvoxArtworkCache.revision.collectAsState()
+        LaunchedEffect(cacheKey, artworkCacheRevision) {
+            cachedOriginalBitmap()?.let { cached -> decodedBitmap = cached }
+        }
+    }
     LaunchedEffect(defaultCoverKey, renderFallbackAsBitmap, artwork, fallbackRequested) {
         if (renderFallbackAsBitmap && (artwork == null || fallbackRequested) && decodedBitmap == null) {
             // The default cover is decoded once on the bounded artwork worker.  Unlike the old
@@ -222,8 +232,13 @@ fun XvoxSongArtwork(
         builder.build()
     }
 
+    // A cold adjacent Now Playing page stays transparent while its real cover is resolving. The
+    // pager/backdrop remains visible beneath it, which is materially smoother than flashing the
+    // generic fallback between two real covers on a user's first swipe.
+    val keepColdPlayerFrameTransparent = artwork != null && keepPreviousOnLoading &&
+        !renderFallbackAsBitmap && visibleImageBitmap == null && !artworkFailed
     Box(
-        modifier = modifier.background(colors.cardElevated),
+        modifier = if (keepColdPlayerFrameTransparent) modifier else modifier.background(colors.cardElevated),
         contentAlignment = Alignment.Center
     ) {
         val activeMorph = keepPreviousOnLoading &&
@@ -242,15 +257,9 @@ fun XvoxSongArtwork(
                 brand = if (artwork == null || artworkFailed) fallbackBrand else XvoxFallbackBrand.NONE
             )
         } else if (visibleImageBitmap == null && keepPreviousOnLoading) {
-            // A completely cold original page still has a stable supplied-cover frame instead of
-            // exposing a card-colour flash. As soon as an exact lower-resolution cache exists it
-            // takes precedence above, then morphs to original quality below.
-            WavePatternSquare(
-                modifier = Modifier.fillMaxSize(),
-                seed = fallbackSeed ?: 11,
-                bitmapSize = requestSize,
-                brand = XvoxFallbackBrand.NONE
-            )
+            // Keep this cold real-artwork frame transparent. Its surrounding pager/backdrop is
+            // already transitioning the outgoing/incoming imagery, so a temporary default cover
+            // here would read as a jump before the exact source bitmap reaches the cache.
         } else if (artworkFailed && visibleImageBitmap == null) {
             WavePatternSquare(
                 modifier = Modifier.fillMaxSize(),

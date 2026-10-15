@@ -41,6 +41,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -275,13 +276,15 @@ fun XvoxSheet(
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
     val dismiss by rememberUpdatedState(onDismiss)
-    var visible by remember { mutableStateOf(false) }
+    // Target the entrance before the first composition frame. A post-composition LaunchedEffect
+    // added a visible beat before every sheet began fading in.
+    val visibility = remember { MutableTransitionState(false).apply { targetState = true } }
     var closing by remember { mutableStateOf(false) }
     // The dimmed upper canvas owns an opacity-only morph. It is immediately full-screen and never
     // rides upward with the sheet, avoiding a visible empty/slide-in strip behind a new sheet.
     val scrimAlpha by animateFloatAsState(
-        targetValue = if (visible) .40f else 0f,
-        animationSpec = tween(190, easing = XvoxBoxEasing),
+        targetValue = if (visibility.targetState) .40f else 0f,
+        animationSpec = tween(150, easing = XvoxBoxEasing),
         label = "sheetScrimAlpha"
     )
     val swallowInteraction = remember { MutableInteractionSource() }
@@ -289,15 +292,13 @@ fun XvoxSheet(
     fun close() {
         if (closing) return
         closing = true
-        visible = false
+        visibility.targetState = false
         scope.launch {
-            // Keep the host mounted until its downward exit has cleared the visible screen.
-            delay(280)
+            // Keep the host mounted through the complete compact fade-out, then release it.
+            delay(160)
             dismiss()
         }
     }
-
-    LaunchedEffect(Unit) { visible = true }
 
     Dialog(
         onDismissRequest = ::close,
@@ -394,11 +395,11 @@ fun XvoxSheet(
                 }
 
                 AnimatedVisibility(
-                    visible = visible,
-                    // Every option sheet opens and closes as a complete opacity transition. The
-                    // content never rises from the bottom or leaves a faded top strip behind it.
-                    enter = fadeIn(tween(190, easing = XvoxBoxEasing)),
-                    exit = fadeOut(tween(170, easing = XvoxBoxEasing))
+                    visibleState = visibility,
+                    // Start immediately while retaining a short, complete opacity transition.
+                    // The content never rises from the bottom or leaves a faded top strip behind it.
+                    enter = fadeIn(tween(150, easing = XvoxBoxEasing)),
+                    exit = fadeOut(tween(130, easing = XvoxBoxEasing))
                 ) {
                     Column(
                         modifier = Modifier
@@ -599,13 +600,15 @@ private fun XvoxCenteredBox(
     val scrimColor = if (colors.isLight) colors.primaryText else colors.background
     val scope = rememberCoroutineScope()
     val dismiss by rememberUpdatedState(onDismiss)
-    var visible by remember { mutableStateOf(false) }
+    // Set the target before first draw so centered choices have the same no-delay entrance as
+    // bottom sheets while still fading smoothly.
+    val visibility = remember { MutableTransitionState(false).apply { targetState = true } }
     var closing by remember { mutableStateOf(false) }
     // The Dialog paints one full-screen, opacity-only scrim.  It never scales or translates with
     // a centred sheet, so the sheet is the only moving layer in every overlay presentation.
     val scrimAlpha by animateFloatAsState(
-        targetValue = if (visible) .48f else 0f,
-        animationSpec = tween(190, easing = XvoxBoxEasing),
+        targetValue = if (visibility.targetState) .48f else 0f,
+        animationSpec = tween(150, easing = XvoxBoxEasing),
         label = "centeredSheetScrimAlpha"
     )
     val swallowInteraction = remember { MutableInteractionSource() }
@@ -613,14 +616,12 @@ private fun XvoxCenteredBox(
     fun close() {
         if (closing) return
         closing = true
-        visible = false
+        visibility.targetState = false
         scope.launch {
-            delay(180)
+            delay(160)
             dismiss()
         }
     }
-
-    LaunchedEffect(Unit) { visible = true }
 
     Dialog(
         onDismissRequest = ::close,
@@ -676,11 +677,11 @@ private fun XvoxCenteredBox(
                     .clickable(remember { MutableInteractionSource() }, indication = null) { close() }
             )
             AnimatedVisibility(
-                visible = visible,
-                // Centered pickers follow the same complete fade-only contract as bottom sheets.
-                // Neither surface nor backdrop translates while opening or closing.
-                enter = fadeIn(tween(190, easing = XvoxBoxEasing)),
-                exit = fadeOut(tween(170, easing = XvoxBoxEasing))
+                visibleState = visibility,
+                // Centered pickers follow the same immediate, complete fade-only contract as
+                // bottom sheets. Neither surface nor backdrop translates while opening or closing.
+                enter = fadeIn(tween(150, easing = XvoxBoxEasing)),
+                exit = fadeOut(tween(130, easing = XvoxBoxEasing))
             ) {
                 Column(
                     modifier = Modifier

@@ -8,10 +8,6 @@ import android.content.res.Configuration
 import android.database.Cursor
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.graphics.Canvas
-import android.graphics.ColorMatrix
-import android.graphics.ColorMatrixColorFilter
-import android.graphics.Paint
 import android.net.Uri
 import android.os.ParcelFileDescriptor
 import android.util.LruCache
@@ -24,8 +20,9 @@ import kotlinx.coroutines.runBlocking
  * Lazy PNG source for Media3's playback notification when a song has no embedded artwork.
  *
  * Android's notification pipeline needs a local content URI rather than a Compose painter.  This
- * provider therefore renders the same bundled XVOX default cover used by the app: untouched in
- * dark themes, or through a pure RGB negative in light themes. No extra mark is painted.
+ * provider therefore renders the same bundled XVOX default cover used by the app: the supplied
+ * dark asset in dark themes and the separately supplied light asset in light themes. No extra
+ * mark is painted and neither source image is transformed at runtime.
  */
 class XvoxFallbackArtworkProvider : ContentProvider() {
     override fun onCreate(): Boolean = true
@@ -67,19 +64,9 @@ class XvoxFallbackArtworkProvider : ContentProvider() {
 
     companion object {
         private const val AUTHORITY = "com.xvox.music.fallbackart"
-        private const val artworkSize = 256
         private val artworkCache = object : LruCache<String, ByteArray>(2 * 1024 * 1024) {
             override fun sizeOf(key: String, value: ByteArray): Int = value.size
         }
-        private val invertMatrix = ColorMatrix(
-            floatArrayOf(
-                -1f, 0f, 0f, 0f, 255f,
-                0f, -1f, 0f, 0f, 255f,
-                0f, 0f, -1f, 0f, 255f,
-                0f, 0f, 0f, 1f, 0f
-            )
-        )
-
         /** Used only on MediaItem metadata; UI Song models retain their original null artwork. */
         fun uriForSong(songId: Long): Uri = Uri.Builder()
             .scheme("content")
@@ -116,31 +103,14 @@ class XvoxFallbackArtworkProvider : ContentProvider() {
             val source = checkNotNull(
                 BitmapFactory.decodeResource(
                     context.resources,
-                    R.drawable.xvox_default,
+                    if (light) R.drawable.xvox_default_2 else R.drawable.xvox_default,
                     BitmapFactory.Options().apply { inPreferredConfig = Bitmap.Config.ARGB_8888 }
                 )
             ) { "Bundled XVOX default cover is unavailable" }
-            val scaled = Bitmap.createScaledBitmap(source, artworkSize, artworkSize, true)
-            if (scaled !== source) source.recycle()
-            val result = if (light) {
-                Bitmap.createBitmap(artworkSize, artworkSize, Bitmap.Config.ARGB_8888).also { output ->
-                    Canvas(output).drawBitmap(
-                        scaled,
-                        0f,
-                        0f,
-                        Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
-                            colorFilter = ColorMatrixColorFilter(invertMatrix)
-                        }
-                    )
-                    scaled.recycle()
-                }
-            } else {
-                scaled
-            }
-
-            // The supplied bitmap is the complete fallback identity. Do not paint a brand or an
-            // accent-derived overlay over it after inversion.
-            return result
+            // The supplied bitmap is the complete fallback identity. Keep its decoded source
+            // dimensions intact; the notification surface performs its own display scaling. Do
+            // not paint, recolour, downsample, or invert either source artwork after decode.
+            return source
         }
     }
 }

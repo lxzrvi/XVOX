@@ -153,13 +153,19 @@ fun XvoxMainShell(
     // Survives closing/reopening Now Playing, unlike an action-page remember inside its subtree.
     var nowPlayingActionsPage by rememberSaveable { mutableIntStateOf(0) }
     var homeResetKey by rememberSaveable { mutableLongStateOf(0L) }
+    // Raised only when an already-active Artists/Playlists header pill should leave its detail
+    // and reveal that retained list page, rather than toggling the pill all the way to All Songs.
+    var homeDetailExitKey by rememberSaveable { mutableLongStateOf(0L) }
+    var activeHomeDetailMode by remember { mutableStateOf<com.xvox.music.features.playlist.XvoxHomeLibraryMode?>(null) }
     // A destination return deliberately preserves the chosen library page, but always lands that
     // page at its own top rather than reviving an old deep Home scroll position.
     var homeScrollResetKey by rememberSaveable { mutableLongStateOf(0L) }
     // Search and Settings reset only when they are newly selected, not when Settings Back
     // restores Search as the reverse route.
     var searchTopResetKey by rememberSaveable { mutableLongStateOf(0L) }
+    var searchBaseResetKey by rememberSaveable { mutableLongStateOf(0L) }
     var settingsTopResetKey by rememberSaveable { mutableLongStateOf(0L) }
+    var settingsBaseResetKey by rememberSaveable { mutableLongStateOf(0L) }
     // A single shell Header owns the profile/artwork surface for all routes. Pages only report
     // scroll progress; they never recreate a page-local Header while route content changes.
     var homeHeaderScrollPx by rememberSaveable { mutableIntStateOf(0) }
@@ -564,6 +570,8 @@ fun XvoxMainShell(
             if (destination == XvoxDestination.HOME) {
                 // A second Home tap is the familiar home action: return to All Songs at its top.
                 hoistedSelectedPlaylistId = null
+                activeHomeDetailMode = null
+                homeDetailExitKey++
                 homeHeaderScrollPx = 0
                 homeViewModel.setLibraryMode(com.xvox.music.features.playlist.XvoxHomeLibraryMode.ALL_SONGS)
                 homeResetKey++
@@ -576,25 +584,61 @@ fun XvoxMainShell(
             return
         }
 
-        if (next != destination) {
+        if (next == destination) {
             when (next) {
-                XvoxDestination.SEARCH -> searchTopResetKey++
+                XvoxDestination.SEARCH -> {
+                    // Search owns artist/playlist drill-down locally. Re-selecting its navbar
+                    // destination returns to that base page, never through Home.
+                    searchBaseResetKey++
+                    searchTopResetKey++
+                }
                 XvoxDestination.SETTINGS -> {
-                    settingsReturnDestination = destination
+                    // The same active-tab gesture exits Widget Studio and any Settings-local sheet.
+                    settingsBaseResetKey++
                     settingsTopResetKey++
                 }
                 XvoxDestination.HOME -> Unit
             }
-            destination = next
+            return
         }
+
+        when (next) {
+            XvoxDestination.SEARCH -> searchTopResetKey++
+            XvoxDestination.SETTINGS -> {
+                settingsReturnDestination = destination
+                settingsTopResetKey++
+            }
+            XvoxDestination.HOME -> Unit
+        }
+        destination = next
     }
 
     fun openHomeLibrary(mode: com.xvox.music.features.playlist.XvoxHomeLibraryMode) {
+        val detailBelongsToRequestedPill = destination == XvoxDestination.HOME && (
+            activeHomeDetailMode == mode ||
+                mode == com.xvox.music.features.playlist.XvoxHomeLibraryMode.PLAYLISTS &&
+                hoistedSelectedPlaylistId != null
+            )
+        if (detailBelongsToRequestedPill) {
+            // First tap while an Artist/Playlist detail is open: keep the selected library mode
+            // (and therefore its lifted/accented header state), but exit only the detail.
+            hoistedSelectedPlaylistId = null
+            activeHomeDetailMode = null
+            homeDetailExitKey++
+            homeViewModel.setLibraryMode(mode)
+            homeScrollResetKey++
+            return
+        }
+
         val isAlreadyOpen = destination == XvoxDestination.HOME && homeState.libraryMode == mode
+        if (activeHomeDetailMode != null) {
+            activeHomeDetailMode = null
+            homeDetailExitKey++
+        }
         hoistedSelectedPlaylistId = null
         if (destination != XvoxDestination.HOME) destination = XvoxDestination.HOME
-        // Header library pills are toggles: a second tap on the active library page closes it
-        // back to All Songs, while every other choice still opens its own page at the top.
+        // Header library pills are toggles: the second tap on the plain list closes it back to
+        // All Songs, while a first tap from a detail above already returned to that retained list.
         homeViewModel.setLibraryMode(
             if (isAlreadyOpen) com.xvox.music.features.playlist.XvoxHomeLibraryMode.ALL_SONGS else mode
         )
@@ -792,8 +836,10 @@ fun XvoxMainShell(
                                     isPlaying = player.isPlaying,
                                     homeResetKey = homeResetKey,
                                     scrollResetKey = homeScrollResetKey,
+                                    detailExitKey = homeDetailExitKey,
                                     selectedPlaylistId = hoistedSelectedPlaylistId,
                                     onSelectedPlaylistIdChange = homePlaylistSelectionCallback,
+                                    onActiveDetailModeChange = { activeHomeDetailMode = it },
                                     onQueueReady = queueReadyCallback,
                                     onPlay = homePlayCallback,
                                     playerViewModel = playerViewModel,
@@ -805,6 +851,7 @@ fun XvoxMainShell(
                                     homeViewModel = homeViewModel,
                                     playerViewModel = playerViewModel,
                                     topResetKey = searchTopResetKey,
+                                    baseResetKey = searchBaseResetKey,
                                     onPlaylistSelected = { playlistId ->
                                         hoistedSelectedPlaylistId = playlistId
                                         returnToHome(resetScroll = true)
@@ -820,7 +867,8 @@ fun XvoxMainShell(
                                 SettingsScreen(
                                     homeViewModel = homeViewModel,
                                     settingsViewModel = settingsViewModel,
-                                    topResetKey = settingsTopResetKey
+                                    topResetKey = settingsTopResetKey,
+                                    baseResetKey = settingsBaseResetKey
                                 )
                             }
                         }

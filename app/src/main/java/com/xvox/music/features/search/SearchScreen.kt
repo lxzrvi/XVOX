@@ -93,6 +93,8 @@ fun SearchScreen(
     homeViewModel: HomeViewModel = viewModel(),
     playerViewModel: MainPlayerViewModel = viewModel(),
     topResetKey: Long = 0L,
+    /** Explicit tap on the active Search tab: return any artist/playlist drill-down to base Search. */
+    baseResetKey: Long = 0L,
     onPlaylistSelected: ((String) -> Unit)? = null,
     /** Reports the active list position to the one Header owned by XvoxMainShell. */
     onScrollProgress: (Int, Int) -> Unit = { _, _ -> }
@@ -209,6 +211,16 @@ fun SearchScreen(
     androidx.activity.compose.BackHandler(enabled = drillDownPlaylist != null || drillDownArtist != null) {
         drillDownPlaylist = null
         drillDownArtist = null
+    }
+
+    // Re-selecting Search is a local return-to-root action. It must not route Home just because a
+    // Search-owned artist or playlist detail happens to be open beneath the same navbar tab.
+    LaunchedEffect(baseResetKey) {
+        if (baseResetKey > 0L) {
+            drillDownPlaylist = null
+            drillDownArtist = null
+            listState.scrollToItem(0)
+        }
     }
 
     val trimmedQuery = query.trim()
@@ -1036,53 +1048,57 @@ private fun androidx.compose.foundation.lazy.LazyListScope.searchResultsContent(
             val colors = XvoxTheme.colors
             val cardColor = rememberSongCardColor(song = song, current = false)
 
-            Row(
+            val resultShape = RoundedCornerShape(12.dp)
+            SearchPressSurface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 6.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(cardColor)
-                    .border(0.8.dp, colors.cardBorder.copy(alpha = 0.55f), RoundedCornerShape(12.dp))
-                    .xvoxSongPress(
-                        onClick = { onSongClick(song) },
-                        onLongClick = { onSongLongClick(song) }
-                    )
-                    // Use the same tight portrait All Songs artwork frame everywhere.
-                    .padding(3.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    .padding(horizontal = 6.dp),
+                shape = resultShape,
+                fill = cardColor,
+                border = colors.cardBorder.copy(alpha = .55f),
+                onClick = { onSongClick(song) },
+                onLongClick = { onSongLongClick(song) }
             ) {
-                Box(
+                Row(
                     modifier = Modifier
-                        .size(44.dp)
-                        .clip(RoundedCornerShape(8.dp)),
-                    contentAlignment = Alignment.Center
+                        .fillMaxWidth()
+                        // Use the same tight portrait All Songs artwork frame everywhere.
+                        .padding(3.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    XvoxSongArtwork(
-                        artwork = song.artworkUri,
-                        fallbackSeed = song.id.hashCode(),
-                        requestSize = 100,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                }
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(RoundedCornerShape(8.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        XvoxSongArtwork(
+                            artwork = song.artworkUri,
+                            fallbackSeed = song.id.hashCode(),
+                            requestSize = 100,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
 
-                Spacer(Modifier.width(12.dp))
+                    Spacer(Modifier.width(12.dp))
 
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = song.title,
-                        color = colors.primaryText,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Text(
-                        text = song.artist,
-                        color = colors.secondaryText,
-                        fontSize = 11.5.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = song.title,
+                            color = colors.primaryText,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = song.artist,
+                            color = colors.secondaryText,
+                            fontSize = 11.5.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
             }
         }
@@ -1144,58 +1160,66 @@ private fun SearchPlaylistCompactItem(
     val colors = XvoxTheme.colors
     val cardShape = RoundedCornerShape(12.dp)
     // Keep the artwork height derived from the card's 4dp perimeter inset instead of letting a
-    // fixed cover crowd the horizontal gap at different display densities.
-    Row(
+    // fixed cover crowd the horizontal gap at different display densities. An inset cover uses a
+    // 12dp − 4dp radius so its physical corner curve is concentric with the surrounding box.
+    val coverShape = RoundedCornerShape(8.dp)
+    SearchPressSurface(
         modifier = Modifier
             .width(170.dp)
-            .height(64.dp)
-            .clip(cardShape)
-            .background(colors.background)
-            .border(0.8.dp, colors.cardBorder, cardShape)
-            .xvoxSongPress(onClick = onClick, onLongClick = onLongClick)
-            .padding(4.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .height(64.dp),
+        shape = cardShape,
+        fill = colors.background,
+        border = colors.cardBorder,
+        onClick = onClick,
+        onLongClick = onLongClick
     ) {
-        Box(
+        Row(
             modifier = Modifier
-                .size(56.dp)
-                // Match the compact playlist card exactly so its cover reads as part of the
-                // same rounded box rather than as a separately rounded tile.
-                .clip(cardShape)
-                .background(colors.cardElevated),
-            contentAlignment = Alignment.Center
+                .fillMaxSize()
+                .padding(4.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            // Use the shared playlist renderer even in compact Search results. A stale custom URI
-            // or an empty playlist therefore gets the same centered XVOX fallback as every other
-            // playlist cover rather than an unrelated playlist glyph or a blank tile.
-            XvoxPlaylistCover(
-                songs = listOfNotNull(coverSong),
-                coverSongIds = playlist.coverSongIds,
-                customCoverUri = playlist.customCoverUri,
-                requestSize = 128,
-                coverShape = cardShape,
-                modifier = Modifier.fillMaxSize()
-            )
-        }
+            Box(
+                modifier = Modifier
+                    .size(56.dp)
+                    // The inset curve follows the outer card exactly rather than looking like a
+                    // separately rounded tile.
+                    .clip(coverShape)
+                    .background(colors.cardElevated),
+                contentAlignment = Alignment.Center
+            ) {
+                // Use the shared playlist renderer even in compact Search results. A stale custom URI
+                // or an empty playlist therefore gets the same centered XVOX fallback as every other
+                // playlist cover rather than an unrelated playlist glyph or a blank tile.
+                XvoxPlaylistCover(
+                    songs = listOfNotNull(coverSong),
+                    coverSongIds = playlist.coverSongIds,
+                    customCoverUri = playlist.customCoverUri,
+                    requestSize = 128,
+                    coverShape = coverShape,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
 
-        Spacer(Modifier.width(8.dp))
+            Spacer(Modifier.width(8.dp))
 
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = playlist.name,
-                color = colors.primaryText,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text(
-                text = "${playlist.songIds.size} songs",
-                color = colors.secondaryText,
-                fontSize = 10.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = playlist.name,
+                    color = colors.primaryText,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = "${playlist.songIds.size} songs",
+                    color = colors.secondaryText,
+                    fontSize = 10.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
     }
 }
@@ -1211,54 +1235,58 @@ private fun SearchSongRow(
     val colors = XvoxTheme.colors
     val cardColor = rememberSongCardColor(song = song, current = false)
 
-    Row(
+    val resultShape = RoundedCornerShape(12.dp)
+    SearchPressSurface(
         modifier = Modifier
             .fillMaxWidth()
             // Results keep a deliberate but minimal gutter instead of the former inset-card look.
-            .padding(horizontal = 5.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(cardColor)
-            .border(0.8.dp, colors.cardBorder.copy(alpha = 0.55f), RoundedCornerShape(12.dp))
-            .xvoxSongPress(
-                onClick = { onSongClick(song) },
-                onLongClick = { onSongLongClick(song) }
-            )
-            // Use the same tight portrait All Songs artwork frame as every song card.
-            .padding(3.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(horizontal = 5.dp),
+        shape = resultShape,
+        fill = cardColor,
+        border = colors.cardBorder.copy(alpha = .55f),
+        onClick = { onSongClick(song) },
+        onLongClick = { onSongLongClick(song) }
     ) {
-        Box(
+        Row(
             modifier = Modifier
-                .size(44.dp)
-                .clip(RoundedCornerShape(8.dp)),
-            contentAlignment = Alignment.Center
+                .fillMaxWidth()
+                // Use the same tight portrait All Songs artwork frame as every song card.
+                .padding(3.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            XvoxSongArtwork(
-                artwork = song.artworkUri,
-                fallbackSeed = song.id.hashCode(),
-                requestSize = 100,
-                modifier = Modifier.fillMaxSize()
-            )
-        }
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(RoundedCornerShape(8.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                XvoxSongArtwork(
+                    artwork = song.artworkUri,
+                    fallbackSeed = song.id.hashCode(),
+                    requestSize = 100,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
 
-        Spacer(Modifier.width(12.dp))
+            Spacer(Modifier.width(12.dp))
 
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = song.title,
-                color = colors.primaryText,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Medium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text(
-                text = song.artist,
-                color = colors.secondaryText,
-                fontSize = 11.5.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = song.title,
+                    color = colors.primaryText,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = song.artist,
+                    color = colors.secondaryText,
+                    fontSize = 11.5.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
     }
 }

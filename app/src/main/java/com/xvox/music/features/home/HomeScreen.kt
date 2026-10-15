@@ -21,6 +21,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -60,8 +61,12 @@ fun HomeScreen(
     isPlaying: Boolean,
     homeResetKey: Long = 0L,
     scrollResetKey: Long = 0L,
+    /** Incremented by the shell when an active Artists/Playlists header pill returns to its list. */
+    detailExitKey: Long = 0L,
     selectedPlaylistId: String? = null,
     onSelectedPlaylistIdChange: ((String?) -> Unit)? = null,
+    /** Lets the shell distinguish a lifted library pill from a detail page beneath that pill. */
+    onActiveDetailModeChange: (XvoxHomeLibraryMode?) -> Unit = {},
     onQueueReady: (List<Song>) -> Unit,
     onPlay: (Song) -> Unit,
     playerViewModel: MainPlayerViewModel = viewModel(),
@@ -203,6 +208,25 @@ fun HomeScreen(
 
     val selectedPlaylist = effectiveSelectedPlaylistId?.let { id ->
         state.playlists.firstOrNull { it.id == id }
+    }
+
+    // A header pill selected while its own detail is open returns to that list without dropping
+    // the library-mode lift/accent. The shell supplies this key rather than forcing a route reset.
+    LaunchedEffect(detailExitKey) {
+        if (detailExitKey > 0L) {
+            selectedArtistName = null
+            setSelectedPlaylistId(null)
+        }
+    }
+    val latestDetailModeChange by rememberUpdatedState(onActiveDetailModeChange)
+    LaunchedEffect(selectedArtistName, effectiveSelectedPlaylistId) {
+        latestDetailModeChange(
+            when {
+                selectedArtistName != null -> XvoxHomeLibraryMode.ARTISTS
+                effectiveSelectedPlaylistId != null -> XvoxHomeLibraryMode.PLAYLISTS
+                else -> null
+            }
+        )
     }
 
     val deleteLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->

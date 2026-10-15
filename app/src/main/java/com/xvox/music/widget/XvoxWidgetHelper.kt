@@ -399,48 +399,24 @@ object XvoxWidgetHelper {
     }
     /**
      * Bitmap/Canvas equivalent of the shared Compose default-cover renderer. Widgets receive the
-     * supplied PNG rather than an independently generated wave. Dark widgets keep it untouched;
-     * light widgets apply only a true negative—no logo or accent overlay is added afterward.
+     * supplied PNG rather than an independently generated wave. Dark widgets use the supplied
+     * dark asset and light widgets use the supplied light asset—no transform, logo, or accent
+     * overlay is added afterward.
      */
     private fun widgetDefaultArtwork(context: Context, light: Boolean): Bitmap {
         val key = "xvox_default:$light"
         images.get(key)?.let { return it }
-        val size = 360
         val source = checkNotNull(
             BitmapFactory.decodeResource(
                 context.resources,
-                R.drawable.xvox_default,
+                if (light) R.drawable.xvox_default_2 else R.drawable.xvox_default,
                 BitmapFactory.Options().apply { inPreferredConfig = Bitmap.Config.ARGB_8888 }
             )
         ) { "Bundled XVOX default cover is unavailable" }
-        val scaled = Bitmap.createScaledBitmap(source, size, size, true)
-        if (scaled !== source) source.recycle()
-        val bitmap = if (light) {
-            Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888).also { output ->
-                Canvas(output).drawBitmap(
-                    scaled,
-                    0f,
-                    0f,
-                    Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
-                        colorFilter = ColorMatrixColorFilter(
-                            ColorMatrix(
-                                floatArrayOf(
-                                    -1f, 0f, 0f, 0f, 255f,
-                                    0f, -1f, 0f, 0f, 255f,
-                                    0f, 0f, -1f, 0f, 255f,
-                                    0f, 0f, 0f, 1f, 0f
-                                )
-                            )
-                        )
-                    }
-                )
-                scaled.recycle()
-            }
-        } else {
-            scaled
-        }
-        images.put(key, bitmap)
-        return bitmap
+        // Keep the supplied pixels intact. RemoteViews/ImageView owns only display-time scaling
+        // for the chosen widget slot; this fallback path never rasterizes a reduced replacement.
+        images.put(key, source)
+        return source
     }
 
     private fun artwork(context: Context, uri: Uri?): Bitmap? {

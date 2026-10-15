@@ -1,9 +1,8 @@
 package com.xvox.music.player.nowplaying
 
 import android.os.SystemClock
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearOutSlowInEasing
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -118,15 +117,27 @@ fun XvoxNowPlayingProgress(
         lastValidFraction
     }
 
-    // Playback callbacks arrive in discrete samples. Interpolate the visual rail between samples
-    // so every style travels continuously, while a finger drag always remains exact/direct.
-    val animatedFraction by animateFloatAsState(
-        targetValue = realFraction,
-        // A pause is a physical stop, not a 220ms cosmetic glide. Playing samples retain the
-        // smooth interpolation; paused samples snap and then remain unchanged indefinitely.
-        animationSpec = if (isPlaying) tween(durationMillis = 220, easing = LinearOutSlowInEasing) else snap(),
-        label = "nowPlayingPremiumProgress"
-    )
+    // Playback callbacks arrive in discrete samples. Keep one explicit visual animator rather
+    // than an implicit target state: a seek can then travel old → target once and hold there while
+    // Media3 confirms it, instead of clearing a pending target and replaying the same backwards
+    // distance from an old animateFloatAsState value.
+    val renderedFraction = remember(currentSongId) { Animatable(realFraction) }
+    val controllerSampleKey = if (pendingSeekFraction == null) realFraction else 0f
+    LaunchedEffect(currentSongId, isPlaying, pendingSeekFraction, controllerSampleKey) {
+        val pending = pendingSeekFraction
+        when {
+            pending != null && !isPlaying -> renderedFraction.snapTo(pending)
+            pending != null -> renderedFraction.animateTo(
+                pending,
+                tween(durationMillis = 180, easing = LinearOutSlowInEasing)
+            )
+            !isPlaying -> renderedFraction.snapTo(realFraction)
+            else -> renderedFraction.animateTo(
+                realFraction,
+                tween(durationMillis = 220, easing = LinearOutSlowInEasing)
+            )
+        }
+    }
 
     LaunchedEffect(currentSongId, isPlaying) {
         if (isPlaying) {
@@ -134,7 +145,7 @@ fun XvoxNowPlayingProgress(
         } else {
             // Capture the value the listener actually saw as playback stopped, not a later
             // controller reconciliation sample. A pending paused seek already owns that value.
-            pausedFraction = pendingSeekFraction ?: animatedFraction
+            pausedFraction = pendingSeekFraction ?: renderedFraction.value
         }
     }
 
@@ -160,9 +171,12 @@ fun XvoxNowPlayingProgress(
 
     val visibleFraction = when {
         dragging -> dragFraction
-        pendingSeekFraction != null -> pendingSeekFraction!!
-        !isPlaying -> pausedFraction ?: animatedFraction
-        else -> animatedFraction
+        // During an active playing seek the same explicit animator carries the rail toward the
+        // pending target. Once confirmed, it is already at that endpoint, so no second rewind is
+        // ever exposed. Paused seeks intentionally remain immediate and fixed.
+        pendingSeekFraction != null -> if (isPlaying) renderedFraction.value else pendingSeekFraction!!
+        !isPlaying -> pausedFraction ?: renderedFraction.value
+        else -> renderedFraction.value
     }
 
     val visiblePosition = if (stableDuration > 0L) {

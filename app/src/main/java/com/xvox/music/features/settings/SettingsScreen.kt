@@ -21,9 +21,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -46,7 +43,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -72,6 +68,8 @@ import kotlin.math.abs
 fun SettingsScreen(
     modifier: Modifier = Modifier,
     topResetKey: Long = 0L,
+    /** Explicit re-selection of Settings returns any local subpage/sheet to this landing page. */
+    baseResetKey: Long = 0L,
     homeViewModel: HomeViewModel = viewModel(),
     settingsViewModel: SettingsViewModel = viewModel()
 ) {
@@ -161,9 +159,19 @@ fun SettingsScreen(
     // status-bar-safe starting line and never reserves/recreates a duplicate Header.
     val bottomPadding = bottomInset + if (isLandscape) 16.dp else 30.dp
     val scrollState = rememberLazyGridState()
+    var showingWidgetStudio by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(topResetKey) {
         runCatching { scrollState.scrollToItem(0) }
+    }
+    LaunchedEffect(baseResetKey) {
+        if (baseResetKey > 0L) {
+            // Widget Studio is a Settings-owned full subpage. Any ordinary Settings sheet is also
+            // local to this destination, so the active navbar tap closes it with the same return.
+            showingWidgetStudio = false
+            overlays.hideBox()
+            runCatching { scrollState.scrollToItem(0) }
+        }
     }
 
     fun openCustomColorPicker() {
@@ -201,7 +209,6 @@ fun SettingsScreen(
         }
     }
 
-    var showingWidgetStudio by rememberSaveable { mutableStateOf(false) }
     if (showingWidgetStudio) {
         WidgetStudioScreen(
             state = state,
@@ -272,10 +279,9 @@ fun SettingsScreen(
                         )
                     }
                 }
-                // Library filters and ringtone selection intentionally sit directly beneath
-                // Background Playback in every layout rather than being hidden in a retired page.
-                item(key = "settings_library_ringtone", span = { GridItemSpan(maxLineSpan) }) {
-                    LibraryAndRingtoneSectionCard(
+                // Library filters intentionally sit directly beneath Background Playback in every layout.
+                item(key = "settings_library", span = { GridItemSpan(maxLineSpan) }) {
+                    LibrarySectionCard(
                         state = state,
                         settingsViewModel = settingsViewModel,
                         homeViewModel = homeViewModel,
@@ -314,12 +320,12 @@ fun SettingsScreen(
                 item(key = "section_appearance") {
                     AppearanceSectionCard(state, settingsViewModel, ::openCustomColorPicker, ::openFontPicker)
                 }
-                // Keep restored Library & Ringtone controls immediately below Background Playback.
+                // Keep Library controls immediately below Background Playback.
                 item(key = "section_background_playback") {
                     BackgroundPlaybackSectionCard(state, settingsViewModel)
                 }
-                item(key = "section_library_ringtone") {
-                    LibraryAndRingtoneSectionCard(
+                item(key = "section_library") {
+                    LibrarySectionCard(
                         state = state,
                         settingsViewModel = settingsViewModel,
                         homeViewModel = homeViewModel
@@ -764,17 +770,15 @@ private fun SupportTierButton(
     }
 }
 
-/** Restored everyday library controls, deliberately placed immediately below Background Playback. */
+/** Everyday library controls, deliberately placed immediately below Background Playback. */
 @Composable
-private fun LibraryAndRingtoneSectionCard(
+private fun LibrarySectionCard(
     state: SettingsState,
     settingsViewModel: SettingsViewModel,
     homeViewModel: HomeViewModel,
     modifier: Modifier = Modifier
 ) {
     val overlays = LocalXvoxOverlayController.current
-    val context = LocalContext.current
-    val libraryState by homeViewModel.state.collectAsState()
 
     fun openLibraryFilters() {
         overlays.showBox("Library filters") {
@@ -786,25 +790,7 @@ private fun LibraryAndRingtoneSectionCard(
         }
     }
 
-    fun openRingtonePicker() {
-        overlays.showBox("Set ringtone") {
-            XvoxRingtonePicker(
-                songs = libraryState.songs,
-                onSelect = { song ->
-                    if (!XvoxSongActions.canWriteSettings(context)) {
-                        XvoxSongActions.openWriteSettings(context)
-                        overlays.showP("Allow modify system settings, then choose the song again")
-                    } else {
-                        val success = XvoxSongActions.setRingtone(context, song)
-                        overlays.hideBox()
-                        overlays.showP(if (success) "Ringtone set" else "Failed to set ringtone")
-                    }
-                }
-            )
-        }
-    }
-
-    SettingsCardFrame(title = "Library & Ringtone", modifier = modifier) {
+    SettingsCardFrame(title = "Library", modifier = modifier) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             SettingsLandingActionRow(
                 title = "Hide Folder",
@@ -826,12 +812,6 @@ private fun LibraryAndRingtoneSectionCard(
                     }
                 )
             }
-
-            SettingsLandingActionRow(
-                title = "Ringtone",
-                subtitle = "Choose a library song as your device ringtone",
-                onClick = ::openRingtonePicker
-            )
         }
     }
 }
@@ -865,72 +845,6 @@ private fun SettingsLandingActionRow(
             tint = colors.mutedText,
             modifier = Modifier.size(16.dp)
         )
-    }
-}
-
-@Composable
-private fun XvoxRingtonePicker(
-    songs: List<com.xvox.music.core.model.Song>,
-    onSelect: (com.xvox.music.core.model.Song) -> Unit
-) {
-    val colors = XvoxTheme.colors
-    val listState = rememberLazyListState()
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Text(
-            text = "Choose a song from your XVOX library. Android may ask once for permission to change system settings.",
-            color = colors.secondaryText,
-            fontSize = 12.sp,
-            lineHeight = 16.sp
-        )
-        LazyColumn(
-            state = listState,
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(max = 340.dp)
-                .xvoxBoxScroll(listState),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            if (songs.isEmpty()) {
-                item(key = "ringtone_empty") {
-                    Text(
-                        "No library songs are available yet.",
-                        color = colors.mutedText,
-                        fontSize = 12.sp,
-                        modifier = Modifier.padding(12.dp)
-                    )
-                }
-            } else {
-                items(songs, key = { it.id }) { song ->
-                    val shape = RoundedCornerShape(12.dp)
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(shape)
-                            .background(colors.cardElevated)
-                            .border(.7.dp, colors.cardBorder.copy(alpha = .70f), shape)
-                            .xvoxPressScale { onSelect(song) }
-                            .padding(horizontal = 12.dp, vertical = 9.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_xvox_music_note),
-                            contentDescription = null,
-                            tint = colors.primaryAccent,
-                            modifier = Modifier.size(17.dp)
-                        )
-                        Column(Modifier.weight(1f)) {
-                            Text(song.title, color = colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text(song.artist, color = colors.mutedText, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        }
-                        Text("Use", color = colors.primaryAccent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
-        }
     }
 }
 

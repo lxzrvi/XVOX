@@ -1506,54 +1506,60 @@ fun XvoxNowPlaying(
                         else -> null
                     }
                 ) {
-                    val scrollState = rememberScrollState()
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            // The universal sheet constrains only genuine screen overflow. Every
-                            // editor therefore begins at its own content height, including EQ.
-                            .verticalScroll(scrollState)
-                            .xvoxBoxScroll(scrollState)
-                    ) {
-                        when (activeSettingsBox) {
-                            "Equalizer" -> EqualizerSettingsSection(
-                                state = settingsState,
-                                viewModel = settingsViewModel,
-                                onCancel = { activeSettingsBox = null },
-                                onDone = { activeSettingsBox = null },
-                                showFooter = false
-                            )
-                            "3D sound" -> ThreeDSoundDraftSection(
-                                state = optionDraft,
-                                onStateChange = { updated ->
-                                    optionDraft = updated
-                                    applyThreeDSoundDraft(updated)
-                                }
-                            )
-                            "Crossfade" -> PlaybackSettingsDraftSection(
-                                state = optionDraft,
-                                onStateChange = { updated ->
-                                    optionDraft = updated
-                                    applyCrossfadeDraft(updated)
-                                }
-                            )
-                            "Bluetooth" -> HeadsetSettingsDraftSection(
-                                state = optionDraft,
-                                onStateChange = { updated ->
-                                    optionDraft = updated
-                                    applyBluetoothDraft(updated)
-                                }
-                            )
-                            "Lyrics" -> LyricsSettingsDraftSection(
-                                settings = optionDraft.lyrics,
-                                onSettingsChange = { lyrics ->
-                                    optionDraft = optionDraft.copy(lyrics = lyrics)
-                                    applyLyricsDraft(optionDraft)
-                                },
-                                // Reset actions live in XvoxBox's fixed footer, never below the
-                                // long scrollable editor where they could disappear off-screen.
-                                showInlineActions = false
-                            )
+                    if (activeSettingsBox == "Equalizer") {
+                        // EQ owns its vertical scroll. Wrapping it in this generic scroll body
+                        // measured one vertical scroller with an unbounded height and crashed as
+                        // soon as the Equalizer sheet opened.
+                        EqualizerSettingsSection(
+                            state = settingsState,
+                            viewModel = settingsViewModel,
+                            onCancel = { activeSettingsBox = null },
+                            onDone = { activeSettingsBox = null },
+                            showFooter = false
+                        )
+                    } else {
+                        val scrollState = rememberScrollState()
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                // The universal sheet constrains only genuine screen overflow.
+                                .verticalScroll(scrollState)
+                                .xvoxBoxScroll(scrollState)
+                        ) {
+                            when (activeSettingsBox) {
+                                "3D sound" -> ThreeDSoundDraftSection(
+                                    state = optionDraft,
+                                    onStateChange = { updated ->
+                                        optionDraft = updated
+                                        applyThreeDSoundDraft(updated)
+                                    }
+                                )
+                                "Crossfade" -> PlaybackSettingsDraftSection(
+                                    state = optionDraft,
+                                    onStateChange = { updated ->
+                                        optionDraft = updated
+                                        applyCrossfadeDraft(updated)
+                                    }
+                                )
+                                "Bluetooth" -> HeadsetSettingsDraftSection(
+                                    state = optionDraft,
+                                    onStateChange = { updated ->
+                                        optionDraft = updated
+                                        applyBluetoothDraft(updated)
+                                    }
+                                )
+                                "Lyrics" -> LyricsSettingsDraftSection(
+                                    settings = optionDraft.lyrics,
+                                    onSettingsChange = { lyrics ->
+                                        optionDraft = optionDraft.copy(lyrics = lyrics)
+                                        applyLyricsDraft(optionDraft)
+                                    },
+                                    // Reset actions live in XvoxBox's fixed footer, never below the
+                                    // long scrollable editor where they could disappear off-screen.
+                                    showInlineActions = false
+                                )
+                                else -> Unit
+                            }
                         }
                     }
                 }

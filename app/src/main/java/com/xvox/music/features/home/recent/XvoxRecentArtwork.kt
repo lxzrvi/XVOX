@@ -8,6 +8,8 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -118,12 +120,13 @@ fun XvoxRecentArtwork(
             )
         }
 
-        // Play/Pause indicator morphs from its 30dp icon capsule into only the width required
-        // for “Playing”. A single measured outer width avoids the old competing layout pulses.
+        // A true shape morph: the resting 30dp circle stretches into a pill on activation. The
+        // pause state and its label share that one outer width animation, avoiding two competing
+        // card-level scale effects.
         val playbackActive = current && playing
         val badgeWidth by animateDpAsState(
-            targetValue = if (playbackActive) 64.dp else 30.dp,
-            animationSpec = tween(220),
+            targetValue = if (playbackActive) 76.dp else 30.dp,
+            animationSpec = tween(240),
             label = "recentPlayingBadgeWidth"
         )
         Row(
@@ -136,7 +139,9 @@ fun XvoxRecentArtwork(
                 .background(Color.Black.copy(alpha = if (playbackActive) 0.68f else 0.52f))
                 .padding(horizontal = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center
+            // Keep the icon anchored at the circle's original centre/left inset as the frame
+            // grows rightward; only the label travels in, so it reads as a circle-to-pill morph.
+            horizontalArrangement = Arrangement.Start
         ) {
             AnimatedContent(
                 targetState = playbackActive,
@@ -154,8 +159,16 @@ fun XvoxRecentArtwork(
             }
             AnimatedVisibility(
                 visible = playbackActive,
-                enter = fadeIn(tween(150)),
-                exit = fadeOut(tween(100))
+                // The word enters from the newly opened right side of the pill, rather than
+                // fading in at its final position beside the icon.
+                enter = slideInHorizontally(
+                    initialOffsetX = { it },
+                    animationSpec = tween(180)
+                ) + fadeIn(tween(150)),
+                exit = slideOutHorizontally(
+                    targetOffsetX = { it / 2 },
+                    animationSpec = tween(120)
+                ) + fadeOut(tween(100))
             ) {
                 Text(
                     text = "Playing",

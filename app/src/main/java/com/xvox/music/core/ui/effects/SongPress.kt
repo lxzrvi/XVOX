@@ -44,9 +44,14 @@ fun Modifier.xvoxSongPress(
     val release = remember { mutableStateOf<Job?>(null) }
     val pressChange by rememberUpdatedState(onPressedChange)
 
-    val modifier = if (pressedScale != 1f) {
-        graphicsLayer { scaleX = scale.value; scaleY = scale.value }
-            .pointerInput(Unit) {
+    // A caller can request press-state feedback without scaling its content. Search uses this to
+    // shrink only a card's drawn surface while its cover and labels retain their exact size.
+    val modifier = if (pressedScale != 1f || onPressedChange != null) {
+        (if (pressedScale != 1f) {
+            Modifier.graphicsLayer { scaleX = scale.value; scaleY = scale.value }
+        } else {
+            Modifier
+        }).pointerInput(Unit) {
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
                     val pressJob = scope.launch {

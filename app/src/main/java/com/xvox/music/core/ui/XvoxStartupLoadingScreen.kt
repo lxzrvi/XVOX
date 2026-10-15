@@ -244,15 +244,15 @@ fun XvoxStartupLoadingScreen(
         contentAlignment = Alignment.Center
     ) {
         // The loader stays intentionally quiet: the platform splash owns the mark, while this
-        // screen keeps only a small, bottom-centred Cinzel wordmark.  Nothing competes with the
+        // screen keeps a clearer, bottom-centred Cinzel wordmark. Nothing competes with the
         // ring-to-rail progress sequence in the middle of the canvas.
         Text(
             text = "XVOX",
             color = colors.secondaryText.copy(alpha = .74f),
             fontFamily = XvoxLogoFont,
             fontWeight = FontWeight.Normal,
-            fontSize = 12.sp,
-            letterSpacing = 2.3.sp,
+            fontSize = 16.sp,
+            letterSpacing = 2.8.sp,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(bottom = 28.dp)

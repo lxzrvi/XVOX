@@ -29,12 +29,12 @@ object XvoxPlayerTransitionMotion {
     const val ScaleStyle = "scale"
 
     /**
-     * The card gets enough real travel time to remain visibly behind the navbar during a fast
-     * downward handoff. The next surface still releases on this exact terminal frame.
+     * The Mini Player gets a modestly longer physical descent so it is visibly carried through
+     * the navbar lane, behind that foreground chrome, before the full player is released.
      */
-    const val HandoffDuration = 320
-    /** The full player uses one uniform 300 ms physical slide in both directions. */
-    const val NowPlayingDuration = 300
+    const val HandoffDuration = 360
+    /** The full player follows with the same slightly unhurried but still direct travel. */
+    const val NowPlayingDuration = 320
 
     // Both surfaces use one continuous curve rather than a mechanical linear descent. The
     // terminal callback still happens on the very last frame, so easing introduces no gap.
