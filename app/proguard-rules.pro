@@ -9,5 +9,11 @@
 -keep class com.xvox.music.notifications.XvoxReminderReceiver { *; }
 
 # JavaAudioTagger discovers several format readers dynamically. Keep this small metadata library
-# intact so shrinking does not alter supported local-audio tags or artwork extraction.
+# intact so shrinking does not alter supported local-audio tags or artwork extraction. Its desktop-
+# only image helpers reference AWT/Swing/ImageIO, none of which exists on Android and none is used
+# by XVOX's MediaStore artwork path. Suppressing only those absent desktop namespaces lets R8 keep
+# the Android-relevant tag readers without treating optional JVM helpers as a build error.
 -keep class org.jaudiotagger.** { *; }
+-dontwarn java.awt.**
+-dontwarn javax.imageio.**
+-dontwarn javax.swing.**
