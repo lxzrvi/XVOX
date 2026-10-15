@@ -6,6 +6,7 @@ import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -40,6 +41,7 @@ import com.xvox.music.audio.ReverbPresets
 import com.xvox.music.core.design.theme.XvoxRed
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.effects.xvoxPressScale
+import com.xvox.music.core.ui.overlay.xvoxBoxScroll
 import com.xvox.music.features.settings.SettingsState
 import com.xvox.music.features.settings.SettingsViewModel
 import kotlin.math.abs
@@ -60,6 +62,7 @@ fun EqualizerSettingsSection(
 ) {
     val colors = XvoxTheme.colors
     val saveError by AudioEffectsManager.persistenceError.collectAsState()
+    val editorScrollState = rememberScrollState()
 
     // The compact editor is intentionally a five-band equalizer, including for older installs
     // that may still hold the retired ten-band preference.
@@ -68,8 +71,14 @@ fun EqualizerSettingsSection(
     }
 
     Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+        modifier = Modifier
+            .fillMaxWidth()
+            // Equalizer grows naturally with its real rows. Once Bands make it taller than the
+            // available sheet body this is the bounded scroll owner, preserving the fixed footer
+            // without ever reserving an empty full-height sheet.
+            .verticalScroll(editorScrollState)
+            .xvoxBoxScroll(editorScrollState),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         saveError?.let {
             Text(
@@ -100,7 +109,7 @@ fun EqualizerSettingsSection(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(176.dp)
+                        .height(158.dp)
                         .clip(RoundedCornerShape(14.dp))
                         .background(colors.background)
                         .border(0.8.dp, colors.cardBorder.copy(alpha = .72f), RoundedCornerShape(14.dp))
@@ -160,7 +169,9 @@ fun EqualizerSettingsSection(
             }
         }
 
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        // Noise Reduction and its dependent Grain Control are one coherent material. Grain is
+        // visibly disabled—and its DSP bypassed—until Noise Reduction itself is enabled.
+        EqualizerCard {
             EqualizerToggleRow(
                 title = "Noise reduction",
                 checked = state.noiseReductionEnabled,
@@ -168,26 +179,25 @@ fun EqualizerSettingsSection(
             )
             if (state.noiseReductionEnabled) {
                 EqualizerSliderRow(
-                    label = null,
-                    valueText = null,
+                    label = "Amount",
+                    valueText = "${(state.noiseReduction * 100).roundToInt()}%",
                     value = state.noiseReduction,
                     onValueChange = viewModel::setNoiseReduction,
                     defaultValue = .70f,
                     contentDescription = "Noise reduction amount"
                 )
+                EqualizerHairline()
             }
-        }
-
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             EqualizerToggleRow(
                 title = "Grain control",
-                checked = state.grainControlEnabled,
+                checked = state.grainControlEnabled && state.noiseReductionEnabled,
+                enabled = state.noiseReductionEnabled,
                 onCheckedChange = viewModel::setGrainControlEnabled
             )
-            if (state.grainControlEnabled) {
+            if (state.noiseReductionEnabled && state.grainControlEnabled) {
                 EqualizerSliderRow(
-                    label = null,
-                    valueText = null,
+                    label = "Amount",
+                    valueText = "${(state.softenHighs * 100).roundToInt()}%",
                     value = state.softenHighs,
                     onValueChange = viewModel::setSoftenHighs,
                     defaultValue = .70f,
@@ -265,7 +275,8 @@ private fun EqualizerSectionLabel(text: String) {
 private fun EqualizerToggleRow(
     title: String,
     checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit
+    onCheckedChange: (Boolean) -> Unit,
+    enabled: Boolean = true
 ) {
     val colors = XvoxTheme.colors
     Row(
@@ -274,19 +285,24 @@ private fun EqualizerToggleRow(
     ) {
         Text(
             text = title,
-            color = colors.primaryText,
+            color = if (enabled) colors.primaryText else colors.mutedText,
             fontSize = 14.sp,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.weight(1f).padding(end = 12.dp)
         )
         Switch(
             checked = checked,
+            enabled = enabled,
             onCheckedChange = onCheckedChange,
             colors = SwitchDefaults.colors(
                 checkedThumbColor = colors.background,
                 checkedTrackColor = colors.primaryAccent,
                 uncheckedThumbColor = colors.secondaryText,
-                uncheckedTrackColor = colors.progressTrack
+                uncheckedTrackColor = colors.progressTrack,
+                disabledCheckedThumbColor = colors.secondaryText.copy(alpha = .55f),
+                disabledCheckedTrackColor = colors.progressTrack.copy(alpha = .60f),
+                disabledUncheckedThumbColor = colors.secondaryText.copy(alpha = .40f),
+                disabledUncheckedTrackColor = colors.progressTrack.copy(alpha = .42f)
             )
         )
     }
@@ -450,10 +466,15 @@ fun XvoxThinAmountSlider(
                 }
             }
             .pointerInput(latestChange, defaultValue) {
-                detectTapGestures { offset ->
-                    val raw = offset.x / size.width.toFloat().coerceAtLeast(1f)
-                    latestChange(snap(raw))
-                }
+                detectTapGestures(
+                    onTap = { offset ->
+                        val raw = offset.x / size.width.toFloat().coerceAtLeast(1f)
+                        latestChange(snap(raw))
+                    },
+                    onLongPress = {
+                        defaultValue?.let { latestChange(it.coerceIn(0f, 1f)) }
+                    }
+                )
             }
             .pointerInput(latestChange, defaultValue) {
                 detectHorizontalDragGestures { change, _ ->
@@ -612,12 +633,20 @@ fun VerticalEqBandSlider(
                     }
                 }
                 .pointerInput(label) {
-                    detectTapGestures { offset ->
-                        val f = (1f - (offset.y / size.height)).coerceIn(0f, 1f)
-                        val db = snappedDb(minDb + f * (maxDb - minDb))
-                        localValue = db
-                        currentOnValueChange(db)
-                    }
+                    detectTapGestures(
+                        onTap = { offset ->
+                            val f = (1f - (offset.y / size.height)).coerceIn(0f, 1f)
+                            val db = snappedDb(minDb + f * (maxDb - minDb))
+                            localValue = db
+                            currentOnValueChange(db)
+                        },
+                        // EQ's neutral/default value is 0 dB. Long-pressing its whole control
+                        // restores the true signed centre rather than a visual approximation.
+                        onLongPress = {
+                            localValue = 0
+                            currentOnValueChange(0)
+                        }
+                    )
                 }
                 .pointerInput(label) {
                     detectVerticalDragGestures(onVerticalDrag = { change, _ ->

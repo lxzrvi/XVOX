@@ -111,10 +111,27 @@ fun XvoxSongArtwork(
         }
     }
 
+    // Original-quality full-player art must still request/decode its source even when a grid or
+    // mini-player bitmap is already cached. That smaller bitmap is a visual bridge only; treating
+    // it as `decodedBitmap` would accidentally suppress the original request forever.
+    fun cachedOriginalBitmap(): Bitmap? = when {
+        artwork != null && requestSize == 0 -> XvoxArtworkCache.get("${baseKey}_0")
+        else -> cachedBitmap()
+    }
+
+    fun cachedVisualBridge(): Bitmap? = when {
+        artwork != null && requestSize == 0 -> cachedOriginalBitmap()
+            ?: XvoxArtworkCache.get("${baseKey}_1024")
+            ?: XvoxArtworkCache.get("${baseKey}_512")
+            ?: XvoxArtworkCache.get("${baseKey}_256")
+            ?: XvoxArtworkCache.get(baseKey)
+        else -> cachedBitmap()
+    }
+
     // Keep a Compose-observable result in addition to the LRU cache. LruCache writes themselves
     // do not invalidate composition, so this state lets a freshly decoded cover replace its
     // placeholder immediately without reducing its requested quality.
-    var decodedBitmap by remember(cacheKey, baseKey, requestSize) { mutableStateOf(cachedBitmap()) }
+    var decodedBitmap by remember(cacheKey, baseKey, requestSize) { mutableStateOf(cachedOriginalBitmap()) }
     var artworkFailed by remember(cacheKey, baseKey, requestSize) { mutableStateOf(false) }
     var fallbackRequested by remember(cacheKey) { mutableStateOf(artwork == null && renderFallbackAsBitmap) }
     LaunchedEffect(defaultCoverKey, renderFallbackAsBitmap, artwork, fallbackRequested) {
@@ -134,7 +151,7 @@ fun XvoxSongArtwork(
     // A retained decoded bitmap has two jobs for full-player callers: it keeps a real old cover
     // visible while the next original decodes, then becomes the source of an internal image
     // morph. This avoids a transient card-colour frame between cover identities.
-    var retainedBitmap by remember { mutableStateOf<Bitmap?>(cachedBitmap()) }
+    var retainedBitmap by remember { mutableStateOf<Bitmap?>(cachedVisualBridge()) }
     var morphFromBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var morphKey by remember { mutableStateOf<String?>(null) }
     val morphProgress = remember { Animatable(1f) }
@@ -224,6 +241,16 @@ fun XvoxSongArtwork(
                 bitmapSize = requestSize,
                 brand = if (artwork == null || artworkFailed) fallbackBrand else XvoxFallbackBrand.NONE
             )
+        } else if (visibleImageBitmap == null && keepPreviousOnLoading) {
+            // A completely cold original page still has a stable supplied-cover frame instead of
+            // exposing a card-colour flash. As soon as an exact lower-resolution cache exists it
+            // takes precedence above, then morphs to original quality below.
+            WavePatternSquare(
+                modifier = Modifier.fillMaxSize(),
+                seed = fallbackSeed ?: 11,
+                bitmapSize = requestSize,
+                brand = XvoxFallbackBrand.NONE
+            )
         } else if (artworkFailed && visibleImageBitmap == null) {
             WavePatternSquare(
                 modifier = Modifier.fillMaxSize(),
@@ -271,8 +298,8 @@ fun XvoxSongArtwork(
             }
         }
 
-        // Do not draw a solid loading layer above a retained full-player cover. Coil paints the
-        // newly decoded original-resolution image transparently over it when it is ready.
+        // Do not draw a solid loading layer above a retained full-player cover. Coil only decodes
+        // the original here; controlled Compose rendering owns the visible bridge-to-original handoff.
         if (artwork != null && decodedBitmap == null && !artworkFailed) {
             AsyncImage(
                 model = request,
@@ -295,7 +322,14 @@ fun XvoxSongArtwork(
                     artworkFailed = true
                     if (renderFallbackAsBitmap) fallbackRequested = true
                 },
-                modifier = Modifier.fillMaxSize()
+                // The image request is deliberately invisible while a retained bridge is on
+                // screen. Its callback installs the original bitmap into the controlled morph
+                // above, preventing Coil from painting one unpaired direct frame over the bridge.
+                modifier = if (keepPreviousOnLoading) {
+                    Modifier.fillMaxSize().graphicsLayer { alpha = 0f }
+                } else {
+                    Modifier.fillMaxSize()
+                }
             )
         }
     }

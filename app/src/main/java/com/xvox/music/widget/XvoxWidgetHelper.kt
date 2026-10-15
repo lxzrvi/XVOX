@@ -108,10 +108,9 @@ object XvoxWidgetHelper {
         val fallbackLight = state.theme == "Light" ||
             (state.theme !in setOf("AMOLED", "Dark", "Glass", "Custom") &&
                 ColorUtils.calculateLuminance(base) > .5)
-        val fallbackAccent = widgetAccentColor(state.appAccentColor, light = fallbackLight)
-        val art = decodedArtwork ?: widgetDefaultArtwork(context, fallbackLight, fallbackAccent)
+        val art = decodedArtwork ?: widgetDefaultArtwork(context, fallbackLight)
         val artworkKey = state.artworkUri?.toString()?.let { "$it:${state.fallbackSeed}" }
-            ?: "xvox_default:$fallbackLight:$fallbackAccent"
+            ?: "xvox_default:$fallbackLight"
         val fg = if (!full && ColorUtils.calculateLuminance(base) > .5 && state.transparency < .7) Color.rgb(17, 17, 17) else Color.WHITE
         val background = ColorUtils.setAlphaComponent(base, ((1 - state.transparency.coerceIn(0f, 1f)) * 255).roundToInt())
         val views = RemoteViews(context.packageName, if (narrow) R.layout.widget_xvox_player_custom_narrow else R.layout.widget_xvox_player)
@@ -398,24 +397,13 @@ object XvoxWidgetHelper {
         images.put(key, out)
         return out
     }
-    /** Mirrors the app accent contract without requiring Compose inside a RemoteViews process. */
-    private fun widgetAccentColor(value: String, light: Boolean): Int = when {
-        value.startsWith("#") -> runCatching { Color.parseColor(value) }
-            .getOrDefault(if (light) Color.rgb(10, 10, 10) else Color.WHITE)
-        value.equals("Blue", ignoreCase = true) || value.equals("XVOX Blue", ignoreCase = true) ->
-            if (light) Color.rgb(0, 122, 255) else Color.rgb(10, 132, 255)
-        value.equals("Red", ignoreCase = true) || value.equals("XVOX Red", ignoreCase = true) ->
-            Color.rgb(240, 30, 44)
-        else -> if (light) Color.rgb(10, 10, 10) else Color.WHITE
-    }
-
     /**
-     * Bitmap/Canvas equivalent of the shared Compose default-cover renderer.  Widgets receive the
-     * supplied PNG rather than an independently generated wave; only light mode is inverted, and
-     * the single XVOX mark stays physically centred with the active app accent.
+     * Bitmap/Canvas equivalent of the shared Compose default-cover renderer. Widgets receive the
+     * supplied PNG rather than an independently generated wave. Dark widgets keep it untouched;
+     * light widgets apply only a true negative—no logo or accent overlay is added afterward.
      */
-    private fun widgetDefaultArtwork(context: Context, light: Boolean, accent: Int): Bitmap {
-        val key = "xvox_default:$light:$accent"
+    private fun widgetDefaultArtwork(context: Context, light: Boolean): Bitmap {
+        val key = "xvox_default:$light"
         images.get(key)?.let { return it }
         val size = 360
         val source = checkNotNull(
@@ -450,14 +438,6 @@ object XvoxWidgetHelper {
             }
         } else {
             scaled
-        }
-
-        val markSize = (size * .34f).roundToInt()
-        val left = (size - markSize) / 2
-        ResourcesCompat.getDrawable(context.resources, R.drawable.xvox, null)?.mutate()?.let { mark ->
-            mark.setTint(if (light) accent else Color.WHITE)
-            mark.setBounds(left, left, left + markSize, left + markSize)
-            mark.draw(Canvas(bitmap))
         }
         images.put(key, bitmap)
         return bitmap

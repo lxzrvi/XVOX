@@ -32,6 +32,7 @@ import com.xvox.music.features.settings.components.*
 import com.xvox.music.widget.WidgetCustomization
 import com.xvox.music.widget.XvoxAppWidgetProvider
 import com.xvox.music.widget.XvoxWidgetHelper
+import kotlin.math.abs
 import kotlin.math.roundToInt
 
 @Composable
@@ -158,22 +159,22 @@ fun WidgetSettingsSection(
             expanded = expandedGroup == "Surface",
             onToggle = { toggle("Surface") }
         ) {
-            WidgetSlider("Transparency", state.widgetTransparency * 100, 0f..100f, "%") { v -> viewModel.setWidgetTransparency(v / 100) }
+            WidgetSlider("Transparency", state.widgetTransparency * 100, 0f..100f, "%", defaultValue = 25f) { v -> viewModel.setWidgetTransparency(v / 100) }
             Spacer(Modifier.height(8.dp))
-            WidgetSlider("Corner radius", state.widgetCornerRadius.toFloat(), 0f..32f, "dp") { v -> viewModel.setWidgetCornerRadius(v.roundToInt()) }
+            WidgetSlider("Corner radius", state.widgetCornerRadius.toFloat(), 0f..32f, "dp", defaultValue = 16f) { v -> viewModel.setWidgetCornerRadius(v.roundToInt()) }
             Spacer(Modifier.height(8.dp))
-            WidgetSlider("Border width", c.borderWidth, 0f..4f, "dp") { v -> editWidget { it.copy(borderWidth = (v * 4).roundToInt() / 4f) } }
+            WidgetSlider("Border width", c.borderWidth, 0f..4f, "dp", defaultValue = .7f) { v -> editWidget { it.copy(borderWidth = (v * 4).roundToInt() / 4f) } }
             Spacer(Modifier.height(8.dp))
             WidgetColourEditor("Border colour", c.borderColor) { value -> editWidget { it.copy(borderColor = value) } }
             Spacer(Modifier.height(8.dp))
             Group("Widget outer margins")
             // These are per-live-size margins consumed by the real RemoteViews layout, not the
             // global internal content padding values from older widget settings.
-            WidgetSlider("Margin X", c.marginX.toFloat(), 0f..48f, "dp") { v ->
+            WidgetSlider("Margin X", c.marginX.toFloat(), 0f..48f, "dp", defaultValue = 0f) { v ->
                 editWidget { it.copy(marginX = v.roundToInt()) }
             }
             Spacer(Modifier.height(6.dp))
-            WidgetSlider("Margin Y", c.marginY.toFloat(), 0f..48f, "dp") { v ->
+            WidgetSlider("Margin Y", c.marginY.toFloat(), 0f..48f, "dp", defaultValue = 0f) { v ->
                 editWidget { it.copy(marginY = v.roundToInt()) }
             }
         }
@@ -186,7 +187,7 @@ fun WidgetSettingsSection(
             SettingsToggle("Full cover backdrop", null, c.fullCover) { enabled -> editWidget { it.copy(fullCover = enabled) } }
             if (c.fullCover) {
                 Spacer(Modifier.height(8.dp))
-                WidgetSlider("Shade", c.fullCoverShade * 100, 0f..85f, "%") { v -> editWidget { it.copy(fullCoverShade = v / 100) } }
+                WidgetSlider("Shade", c.fullCoverShade * 100, 0f..85f, "%", defaultValue = 35f) { v -> editWidget { it.copy(fullCoverShade = v / 100) } }
             }
 
             Spacer(Modifier.height(8.dp))
@@ -214,16 +215,16 @@ fun WidgetSettingsSection(
 
             Spacer(Modifier.height(8.dp))
             Group("Free-canvas offsets")
-            WidgetSlider("Offset X", c.coverMarginX.toFloat(), -360f..360f, "dp") { v -> editWidget { it.copy(coverMarginX = v.roundToInt()) } }
+            WidgetSlider("Offset X", c.coverMarginX.toFloat(), -360f..360f, "dp", defaultValue = 0f) { v -> editWidget { it.copy(coverMarginX = v.roundToInt()) } }
             Spacer(Modifier.height(6.dp))
-            WidgetSlider("Offset Y", c.coverMarginY.toFloat(), -360f..360f, "dp") { v -> editWidget { it.copy(coverMarginY = v.roundToInt()) } }
+            WidgetSlider("Offset Y", c.coverMarginY.toFloat(), -360f..360f, "dp", defaultValue = 0f) { v -> editWidget { it.copy(coverMarginY = v.roundToInt()) } }
 
             Spacer(Modifier.height(8.dp))
             Group("Shape")
             SettingsToggle("Match widget corners", null, c.coverRadius < 0) { value -> editWidget { it.copy(coverRadius = if (value) -1 else 12) } }
             if (c.coverRadius >= 0) {
                 Spacer(Modifier.height(6.dp))
-                WidgetSlider("Radius", c.coverRadius.toFloat(), 0f..64f, "dp") { v -> editWidget { it.copy(coverRadius = v.roundToInt()) } }
+                WidgetSlider("Radius", c.coverRadius.toFloat(), 0f..64f, "dp", defaultValue = 12f) { v -> editWidget { it.copy(coverRadius = v.roundToInt()) } }
             }
         }
 
@@ -239,15 +240,15 @@ fun WidgetSettingsSection(
             Group("Visibility & Size")
             SettingsChoiceRow(listOf("auto" to "Auto", "show" to "Always show", "hide" to "Hide"), l.visibility) { v -> label { it.copy(visibility = v) } }
             Spacer(Modifier.height(6.dp))
-            WidgetSlider("Size", l.size.toFloat(), 8f..28f, "sp") { v -> label { it.copy(size = v.roundToInt()) } }
+            WidgetSlider("Size", l.size.toFloat(), 8f..28f, "sp", defaultValue = (WidgetCustomization.defaultLabels()[labelId]?.size ?: 13).toFloat()) { v -> label { it.copy(size = v.roundToInt()) } }
 
             Spacer(Modifier.height(8.dp))
             Group("Placement & free-canvas offset")
             SettingsChoiceRow(listOf("left" to "Left", "center" to "Center", "right" to "Right"), l.alignment) { v -> label { it.copy(alignment = v) } }
             Spacer(Modifier.height(6.dp))
-            WidgetSlider("Offset X", l.offsetX.toFloat(), -360f..360f, "dp") { v -> label { it.copy(offsetX = v.roundToInt()) } }
+            WidgetSlider("Offset X", l.offsetX.toFloat(), -360f..360f, "dp", defaultValue = 0f) { v -> label { it.copy(offsetX = v.roundToInt()) } }
             Spacer(Modifier.height(6.dp))
-            WidgetSlider("Offset Y", l.offsetY.toFloat(), -360f..360f, "dp") { v -> label { it.copy(offsetY = v.roundToInt()) } }
+            WidgetSlider("Offset Y", l.offsetY.toFloat(), -360f..360f, "dp", defaultValue = 0f) { v -> label { it.copy(offsetY = v.roundToInt()) } }
         }
 
         SettingsAccordionItem(
@@ -262,13 +263,13 @@ fun WidgetSettingsSection(
             Group("Placement & Size")
             SettingsChoiceRow(listOf("auto" to "Auto", "left" to "Left", "center" to "Center", "right" to "Right", "hidden" to "Hide"), b.position) { v -> button { it.copy(position = v) } }
             Spacer(Modifier.height(6.dp))
-            WidgetSlider("Size", (if (b.size == 0) 32 else b.size).toFloat(), 20f..48f, "dp") { v -> button { it.copy(size = v.roundToInt()) } }
+            WidgetSlider("Size", (if (b.size == 0) 32 else b.size).toFloat(), 20f..48f, "dp", defaultValue = 32f) { v -> button { it.copy(size = v.roundToInt()) } }
 
             Spacer(Modifier.height(8.dp))
             Group("Surface Offset")
-            WidgetSlider("Offset X", b.offsetX.toFloat(), -360f..360f, "dp") { v -> button { it.copy(offsetX = v.roundToInt()) } }
+            WidgetSlider("Offset X", b.offsetX.toFloat(), -360f..360f, "dp", defaultValue = 0f) { v -> button { it.copy(offsetX = v.roundToInt()) } }
             Spacer(Modifier.height(6.dp))
-            WidgetSlider("Offset Y", b.offsetY.toFloat(), -360f..360f, "dp") { v -> button { it.copy(offsetY = v.roundToInt()) } }
+            WidgetSlider("Offset Y", b.offsetY.toFloat(), -360f..360f, "dp", defaultValue = 0f) { v -> button { it.copy(offsetY = v.roundToInt()) } }
         }
 
         SettingsChoiceRow(listOf("reset_all" to "Reset live widget", "reset_base" to "Reset defaults"), "") { key ->
@@ -292,8 +293,30 @@ private fun Group(text: String) {
     )
 }
 
+private fun widgetSliderValueText(value: Float, unit: String): String {
+    // Keep the visible value in lockstep with the rail. In particular, a 0.7dp border must not
+    // be presented as "1 dp" just because the old label rounded every slider to an integer.
+    val scaled = (value * 100f).roundToInt()
+    val absolute = abs(scaled)
+    val whole = absolute / 100
+    val remainder = absolute % 100
+    val numeric = when {
+        remainder == 0 -> whole.toString()
+        remainder % 10 == 0 -> "$whole.${remainder / 10}"
+        else -> "$whole.${remainder.toString().padStart(2, '0')}"
+    }
+    return "${if (scaled < 0) "-" else ""}$numeric $unit"
+}
+
 @Composable
-private fun WidgetSlider(label: String, value: Float, range: ClosedFloatingPointRange<Float>, unit: String, onChange: (Float) -> Unit) {
+private fun WidgetSlider(
+    label: String,
+    value: Float,
+    range: ClosedFloatingPointRange<Float>,
+    unit: String,
+    defaultValue: Float,
+    onChange: (Float) -> Unit
+) {
     val colors = XvoxTheme.colors
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -305,14 +328,15 @@ private fun WidgetSlider(label: String, value: Float, range: ClosedFloatingPoint
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(label, color = colors.secondaryText, fontSize = 12.sp)
-            Text("${value.roundToInt()} $unit", color = colors.primaryText, fontSize = 11.sp)
+            Text(widgetSliderValueText(value, unit), color = colors.primaryText, fontSize = 11.sp)
         }
         XvoxSlider(
             value = value.coerceIn(range.start, range.endInclusive),
             onValueChange = onChange,
             valueRange = range,
+            defaultValue = defaultValue.coerceIn(range.start, range.endInclusive),
             modifier = Modifier.fillMaxWidth(),
-            valueLabel = { current -> "${current.roundToInt()}$unit" }
+            valueLabel = { current -> widgetSliderValueText(current, unit) }
         )
     }
 }

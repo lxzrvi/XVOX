@@ -10,8 +10,6 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -388,26 +386,19 @@ fun XvoxSheet(
                     ?.let { with(density) { it.coerceIn(1f, contentBoundedMaxHeightPx()).toDp() } }
                 val sheetShape = RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp)
                 val sheetSizing = when {
-                    // Equalizer has a deliberately fixed footer.  Give its scrollable option body
-                    // the bounded viewport instead of letting a tall editor compress the three
-                    // Cancel / Reset / Okay controls at the lower edge.
-                    presentation == XvoxBoxPresentation.EQUALIZER -> Modifier.height(maxSheetHeight)
+                    // Equalizer is content-led like every other sheet. Its body remains a bounded
+                    // scroll viewport once needed, but a short disabled-EQ state never claims an
+                    // empty full-screen panel merely because its footer exists.
                     requestedHeight != null -> Modifier.height(requestedHeight)
                     else -> Modifier.heightIn(max = maxSheetHeight)
                 }
 
                 AnimatedVisibility(
                     visible = visible,
-                    // A short opacity settle keeps the bottom motion tangible without the abrupt
-                    // black/empty-frame look that can occur when a large sheet mounts at once.
-                    enter = slideInVertically(
-                        initialOffsetY = { it },
-                        animationSpec = tween(320, easing = XvoxBoxEasing)
-                    ) + fadeIn(tween(190, easing = XvoxBoxEasing)),
-                    exit = slideOutVertically(
-                        targetOffsetY = { it },
-                        animationSpec = tween(260, easing = XvoxBoxEasing)
-                    ) + fadeOut(tween(150, easing = XvoxBoxEasing))
+                    // Every option sheet opens and closes as a complete opacity transition. The
+                    // content never rises from the bottom or leaves a faded top strip behind it.
+                    enter = fadeIn(tween(190, easing = XvoxBoxEasing)),
+                    exit = fadeOut(tween(170, easing = XvoxBoxEasing))
                 ) {
                     Column(
                         modifier = Modifier
@@ -686,16 +677,10 @@ private fun XvoxCenteredBox(
             )
             AnimatedVisibility(
                 visible = visible,
-                // Match the bottom-sheet rule: no scale/morph animation on the backdrop, only
-                // this surface rises into place over the full static scrim.
-                enter = slideInVertically(
-                    initialOffsetY = { fullHeight -> fullHeight / 2 },
-                    animationSpec = tween(220, easing = XvoxBoxEasing)
-                ) + fadeIn(tween(150, easing = XvoxBoxEasing)),
-                exit = slideOutVertically(
-                    targetOffsetY = { fullHeight -> fullHeight / 2 },
-                    animationSpec = tween(180, easing = XvoxBoxEasing)
-                ) + fadeOut(tween(120, easing = XvoxBoxEasing))
+                // Centered pickers follow the same complete fade-only contract as bottom sheets.
+                // Neither surface nor backdrop translates while opening or closing.
+                enter = fadeIn(tween(190, easing = XvoxBoxEasing)),
+                exit = fadeOut(tween(170, easing = XvoxBoxEasing))
             ) {
                 Column(
                     modifier = Modifier

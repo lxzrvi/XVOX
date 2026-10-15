@@ -26,13 +26,13 @@ class XvoxArtworkPreloader(context: Context) {
         val start = fromIndex.coerceIn(0, songs.size)
         val originalQuality = requestSize == 0
         val exactSize = if (originalQuality) 0 else requestSize.coerceAtLeast(XvoxGridArtworkSize)
-        // Full-player originals warm only the immediate three-cover window. Standard 256px pages
-        // can warm a complete landscape page; larger mosaic tiles retain a tighter queue. No path
-        // silently substitutes a smaller requested decode for a visible cover.
+        // Full-player originals warm only the immediate three-cover window. Home prefetches only
+        // its nearest visual runway so decoders never compete with a live fling; no path silently
+        // substitutes a smaller requested decode for a visible cover.
         val maxCount = when {
             originalQuality -> 3
-            exactSize >= 512 -> 16
-            else -> 32
+            exactSize >= 512 -> 8
+            else -> 16
         }
         val end = (start + count.coerceIn(0, maxCount)).coerceAtMost(songs.size)
         if (start >= end) return@withContext

@@ -502,26 +502,26 @@ class HomeViewModel(
         if (songs.isEmpty()) return
         val target = ArtworkPrefetch(
             startIndex = sourceIndex.coerceIn(0, songs.lastIndex),
-            // Grid pages can safely warm a full standard page (up to 32 256px covers). Larger
-            // mosaic covers keep a shorter window to avoid memory pressure, never a lower decode
-            // resolution. This prevents a horizontal page from composing uncached covers mid-fling.
+            // Decode only the immediate visual runway at each card's exact quality. A smaller
+            // latest-wins window keeps any Home layout responsive during a long fling; visible
+            // cards still request their unchanged full 256px/512px artwork on demand.
             count = count.coerceIn(
                 1,
-                if (requestSize >= XvoxRecentArtworkSize) 16 else 32
+                if (requestSize >= XvoxRecentArtworkSize) 8 else 16
             ),
             requestSize = requestSize.coerceAtLeast(XvoxGridArtworkSize)
         )
         if (target == lastPrefetch || target == pendingPrefetch || target == activePrefetch) return
 
         // Artwork is still warmed at each card's exact display resolution, but a rapid fling no
-        // longer lets a stale 16/32-cover decode monopolise CPU after the viewport has moved on.
-        // A tiny quiet-frame debounce coalesces page-boundary signals, then a latest-wins job
-        // warms only the page the user actually settled near. Visual quality is unchanged; scroll
-        // work simply yields to the finger instead of competing with it.
+        // longer lets a stale batch monopolise CPU after the viewport has moved on. A meaningful
+        // quiet-frame debounce coalesces page-boundary signals, then a latest-wins job warms only
+        // the page the user actually settled near. Visual quality is unchanged; decode work yields
+        // to the finger instead of competing with it.
         pendingPrefetch = target
         prefetchJob?.cancel()
         prefetchJob = viewModelScope.launch {
-            delay(72)
+            delay(180)
             val next = pendingPrefetch ?: return@launch
             pendingPrefetch = null
             activePrefetch = next

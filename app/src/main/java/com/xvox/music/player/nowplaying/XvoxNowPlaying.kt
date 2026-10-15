@@ -171,6 +171,8 @@ fun XvoxNowPlaying(
     onClose: () -> Unit,
     /** Begins dismissal housekeeping while this surface completes its fixed descent. */
     onDismissStart: () -> Unit = {},
+    /** Lets the shell keep a physically moving player behind its persistent navigation layer. */
+    onNavbarHandoffLayerChange: (Boolean) -> Unit = {},
     onTogglePlay: () -> Unit,
     onPlayQueueIndex: (Int) -> Unit,
     onSeek: (Long) -> Unit,
@@ -228,6 +230,7 @@ fun XvoxNowPlaying(
     val paletteState = rememberXvoxNowPlayingPalette(song, queue, currentIndex)
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
+    val latestNavbarHandoffLayerChange by rememberUpdatedState(onNavbarHandoffLayerChange)
     val screenHeight = with(density) {
         LocalConfiguration.current.screenHeightDp.dp.toPx()
     }
@@ -363,6 +366,10 @@ fun XvoxNowPlaying(
     fun animateScreen(target: Float, finished: (() -> Unit)? = null) {
         motionJob?.cancel()
         val start = screenY
+        // The shell's navbar is a real foreground layer during a physical player handoff. Raise
+        // that layer before the first moving frame—not after it—so even a rapid downward fling
+        // remains visibly continuous behind the bar instead of being momentarily cut away.
+        if (target > 1f || start > 1f) latestNavbarHandoffLayerChange(true)
         motionJob = scope.launch {
             val animation = Animatable(start)
             animation.animateTo(
@@ -376,6 +383,7 @@ fun XvoxNowPlaying(
             }
             screenY = target
             motionJob = null
+            if (target <= 1f) latestNavbarHandoffLayerChange(false)
             finished?.invoke()
         }
     }
@@ -385,11 +393,23 @@ fun XvoxNowPlaying(
             // Precomposition lays the whole player out below the selected physical handoff point.
             // Its entrance remains held until the outgoing Mini Player has reached its own point.
             screenY = belowBottomY
+            latestNavbarHandoffLayerChange(true)
             if (entranceEnabled) {
                 entered = true
                 animateScreen(target = 0f)
             }
         }
+    }
+    // Direct pull-down gestures assign screenY outside animateScreen. Keep their first moving
+    // frame behind the navbar too, then restore normal full-player layering at rest.
+    LaunchedEffect(screenY, entered, entranceEnabled) {
+        when {
+            screenY > 1f -> latestNavbarHandoffLayerChange(true)
+            entered && entranceEnabled -> latestNavbarHandoffLayerChange(false)
+        }
+    }
+    DisposableEffect(Unit) {
+        onDispose { latestNavbarHandoffLayerChange(false) }
     }
 
     fun dismiss() {
@@ -954,6 +974,7 @@ fun XvoxNowPlaying(
                             currentSongId = song.id,
                             position = position,
                             duration = duration,
+                            isPlaying = isPlaying,
                             onSeek = onSeek,
                             showTime = true,
                             style = chrome.nowPlayingSeekStyle
@@ -1287,6 +1308,7 @@ fun XvoxNowPlaying(
                     currentSongId = song.id,
                     position = position,
                     duration = duration,
+                    isPlaying = isPlaying,
                     onSeek = onSeek,
                     showTime = !isCompact,
                     style = chrome.nowPlayingSeekStyle

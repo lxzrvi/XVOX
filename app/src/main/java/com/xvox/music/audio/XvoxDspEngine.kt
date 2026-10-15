@@ -195,7 +195,7 @@ class XvoxDspEngine {
             targetBand[i] = 10.0.pow(db / 20.0) - 1.0
         }
         targetHeadroom = 10.0.pow(-s.headroomDb.coerceIn(0f, 18f) / 20.0)
-        targetSoftHighs = if (s.grainControlEnabled) {
+        targetSoftHighs = if (s.noiseReductionEnabled && s.grainControlEnabled) {
             // Preserve the programme below the 5.5 kHz split, but make Grain Control genuinely
             // decisive on brittle high-frequency residuals. 100% remains bounded and smooth,
             // never a destructive full-band low-pass.

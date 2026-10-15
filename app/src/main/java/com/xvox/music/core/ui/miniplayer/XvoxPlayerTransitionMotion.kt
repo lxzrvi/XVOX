@@ -20,7 +20,7 @@ data class XvoxPlayerTransitionLayer(
 )
 
 object XvoxPlayerTransitionMotion {
-    /** Established default timing; Experimental controls retain this until deliberately changed. */
+    /** Established default timing; retained legacy values normalize to this behavior. */
     const val Duration = 300
     const val MinDuration = 120
     const val MaxDuration = 900
@@ -28,8 +28,11 @@ object XvoxPlayerTransitionMotion {
     const val DefaultStyle = "default"
     const val ScaleStyle = "scale"
 
-    /** A relaxed but continuous card handoff; the next surface still begins on the finishing frame. */
-    const val HandoffDuration = 260
+    /**
+     * The card gets enough real travel time to remain visibly behind the navbar during a fast
+     * downward handoff. The next surface still releases on this exact terminal frame.
+     */
+    const val HandoffDuration = 320
     /** The full player uses one uniform 300 ms physical slide in both directions. */
     const val NowPlayingDuration = 300
 
@@ -38,13 +41,12 @@ object XvoxPlayerTransitionMotion {
     val easing: Easing = CubicBezierEasing(0.22f, 0f, 0f, 1f)
 
     /**
-     * Experimental curve dial shared by the Mini Player settings graph. Low values accelerate
-     * gently; high values put more travel near the first half without ever overshooting.
+     * Compatibility helper for older persisted motion values. The active Mini Player UI exposes
+     * only Default and Scale, both of which use the shipped .55 curve without overshoot.
      */
     fun easingFor(control: Float): Easing {
         val amount = control.coerceIn(0f, 1f)
-        // .55 is the shipped curve exactly (.22, 0, 0, 1), so opening this Experimental editor
-        // does not silently change an established handoff. The dial fans out on either side.
+        // .55 is the shipped curve exactly (.22, 0, 0, 1); legacy values simply map around it.
         val softer = ((.55f - amount) / .55f).coerceIn(0f, 1f)
         val quicker = ((amount - .55f) / .45f).coerceIn(0f, 1f)
         return CubicBezierEasing(
@@ -61,10 +63,10 @@ object XvoxPlayerTransitionMotion {
         else -> DefaultStyle
     }
 
-    /** Kept for older callers while live settings use the surface-specific values directly. */
+    /** Kept for older callers while the live UI uses the fixed surface timing directly. */
     fun durationFor(value: Int): Int = value.coerceIn(MinDuration, MaxDuration)
 
-    /** Legacy callers retain the no-dwell handoff; the Experimental field supplies new delays. */
+    /** Legacy callers retain the no-dwell handoff; the active Mini Player has no delay control. */
     fun handoffDelayFor(@Suppress("UNUSED_PARAMETER") durationMillis: Int): Long = 0L
 
     fun spec(durationMillis: Int = Duration, easeControl: Float = .55f): AnimationSpec<Float> = tween(

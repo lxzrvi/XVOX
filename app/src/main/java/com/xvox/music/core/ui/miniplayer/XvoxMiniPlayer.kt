@@ -364,9 +364,9 @@ fun XvoxMiniPlayer(
                         cardTopInRootPx = coordinates.boundsInRoot().top
                     }
                     .graphicsLayer {
-                        // The real vertical handoff remains the primary motion. Each experimental
-                        // preset only adds a bounded visual layer, so the card always clears the
-                        // viewport before Now Playing is allowed to take focus.
+                        // The real vertical handoff remains the primary motion. Default and Scale
+                        // only add a bounded visual layer, so the card always clears the viewport
+                        // before Now Playing is allowed to take focus.
                         translationX = dragX + size.width * transitionLayer.xFraction
                         translationY = y.value + dragY + size.height * transitionLayer.yFraction
                         alpha = transitionLayer.alpha

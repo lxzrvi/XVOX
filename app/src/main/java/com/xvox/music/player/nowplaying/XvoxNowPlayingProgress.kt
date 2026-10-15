@@ -3,6 +3,7 @@ package com.xvox.music.player.nowplaying
 import android.os.SystemClock
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -55,6 +56,8 @@ private data class XvoxProgressBlend(
 fun XvoxNowPlayingProgress(
     position: Long,
     duration: Long,
+    /** Paused playback must freeze at the exact controller sample, never animate toward a reset. */
+    isPlaying: Boolean = true,
     onSeek: (Long) -> Unit,
     modifier: Modifier = Modifier,
     currentSongId: Long? = null,
@@ -64,48 +67,76 @@ fun XvoxNowPlayingProgress(
 ) {
     val colors = XvoxTheme.colors
 
-    var dragging by remember {
-        mutableStateOf(false)
-    }
+    var dragging by remember { mutableStateOf(false) }
+    var dragFraction by remember { mutableFloatStateOf(0f) }
 
-    var dragFraction by remember {
-        mutableFloatStateOf(0f)
+    // A tap/drag seek paints its chosen position immediately and holds it until the controller
+    // confirms the seek. It is deliberately not released on a timer: a paused or buffered player
+    // may publish slowly, and releasing early was the source of the old reset/repeat bar.
+    var pendingSeekFraction by remember(currentSongId) { mutableStateOf<Float?>(null) }
+    // Freeze the actual rendered rail on pause. Controller samples can briefly rewind/reconcile
+    // while paused; those samples must not visibly move a position the listener has stopped at.
+    var pausedFraction by remember(currentSongId) { mutableStateOf<Float?>(null) }
+    var lastValidDuration by remember(currentSongId) {
+        mutableLongStateOf(duration.takeIf { it > 0L } ?: 0L)
     }
-
-    // A tap/drag seek paints its chosen position immediately and holds it until playback catches
-    // up. This prevents the old progress sample briefly drawing again before the player reports
-    // the new position—the double-bar/repeat effect users can otherwise see after a seek.
-    var pendingSeekFraction by remember(currentSongId) {
-        mutableStateOf<Float?>(null)
-    }
-    var seekRequestVersion by remember(currentSongId) {
-        mutableFloatStateOf(0f)
+    var lastValidFraction by remember(currentSongId) {
+        mutableFloatStateOf(
+            if (duration > 0L) (position.toFloat() / duration.toFloat()).coerceIn(0f, 1f) else 0f
+        )
     }
     // Tap and drag recognizers share the same rail. A recognizer can report the release of one
     // physical drag as a tap on some devices, so gate that duplicate event before it reaches the
     // player—not merely after the player has already been asked to seek twice.
-    var lastSeekGestureUptimeMs by remember(currentSongId) {
-        mutableLongStateOf(0L)
-    }
-    var lastSeekGestureFraction by remember(currentSongId) {
-        mutableFloatStateOf(Float.NaN)
+    var lastSeekGestureUptimeMs by remember(currentSongId) { mutableLongStateOf(0L) }
+    var lastSeekGestureFraction by remember(currentSongId) { mutableFloatStateOf(Float.NaN) }
+
+    // Media3 can briefly report an unavailable duration while the same item is paused, buffering,
+    // or reconciling a seek. Retain the last valid duration/fraction for that occurrence rather
+    // than interpreting the transient as a real position of zero.
+    LaunchedEffect(currentSongId, position, duration, pendingSeekFraction) {
+        if (duration <= 0L) return@LaunchedEffect
+        val controllerFraction = (position.toFloat() / duration.toFloat()).coerceIn(0f, 1f)
+        lastValidDuration = duration
+        val pending = pendingSeekFraction
+        if (pending == null) {
+            lastValidFraction = controllerFraction
+        } else {
+            val targetPosition = (duration * pending).toLong()
+            val tolerance = max(750L, (duration * .006f).toLong())
+            if (abs(position - targetPosition) <= tolerance) {
+                lastValidFraction = controllerFraction
+                pendingSeekFraction = null
+            }
+        }
     }
 
-    val realFraction =
-        if (duration > 0L) {
-            (position.toFloat() / duration.toFloat())
-                .coerceIn(0f, 1f)
-        } else {
-            0f
-        }
+    val stableDuration = duration.takeIf { it > 0L } ?: lastValidDuration
+    val realFraction = if (duration > 0L) {
+        (position.toFloat() / duration.toFloat()).coerceIn(0f, 1f)
+    } else {
+        lastValidFraction
+    }
 
     // Playback callbacks arrive in discrete samples. Interpolate the visual rail between samples
     // so every style travels continuously, while a finger drag always remains exact/direct.
     val animatedFraction by animateFloatAsState(
         targetValue = realFraction,
-        animationSpec = tween(durationMillis = 220, easing = LinearOutSlowInEasing),
+        // A pause is a physical stop, not a 220ms cosmetic glide. Playing samples retain the
+        // smooth interpolation; paused samples snap and then remain unchanged indefinitely.
+        animationSpec = if (isPlaying) tween(durationMillis = 220, easing = LinearOutSlowInEasing) else snap(),
         label = "nowPlayingPremiumProgress"
     )
+
+    LaunchedEffect(currentSongId, isPlaying) {
+        if (isPlaying) {
+            pausedFraction = null
+        } else {
+            // Capture the value the listener actually saw as playback stopped, not a later
+            // controller reconciliation sample. A pending paused seek already owns that value.
+            pausedFraction = pendingSeekFraction ?: animatedFraction
+        }
+    }
 
     fun requestSeek(fraction: Float) {
         val now = SystemClock.uptimeMillis()
@@ -119,34 +150,23 @@ fun XvoxNowPlayingProgress(
         ) return
         lastSeekGestureUptimeMs = now
         lastSeekGestureFraction = target
+        if (stableDuration <= 0L) return
         pendingSeekFraction = target
-        seekRequestVersion += 1f
-        onSeek((duration * target).toLong())
-    }
-
-    // Clear the optimistic value as soon as the playback sample confirms it. A short bounded
-    // fallback protects the rail if a player implementation intentionally coalesces a callback.
-    LaunchedEffect(position, duration, pendingSeekFraction) {
-        val pending = pendingSeekFraction ?: return@LaunchedEffect
-        val targetPosition = (duration * pending).toLong()
-        val tolerance = max(750L, (duration * .006f).toLong())
-        if (abs(position - targetPosition) <= tolerance) pendingSeekFraction = null
-    }
-    LaunchedEffect(seekRequestVersion) {
-        if (seekRequestVersion > 0f) {
-            delay(700)
-            pendingSeekFraction = null
-        }
+        // Seeking while paused must replace the frozen rail immediately and remain there after
+        // Media3 confirms. It is intentionally independent of callback timing.
+        if (!isPlaying) pausedFraction = target
+        onSeek((stableDuration * target).toLong())
     }
 
     val visibleFraction = when {
         dragging -> dragFraction
         pendingSeekFraction != null -> pendingSeekFraction!!
+        !isPlaying -> pausedFraction ?: animatedFraction
         else -> animatedFraction
     }
 
-    val visiblePosition = if (duration > 0L) {
-        (duration * visibleFraction).toLong()
+    val visiblePosition = if (stableDuration > 0L) {
+        (stableDuration * visibleFraction).toLong()
     } else {
         position
     }
@@ -186,8 +206,8 @@ fun XvoxNowPlayingProgress(
             else -> stableBlendZones = 0L to 0L
         }
     }
-    val introFraction = if (duration > 0L) (stableBlendZones.first.toFloat() / duration).coerceIn(0f, 0.5f) else 0f
-    val tailFraction = if (duration > 0L) (stableBlendZones.second.toFloat() / duration).coerceIn(0f, 0.5f) else 0f
+    val introFraction = if (stableDuration > 0L) (stableBlendZones.first.toFloat() / stableDuration).coerceIn(0f, 0.5f) else 0f
+    val tailFraction = if (stableDuration > 0L) (stableBlendZones.second.toFloat() / stableDuration).coerceIn(0f, 0.5f) else 0f
 
     Column(
         modifier = modifier.fillMaxWidth()
@@ -196,7 +216,7 @@ fun XvoxNowPlayingProgress(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(if (showTime) 18.dp else 12.dp)
-                .pointerInput(duration) {
+                .pointerInput(stableDuration) {
                     // A single recognizer owns this rail.  The previous independent tap and drag
                     // detectors could both report one release, producing a second seek sample and
                     // the visible accent-line jump that followed it.
@@ -205,7 +225,7 @@ fun XvoxNowPlayingProgress(
                             requireUnconsumed = false,
                             pass = PointerEventPass.Initial
                         )
-                        if (duration <= 0L || size.width <= 0) {
+                        if (stableDuration <= 0L || size.width <= 0) {
                             do {
                                 val event = awaitPointerEvent(PointerEventPass.Initial)
                             } while (event.changes.any { it.pressed })
@@ -447,7 +467,7 @@ fun XvoxNowPlayingProgress(
                 )
 
                 Text(
-                    text = formatPlayerTime(duration),
+                    text = formatPlayerTime(stableDuration),
                     color = colors.secondaryText,
                     fontSize = 10.sp
                 )

@@ -421,10 +421,9 @@ fun NowPlayingActions(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         // Restore the intended left/right lanes: the utility pill begins at its left anchor and
-        // the six-option action ring stays at its right anchor.  When two groups occupy one
-        // side, their 6dp gutter matches the circles' own visual rhythm rather than looking like
-        // the old over-centred cluster.
-        horizontalArrangement = Arrangement.spacedBy(6.dp)
+        // the six-option action ring stays at its right anchor. A slightly tighter 4dp gutter
+        // keeps paired groups visually connected without collapsing their individual targets.
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         if (utilityOnLeft) key("nowPlayingUtilityPill") { utilityPill() }
         if (actionsOnLeft) key("nowPlayingChangingActions") { changingActionCluster() }

@@ -251,8 +251,8 @@ fun XvoxStartupLoadingScreen(
             color = colors.secondaryText.copy(alpha = .74f),
             fontFamily = XvoxLogoFont,
             fontWeight = FontWeight.Normal,
-            fontSize = 11.sp,
-            letterSpacing = 2.2.sp,
+            fontSize = 12.sp,
+            letterSpacing = 2.3.sp,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(bottom = 28.dp)

@@ -9,7 +9,6 @@ import android.database.Cursor
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
-import android.graphics.Color
 import android.graphics.ColorMatrix
 import android.graphics.ColorMatrixColorFilter
 import android.graphics.Paint
@@ -26,7 +25,7 @@ import kotlinx.coroutines.runBlocking
  *
  * Android's notification pipeline needs a local content URI rather than a Compose painter.  This
  * provider therefore renders the same bundled XVOX default cover used by the app: untouched in
- * dark themes, or inverted with the active accent on its centred mark in light themes.
+ * dark themes, or through a pure RGB negative in light themes. No extra mark is painted.
  */
 class XvoxFallbackArtworkProvider : ContentProvider() {
     override fun onCreate(): Boolean = true
@@ -89,25 +88,21 @@ class XvoxFallbackArtworkProvider : ContentProvider() {
             .build()
 
         private fun notificationArtwork(context: Context): ByteArray {
-            // Read the current appearance at request time so a refreshed notification tracks the
-            // user theme and active accent without baking the fresh-install red into every cover.
-            val appearance = runCatching {
-                runBlocking {
-                    val prefs = UserPreferencesRepository(context.applicationContext)
-                    prefs.theme.first() to prefs.accentColor.first()
-                }
-            }.getOrDefault("System" to "Red")
-            val light = when (appearance.first) {
+            // Notification artwork is produced outside Compose, so read the app's selected theme
+            // at request time. The accent is intentionally irrelevant to this pure bitmap path.
+            val theme = runCatching {
+                runBlocking { UserPreferencesRepository(context.applicationContext).theme.first() }
+            }.getOrDefault("System")
+            val light = when (theme) {
                 "Light" -> true
                 "Dark", "AMOLED" -> false
                 else -> context.resources.configuration.uiMode and
                     Configuration.UI_MODE_NIGHT_MASK != Configuration.UI_MODE_NIGHT_YES
             }
-            val accent = notificationAccent(appearance.second)
-            val key = if (light) "xvox_default:light:$accent" else "xvox_default:dark"
+            val key = if (light) "xvox_default:light" else "xvox_default:dark"
             artworkCache.get(key)?.let { return it }
 
-            val bitmap = buildNotificationDefaultCover(context, light, accent)
+            val bitmap = buildNotificationDefaultCover(context, light)
             val bytes = java.io.ByteArrayOutputStream().use { stream ->
                 bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
                 bitmap.recycle()
@@ -117,7 +112,7 @@ class XvoxFallbackArtworkProvider : ContentProvider() {
             return bytes
         }
 
-        private fun buildNotificationDefaultCover(context: Context, light: Boolean, accent: Int): Bitmap {
+        private fun buildNotificationDefaultCover(context: Context, light: Boolean): Bitmap {
             val source = checkNotNull(
                 BitmapFactory.decodeResource(
                     context.resources,
@@ -143,26 +138,9 @@ class XvoxFallbackArtworkProvider : ContentProvider() {
                 scaled
             }
 
-            // Match the app fallback exactly: the mark alone, physically centred; light mode is
-            // accent-aware while dark mode leaves the supplied artwork treatment neutral/white.
-            val markSize = (artworkSize * .34f).toInt()
-            val left = (artworkSize - markSize) / 2
-            context.getDrawable(R.drawable.xvox)?.mutate()?.let { mark ->
-                mark.setTint(if (light) accent else Color.WHITE)
-                mark.setBounds(left, left, left + markSize, left + markSize)
-                mark.draw(Canvas(result))
-            }
+            // The supplied bitmap is the complete fallback identity. Do not paint a brand or an
+            // accent-derived overlay over it after inversion.
             return result
-        }
-
-        /** Mirrors the app accent contract without relying on Compose in the provider process. */
-        private fun notificationAccent(value: String): Int = when {
-            value.startsWith("#") -> runCatching { Color.parseColor(value) }.getOrDefault(Color.rgb(10, 10, 10))
-            value.equals("Blue", ignoreCase = true) || value.equals("XVOX Blue", ignoreCase = true) ->
-                Color.rgb(0, 122, 255)
-            value.equals("Red", ignoreCase = true) || value.equals("XVOX Red", ignoreCase = true) ->
-                Color.rgb(240, 30, 44)
-            else -> Color.rgb(10, 10, 10)
         }
     }
 }

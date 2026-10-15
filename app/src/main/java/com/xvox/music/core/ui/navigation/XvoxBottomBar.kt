@@ -82,29 +82,31 @@ fun XvoxBottomBar(
         // second accent treatment.
         androidx.compose.ui.graphics.Color(0xFFB8BBC2)
     } else {
-        // A card-derived charcoal under a deliberately low alpha reads as glass, not as the old
-        // opaque black cutout, while the selected icon remains the destination cue.
-        colors.cardElevated
+        // The dark travelling pill has one deliberate neutral base. Its alpha still follows the
+        // exact same transparency curve as the accepted light pill below.
+        androidx.compose.ui.graphics.Color(0xFF292928)
     }
-    val pillBase = com.xvox.music.core.ui.chrome.parseHexColor(chrome.pillColor)
-        ?: defaultPillNeutral
+    // Dark-mode navigation has one mandated active-pill colour. Ignore any retained legacy
+    // custom fill there; light mode deliberately preserves its established configurable behavior.
+    val pillBase = if (colors.isLight) {
+        com.xvox.music.core.ui.chrome.parseHexColor(chrome.pillColor) ?: defaultPillNeutral
+    } else {
+        defaultPillNeutral // #292928
+    }
     val customImageSurface = chrome.navigationImageUri.isNotBlank()
-    val pillFill = if (chrome.pillColor.isBlank()) {
+    val useAutomaticPillOpacity = !colors.isLight || chrome.pillColor.isBlank()
+    val pillFill = if (useAutomaticPillOpacity) {
         // At 0% transparency a custom navbar image is the surface itself—do not wash a default
-        // theme pill over it. A deliberately chosen custom pill colour still remains respected.
+        // theme pill over it. Dark mode follows this same established automatic-pill curve.
         val defaultPillAlpha = if (customImageSurface) {
             // Preserve the previously requested completely clear custom-image endpoint.
             navSurfaceAlpha * (1f - navSurfaceAlpha)
-        } else if (colors.isLight) {
-            // Preserve the accepted light-mode curve exactly.
-            (.28f + .20f * navSurfaceAlpha) * navSurfaceAlpha
         } else {
-            // Dark surfaces need a lower numeric alpha than light gray to look equally clear.
-            // This is intentionally a translucent travelling wash, never an opaque selector.
-            (.08f + .12f * navSurfaceAlpha) * navSurfaceAlpha
+            // Dark mode intentionally shares the established light-pill opacity curve. Only the
+            // neutral base differs (#292928 in dark), so navbar transparency remains predictable
+            // and light mode is unchanged.
+            (.28f + .20f * navSurfaceAlpha) * navSurfaceAlpha
         }
-        // Transparency is meaningful for both Auto and an explicit picker colour.  Previously
-        // Auto ignored the persisted experiment slider, which made the setting look broken.
         pillBase.copy(alpha = pillBase.alpha * defaultPillAlpha * chrome.pillAlpha.coerceIn(0f, 1f))
     } else pillBase.copy(alpha = pillBase.alpha * chrome.pillAlpha.coerceIn(0f, 1f) * navSurfaceAlpha)
 

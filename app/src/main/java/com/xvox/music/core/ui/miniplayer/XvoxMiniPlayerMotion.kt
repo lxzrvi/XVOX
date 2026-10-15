@@ -46,7 +46,7 @@ object XvoxMiniPlayerMotion {
     fun exitSpec(durationMillis: Int = XvoxPlayerTransitionMotion.Duration): AnimationSpec<Float> =
         XvoxPlayerTransitionMotion.spec(durationMillis)
 
-    /** Dedicated bottom handoff, with live Experimental speed/curve controls. */
+    /** Dedicated fixed bottom handoff shared by the Default and Scale modes. */
     fun handoffSpec(
         durationMillis: Int = XvoxPlayerTransitionMotion.HandoffDuration,
         easeControl: Float = .55f

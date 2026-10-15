@@ -413,6 +413,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setNoiseReductionEnabled(enabled: Boolean) = changeAudio { current ->
         current.copy(
             noiseReductionEnabled = enabled,
+            // Grain is a dependent cleanup stage, never an independently active effect.
+            grainControlEnabled = if (enabled) current.grainControlEnabled else false,
             // A newly enabled control starts at a deliberately audible, usable cleanup level.
             noiseReduction = if (enabled && current.noiseReduction <= .001f) .70f else current.noiseReduction
         )

@@ -125,14 +125,14 @@ fun XvoxNowPlayingArtworkPager(
     val pager = rememberPagerState(initialPage = initialIdx, pageCount = { queue.size })
     val context = LocalContext.current
     val artworkPreloader = remember(context) { XvoxArtworkPreloader(context) }
-    LaunchedEffect(queue, currentIndex) {
-        val activeIndex = currentIndex.coerceIn(0, queue.lastIndex)
-        // The foreground page and blurred backdrop both consume the same original-quality cache
-        // key. Warming only previous/current/next removes first-drag decode stalls without the
-        // seven-page composition/decode burst that made rapid cover swipes feel heavy.
+    // Button and held-navigation previews move before audio commits. Warm around that visual
+    // target, not just the audible index, so the incoming original is ready while its lower-res
+    // cache bridge is still on screen.
+    val prewarmIndex = previewIndex.takeIf { it in queue.indices } ?: initialIdx
+    LaunchedEffect(queue, prewarmIndex) {
         artworkPreloader.warm(
             songs = queue,
-            fromIndex = (activeIndex - 1).coerceAtLeast(0),
+            fromIndex = (prewarmIndex - 1).coerceAtLeast(0),
             count = 3,
             requestSize = XvoxNowPlayingArtworkSize
         )

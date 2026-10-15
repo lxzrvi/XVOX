@@ -71,12 +71,23 @@ fun XvoxContinuousSlider(
                     }
                 }
             }
-            .pointerInput(enabled) {
+            .pointerInput(enabled, defaultValue) {
                 if (!enabled) return@pointerInput
-                detectTapGestures { offset ->
-                    setFraction(offset.x / size.width.toFloat().coerceAtLeast(1f))
-                    latestFinish?.invoke()
-                }
+                detectTapGestures(
+                    onTap = { offset ->
+                        setFraction(offset.x / size.width.toFloat().coerceAtLeast(1f))
+                        latestFinish?.invoke()
+                    },
+                    // A long press is the universal reset gesture for compact sheet sliders. It
+                    // resets the actual stored value, so the rail's fill and any caller label
+                    // return to the same exact default on the next frame.
+                    onLongPress = {
+                        defaultValue?.let { default ->
+                            latestChange(default.coerceIn(valueRange))
+                            latestFinish?.invoke()
+                        }
+                    }
+                )
             }
             .pointerInput(enabled) {
                 if (!enabled) return@pointerInput

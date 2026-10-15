@@ -8,20 +8,13 @@ import android.graphics.ColorMatrix as AndroidColorMatrix
 import android.graphics.ColorMatrixColorFilter
 import android.graphics.Paint
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.size
-import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.unit.dp
 import com.xvox.music.R
 import com.xvox.music.artwork.XvoxArtworkCache
 import com.xvox.music.core.design.theme.XvoxPalette
@@ -113,8 +106,8 @@ internal fun xvoxDefaultCoverBitmap(context: Context, light: Boolean): Bitmap {
 
 /**
  * Shared no-cover renderer for songs, playlists, Mini Player, Now Playing, and every Compose
- * failure state.  The supplied artwork remains untouched in dark themes.  Light themes invert it
- * for a genuine light treatment and place the active theme accent on the centred XVOX mark.
+ * failure state. Dark mode draws the supplied PNG unchanged. Light mode applies only a true RGB
+ * negative to that same PNG—there is no added logo, accent tint, pattern, or branding overlay.
  */
 @Composable
 fun WavePatternSquare(
@@ -123,34 +116,14 @@ fun WavePatternSquare(
     @Suppress("UNUSED_PARAMETER") brightColor: Color? = null,
     @Suppress("UNUSED_PARAMETER") seed: Int = 11,
     @Suppress("UNUSED_PARAMETER") bitmapSize: Int = 256,
-    brand: XvoxFallbackBrand = XvoxFallbackBrand.STANDARD
+    @Suppress("UNUSED_PARAMETER") brand: XvoxFallbackBrand = XvoxFallbackBrand.STANDARD
 ) {
     val colors = XvoxTheme.colors
-    val imageFilter = if (colors.isLight) ColorFilter.colorMatrix(XvoxDefaultCoverComposeInvert) else null
-    val markTint = if (colors.isLight) colors.primaryAccent else Color.White.copy(alpha = .88f)
-
-    BoxWithConstraints(
-        modifier = modifier.background(colors.background)
-    ) {
-        Image(
-            painter = painterResource(R.drawable.xvox_default),
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            colorFilter = imageFilter,
-            modifier = Modifier.fillMaxSize()
-        )
-        if (brand != XvoxFallbackBrand.NONE) {
-            // Every visible missing-cover surface uses the mark alone at its physical centre.
-            // There is intentionally no context-specific lower-corner text lockup.
-            val logoSide = (minOf(maxWidth, maxHeight) * .34f).coerceAtLeast(8.dp)
-            Icon(
-                painter = painterResource(R.drawable.xvox),
-                contentDescription = "XVOX",
-                tint = markTint,
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .size(logoSide)
-            )
-        }
-    }
+    Image(
+        painter = painterResource(R.drawable.xvox_default),
+        contentDescription = null,
+        contentScale = ContentScale.Crop,
+        colorFilter = if (colors.isLight) ColorFilter.colorMatrix(XvoxDefaultCoverComposeInvert) else null,
+        modifier = modifier
+    )
 }

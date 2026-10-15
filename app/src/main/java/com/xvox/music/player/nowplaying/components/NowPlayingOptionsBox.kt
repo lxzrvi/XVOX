@@ -113,6 +113,7 @@ fun NowPlayingOptionsBox(
                 // intuitive 20%–100% strength scale instead of leaking implementation radii.
                 val normalizedBlur = draftCoverBlur.coerceIn(blurMin, blurMax)
                 val blurFraction = (normalizedBlur - blurMin) / (blurMax - blurMin)
+                val defaultBlurFraction = (24f - blurMin) / (blurMax - blurMin)
                 val blurPercent = (20f + blurFraction * 80f).roundToInt().coerceIn(20, 100)
                 Column(
                     modifier = Modifier
@@ -144,7 +145,7 @@ fun NowPlayingOptionsBox(
                                 blurMin + fraction.coerceIn(0f, 1f) * (blurMax - blurMin)
                             ).coerceIn(blurMin, blurMax)
                         },
-                        defaultValue = null,
+                        defaultValue = defaultBlurFraction,
                         contentDescription = "Cover blur $blurPercent percent"
                     )
                 }

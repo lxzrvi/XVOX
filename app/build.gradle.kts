@@ -23,8 +23,34 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    // Keep the universal APK download compact; native libraries are extracted on install.
-    packaging { jniLibs.useLegacyPackaging = true }
+    // Keep the universal APK download compact. minSdk 33 permits compressed legacy DEX inside
+    // the distributable APK without changing App Bundle delivery behaviour.
+    packaging {
+        jniLibs.useLegacyPackaging = true
+        dex.useLegacyPackaging = true
+    }
+
+    buildTypes {
+        // The CI-delivered artifact is the debug APK, so it must receive the same safe code and
+        // resource shrinking as release. Functional code/content remains intact; R8 only removes
+        // unreachable bytecode/resources and rewrites the remaining DEX compactly.
+        getByName("debug") {
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+        }
+        getByName("release") {
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+        }
+    }
 
     sourceSets {
         getByName("main") {
