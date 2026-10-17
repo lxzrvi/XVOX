@@ -14,8 +14,36 @@ class MediaStoreSongRepository(
 ) {
     private val resolver = context.applicationContext.contentResolver
 
+    /**
+     * MediaStore can assign an album ID even when its album-art endpoint has no readable bitmap.
+     * Resolve each album only once during an IO library scan so a coverless song is represented by
+     * null from the start. That lets every surface—including Now Playing and Media3 notification—
+     * select the bundled XVOX fallback immediately instead of first attempting a dead URI.
+     */
+    private fun resolveAlbumArtwork(
+        albumId: Long,
+        availability: MutableMap<Long, Uri?>
+    ): Uri? {
+        if (albumId <= 0L) return null
+        if (availability.containsKey(albumId)) return availability[albumId]
+        val candidate = ContentUris.withAppendedId(
+            Uri.parse("content://media/external/audio/albumart"),
+            albumId
+        )
+        // A positive descriptor length is ideal; UNKNOWN_LENGTH still proves the provider exposed
+        // a readable stream. A missing/empty descriptor is a true no-cover item, not an image that
+        // should flash blank while Compose/Media3 waits for an eventual error callback.
+        val readable = runCatching {
+            resolver.openAssetFileDescriptor(candidate, "r")?.use { descriptor ->
+                descriptor.length != 0L
+            } == true
+        }.getOrDefault(false)
+        return candidate.takeIf { readable }.also { availability[albumId] = it }
+    }
+
     suspend fun loadSongs(): List<Song> = withContext(Dispatchers.IO) {
         val songs = ArrayList<Song>()
+        val albumArtworkAvailability = HashMap<Long, Uri?>()
 
         val projection = mutableListOf(
             MediaStore.Audio.Media._ID,
@@ -73,11 +101,7 @@ class MediaStoreSongRepository(
                 }
 
                 val contentUri = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id)
-                val artworkUri = if (albumId > 0L) {
-                    ContentUris.withAppendedId(Uri.parse("content://media/external/audio/albumart"), albumId)
-                } else {
-                    null
-                }
+                val artworkUri = resolveAlbumArtwork(albumId, albumArtworkAvailability)
 
                 songs.add(
                     Song(

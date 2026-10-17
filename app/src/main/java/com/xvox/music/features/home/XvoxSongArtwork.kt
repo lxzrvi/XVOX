@@ -133,15 +133,31 @@ fun XvoxSongArtwork(
     // do not invalidate composition, so this state lets a freshly decoded cover replace its
     // placeholder immediately without reducing its requested quality.
     var decodedBitmap by remember(cacheKey, baseKey, requestSize) { mutableStateOf(cachedOriginalBitmap()) }
-    var artworkFailed by remember(cacheKey, baseKey, requestSize) { mutableStateOf(false) }
-    var fallbackRequested by remember(cacheKey) { mutableStateOf(artwork == null && renderFallbackAsBitmap) }
+    // A failed MediaStore endpoint is stable for this process. Start straight on the bundled
+    // fallback on later composition instead of re-opening that URI and leaving a blank interval.
+    var artworkFailed by remember(cacheKey, baseKey, requestSize) {
+        mutableStateOf(artwork != null && XvoxArtworkCache.isKnownFailed(artwork))
+    }
+    // A URI already known to be unreadable is equivalent to an absent cover for the local
+    // bitmap path. Request the supplied default immediately rather than leaving its first
+    // fallback frame as only a transient draw while the backdrop waits for readiness.
+    var fallbackRequested by remember(cacheKey) {
+        mutableStateOf(
+            renderFallbackAsBitmap &&
+                (artwork == null || (artwork != null && XvoxArtworkCache.isKnownFailed(artwork)))
+        )
+    }
     // Original-quality adjacent pages can be composed a frame before the preloader completes.
     // Listen only for that narrow full-player case so the cache write becomes a visible bridge on
     // the first swipe rather than leaving a one-frame fallback flicker.
     if (keepPreviousOnLoading && requestSize == 0 && artwork != null && decodedBitmap == null) {
         val artworkCacheRevision by XvoxArtworkCache.revision.collectAsState()
         LaunchedEffect(cacheKey, artworkCacheRevision) {
-            cachedOriginalBitmap()?.let { cached -> decodedBitmap = cached }
+            if (XvoxArtworkCache.isKnownFailed(artwork)) {
+                artworkFailed = true
+            } else {
+                cachedOriginalBitmap()?.let { cached -> decodedBitmap = cached }
+            }
         }
     }
     LaunchedEffect(defaultCoverKey, renderFallbackAsBitmap, artwork, fallbackRequested) {
@@ -156,7 +172,10 @@ fun XvoxSongArtwork(
     LaunchedEffect(cacheKey, decodedBitmap, artworkFailed, renderFallbackAsBitmap) {
         // A permanent decoder failure still has the bundled fallback, so callers waiting to
         // blend an incoming cover must be released instead of holding the previous cover forever.
-        if (decodedBitmap != null || (artworkFailed && !renderFallbackAsBitmap)) latestArtworkReady?.invoke()
+        // The supplied fallback is already fully drawable synchronously via WavePatternSquare;
+        // do not make a Cover-background pager wait for a second decode merely because the source
+        // URI was known bad. This closes the last coverless first-swipe readiness gap.
+        if (decodedBitmap != null || artworkFailed) latestArtworkReady?.invoke()
     }
     // A retained decoded bitmap has two jobs for full-player callers: it keeps a real old cover
     // visible while the next original decodes, then becomes the source of an internal image
@@ -256,10 +275,10 @@ fun XvoxSongArtwork(
                 bitmapSize = requestSize,
                 brand = if (artwork == null || artworkFailed) fallbackBrand else XvoxFallbackBrand.NONE
             )
-        } else if (visibleImageBitmap == null && keepPreviousOnLoading) {
-            // Keep this cold real-artwork frame transparent. Its surrounding pager/backdrop is
-            // already transitioning the outgoing/incoming imagery, so a temporary default cover
-            // here would read as a jump before the exact source bitmap reaches the cache.
+        } else if (visibleImageBitmap == null && keepPreviousOnLoading && !artworkFailed) {
+            // Keep only a *cold real-artwork* frame transparent. A known dead endpoint must fall
+            // through to the supplied default below; otherwise Now Playing can expose its card
+            // surface indefinitely after a coverless first swipe.
         } else if (artworkFailed && visibleImageBitmap == null) {
             WavePatternSquare(
                 modifier = Modifier.fillMaxSize(),
@@ -316,6 +335,7 @@ fun XvoxSongArtwork(
                 contentScale = contentScale,
                 onSuccess = { success ->
                     (success.result.image as? BitmapImage)?.bitmap?.let { bitmap ->
+                        XvoxArtworkCache.markSuccessful(artwork)
                         XvoxArtworkCache.put(cacheKey, bitmap)
                         if (requestSize == 0) XvoxArtworkCache.put("${baseKey}_0", bitmap)
                         decodedBitmap = bitmap
@@ -324,11 +344,13 @@ fun XvoxSongArtwork(
                         // The Now Playing bitmap path turns this into the bundled cover; regular
                         // cards still render their branded Compose fallback below.
                         artworkFailed = true
+                        XvoxArtworkCache.markFailed(artwork)
                         if (renderFallbackAsBitmap) fallbackRequested = true
                     }
                 },
                 onError = {
                     artworkFailed = true
+                    XvoxArtworkCache.markFailed(artwork)
                     if (renderFallbackAsBitmap) fallbackRequested = true
                 },
                 // The image request is deliberately invisible while a retained bridge is on

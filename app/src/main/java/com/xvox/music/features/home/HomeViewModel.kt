@@ -507,7 +507,7 @@ class HomeViewModel(
             // cards still request their unchanged full 256px/512px artwork on demand.
             count = count.coerceIn(
                 1,
-                if (requestSize >= XvoxRecentArtworkSize) 8 else 16
+                if (requestSize >= XvoxRecentArtworkSize) 4 else 8
             ),
             requestSize = requestSize.coerceAtLeast(XvoxGridArtworkSize)
         )
@@ -521,7 +521,9 @@ class HomeViewModel(
         pendingPrefetch = target
         prefetchJob?.cancel()
         prefetchJob = viewModelScope.launch {
-            delay(180)
+            // Wait for a genuine quiet point after a fling. This keeps full-resolution decode
+            // work off the active scroll path instead of merely cancelling it after it starts.
+            delay(300)
             val next = pendingPrefetch ?: return@launch
             pendingPrefetch = null
             activePrefetch = next

@@ -89,8 +89,8 @@ fun EqualizerSettingsSection(
             )
         }
 
-        // Enable remains available at all times, but a disabled EQ has no preset or band box
-        // to imply that those controls are currently active.
+        // Every control family owns one material card. Dependent sliders remain inside the same
+        // card as their toggle/preset instead of creating an extra nested slider box.
         EqualizerCard {
             EqualizerToggleRow(
                 title = "Enable equalizer",
@@ -104,7 +104,7 @@ fun EqualizerSettingsSection(
                     selected = state.eqPreset,
                     onSelect = viewModel::setEqPreset
                 )
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(4.dp))
                 EqualizerSectionLabel("Bands")
                 Box(
                     modifier = Modifier
@@ -132,31 +132,33 @@ fun EqualizerSettingsSection(
             }
         }
 
-        // The remaining controls intentionally sit directly on the sheet rather than each being
-        // boxed into a card. That preserves the compact single-surface reference hierarchy.
-        EqualizerSliderRow(
-            label = "App volume",
-            valueText = "${(state.appVolume * 100).roundToInt()}%",
-            value = (state.appVolume / 2f).coerceIn(0f, 1f),
-            onValueChange = { viewModel.setAppVolume(it * 2f) },
-            defaultValue = .50f
-        )
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        EqualizerCard {
+            EqualizerSectionLabel("App volume")
+            EqualizerSliderRow(
+                label = null,
+                valueText = "${(state.appVolume * 100).roundToInt()}%",
+                value = (state.appVolume / 2f).coerceIn(0f, 1f),
+                onValueChange = { viewModel.setAppVolume(it * 2f) },
+                defaultValue = .50f,
+                contentDescription = "App volume"
+            )
+        }
+
+        EqualizerCard {
             EqualizerToggleRow(
-                title = "Distortion Control",
+                title = "Distortion control",
                 checked = state.distortionControlEnabled,
                 onCheckedChange = viewModel::setDistortionControlEnabled
             )
         }
 
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        EqualizerCard {
             EqualizerSectionLabel("Reverb preset")
             EqualizerChipRow(
                 options = ReverbPresets.names,
                 selected = state.reverbPreset,
                 onSelect = viewModel::setReverbPreset,
-                circularOption = ReverbPresets.OFF,
-                edgeToEdge = true
+                circularOption = ReverbPresets.OFF
             )
             if (state.reverbPreset != ReverbPresets.OFF) {
                 EqualizerSliderRow(
@@ -169,8 +171,8 @@ fun EqualizerSettingsSection(
             }
         }
 
-        // Noise Reduction and its dependent Grain Control are one coherent material. Grain is
-        // visibly disabled—and its DSP bypassed—until Noise Reduction itself is enabled.
+        // Noise reduction and Grain control are intentionally independent DSP stages. Each can be
+        // enabled, adjusted, and reset on its own without silently turning the other one off.
         EqualizerCard {
             EqualizerToggleRow(
                 title = "Noise reduction",
@@ -186,15 +188,16 @@ fun EqualizerSettingsSection(
                     defaultValue = .70f,
                     contentDescription = "Noise reduction amount"
                 )
-                EqualizerHairline()
             }
+        }
+
+        EqualizerCard {
             EqualizerToggleRow(
                 title = "Grain control",
-                checked = state.grainControlEnabled && state.noiseReductionEnabled,
-                enabled = state.noiseReductionEnabled,
+                checked = state.grainControlEnabled,
                 onCheckedChange = viewModel::setGrainControlEnabled
             )
-            if (state.noiseReductionEnabled && state.grainControlEnabled) {
+            if (state.grainControlEnabled) {
                 EqualizerSliderRow(
                     label = "Amount",
                     valueText = "${(state.softenHighs * 100).roundToInt()}%",
@@ -386,20 +389,12 @@ private fun EqualizerSliderRow(
     contentDescription: String = label?.let { "$it amount" } ?: "Amount"
 ) {
     val colors = XvoxTheme.colors
-    val sectionShape = RoundedCornerShape(14.dp)
-    // Amount labels and rails are one clear boxed setting, matching the Mini Player and
-    // three-dot sheets instead of leaving a loose label/track floating in the sheet body.
+    // The parent EqualizerCard is the one visual box for this feature. Keep title/value/rail
+    // together inside it rather than wrapping the slider in a second floating material.
     Column(
-        Modifier
-            .fillMaxWidth()
-            .clip(sectionShape)
-            .background(colors.cardElevated.copy(alpha = .62f))
-            .border(.8.dp, colors.cardBorder.copy(alpha = .82f), sectionShape)
-            .padding(horizontal = 12.dp, vertical = 8.dp),
+        Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        // Reverb deliberately names its Amount rail; Noise reduction and Grain are already
-        // named by their toggle rows, so their rails stay clean without repeated helper text.
         if (label != null || valueText != null) {
             Row(
                 modifier = Modifier.fillMaxWidth(),

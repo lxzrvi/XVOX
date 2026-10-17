@@ -22,9 +22,9 @@ import androidx.compose.ui.unit.dp
 import com.xvox.music.core.ui.effects.xvoxSongPress
 
 /**
- * Search-only long-press treatment. The interaction target remains the complete result, while
- * only its material frame dips inward; artwork, titles, and metadata stay at their exact rendered
- * size instead of looking as if the whole result was zoomed down independently.
+ * Search-only long-press treatment. The interaction target remains the complete result and its
+ * entire visual card—surface, artwork, title, and metadata—moves as one unit, matching the
+ * established All Songs press response.
  */
 @Composable
 internal fun SearchPressSurface(
@@ -45,25 +45,23 @@ internal fun SearchPressSurface(
     )
 
     Box(
-        modifier = modifier.xvoxSongPress(
-            onClick = onClick,
-            onLongClick = onLongClick,
-            // Keep the gesture/semantics on this outer result, but leave its child content at 1x.
-            pressedScale = 1f,
-            onPressedChange = { framePressed = it }
-        )
+        modifier = modifier
+            .xvoxSongPress(
+                onClick = onClick,
+                onLongClick = onLongClick,
+                // Keep the gesture and layout target at full size while one graphics layer scales
+                // every rendered descendant—card material, artwork, title, and metadata alike.
+                pressedScale = 1f,
+                onPressedChange = { framePressed = it }
+            )
+            .graphicsLayer {
+                scaleX = frameScale
+                scaleY = frameScale
+            }
+            .clip(shape)
+            .background(fill)
+            .border(borderWidth, border, shape)
     ) {
-        Box(
-            modifier = Modifier
-                .matchParentSize()
-                .graphicsLayer {
-                    scaleX = frameScale
-                    scaleY = frameScale
-                }
-                .clip(shape)
-                .background(fill)
-                .border(borderWidth, border, shape)
-        )
         content()
     }
 }

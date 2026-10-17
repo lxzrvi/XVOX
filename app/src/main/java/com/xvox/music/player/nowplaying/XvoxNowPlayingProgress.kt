@@ -73,6 +73,10 @@ fun XvoxNowPlayingProgress(
     // confirms the seek. It is deliberately not released on a timer: a paused or buffered player
     // may publish slowly, and releasing early was the source of the old reset/repeat bar.
     var pendingSeekFraction by remember(currentSongId) { mutableStateOf<Float?>(null) }
+    // A controller confirmation must not restart a second interpolation from a stale sample after
+    // the listener has already released at the target. The next confirmed sample is snapped once,
+    // then ordinary playback sampling resumes.
+    var snapNextControllerSample by remember(currentSongId) { mutableStateOf(false) }
     // Freeze the actual rendered rail on pause. Controller samples can briefly rewind/reconcile
     // while paused; those samples must not visibly move a position the listener has stopped at.
     var pausedFraction by remember(currentSongId) { mutableStateOf<Float?>(null) }
@@ -105,6 +109,9 @@ fun XvoxNowPlayingProgress(
             val tolerance = max(750L, (duration * .006f).toLong())
             if (abs(position - targetPosition) <= tolerance) {
                 lastValidFraction = controllerFraction
+                // The rail has already been placed at the user's target. Do not let confirmation
+                // animate it back from the old sample and replay that same seek distance.
+                snapNextControllerSample = true
                 pendingSeekFraction = null
             }
         }
@@ -117,20 +124,19 @@ fun XvoxNowPlayingProgress(
         lastValidFraction
     }
 
-    // Playback callbacks arrive in discrete samples. Keep one explicit visual animator rather
-    // than an implicit target state: a seek can then travel old → target once and hold there while
-    // Media3 confirms it, instead of clearing a pending target and replaying the same backwards
-    // distance from an old animateFloatAsState value.
+    // Playback callbacks arrive in discrete samples. Ordinary playback samples can still receive
+    // a short smoothing pass, but user seeks are direct: release paints the exact chosen point and
+    // the Media3 acknowledgement snaps in place rather than replaying an old → target animation.
     val renderedFraction = remember(currentSongId) { Animatable(realFraction) }
     val controllerSampleKey = if (pendingSeekFraction == null) realFraction else 0f
-    LaunchedEffect(currentSongId, isPlaying, pendingSeekFraction, controllerSampleKey) {
+    LaunchedEffect(currentSongId, isPlaying, pendingSeekFraction, controllerSampleKey, snapNextControllerSample) {
         val pending = pendingSeekFraction
         when {
-            pending != null && !isPlaying -> renderedFraction.snapTo(pending)
-            pending != null -> renderedFraction.animateTo(
-                pending,
-                tween(durationMillis = 180, easing = LinearOutSlowInEasing)
-            )
+            pending != null -> renderedFraction.snapTo(pending)
+            snapNextControllerSample -> {
+                renderedFraction.snapTo(realFraction)
+                snapNextControllerSample = false
+            }
             !isPlaying -> renderedFraction.snapTo(realFraction)
             else -> renderedFraction.animateTo(
                 realFraction,
@@ -171,10 +177,9 @@ fun XvoxNowPlayingProgress(
 
     val visibleFraction = when {
         dragging -> dragFraction
-        // During an active playing seek the same explicit animator carries the rail toward the
-        // pending target. Once confirmed, it is already at that endpoint, so no second rewind is
-        // ever exposed. Paused seeks intentionally remain immediate and fixed.
-        pendingSeekFraction != null -> if (isPlaying) renderedFraction.value else pendingSeekFraction!!
+        // A user target owns the visible rail immediately in both play and pause states. Keeping
+        // it direct until controller confirmation prevents any old-position replay or double move.
+        pendingSeekFraction != null -> pendingSeekFraction!!
         !isPlaying -> pausedFraction ?: renderedFraction.value
         else -> renderedFraction.value
     }

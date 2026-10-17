@@ -6,8 +6,6 @@ import android.content.Context
 import android.content.res.AssetFileDescriptor
 import android.content.res.Configuration
 import android.database.Cursor
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.ParcelFileDescriptor
 import android.util.LruCache
@@ -89,28 +87,13 @@ class XvoxFallbackArtworkProvider : ContentProvider() {
             val key = if (light) "xvox_default:light" else "xvox_default:dark"
             artworkCache.get(key)?.let { return it }
 
-            val bitmap = buildNotificationDefaultCover(context, light)
-            val bytes = java.io.ByteArrayOutputStream().use { stream ->
-                bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
-                bitmap.recycle()
-                stream.toByteArray()
-            }
+            // Serve the selected supplied PNG's resource stream directly. Decoding and
+            // recompressing here would recreate its bytes and could silently alter alpha/color
+            // handling; Media3 can decode the original package resource itself.
+            val resourceId = if (light) R.drawable.xvox_default_2 else R.drawable.xvox_default
+            val bytes = context.resources.openRawResource(resourceId).use { it.readBytes() }
             artworkCache.put(key, bytes)
             return bytes
-        }
-
-        private fun buildNotificationDefaultCover(context: Context, light: Boolean): Bitmap {
-            val source = checkNotNull(
-                BitmapFactory.decodeResource(
-                    context.resources,
-                    if (light) R.drawable.xvox_default_2 else R.drawable.xvox_default,
-                    BitmapFactory.Options().apply { inPreferredConfig = Bitmap.Config.ARGB_8888 }
-                )
-            ) { "Bundled XVOX default cover is unavailable" }
-            // The supplied bitmap is the complete fallback identity. Keep its decoded source
-            // dimensions intact; the notification surface performs its own display scaling. Do
-            // not paint, recolour, downsample, or invert either source artwork after decode.
-            return source
         }
     }
 }

@@ -61,11 +61,16 @@ class XvoxArtworkPreloader(context: Context) {
                     builder.size(exactSize, exactSize).precision(Precision.EXACT)
                 }
                 val result = loader.execute(builder.build())
-                (result.image as? BitmapImage)?.bitmap?.let { XvoxArtworkCache.put(key, it) }
+                (result.image as? BitmapImage)?.bitmap?.let { bitmap ->
+                    XvoxArtworkCache.markSuccessful(uri)
+                    XvoxArtworkCache.put(key, bitmap)
+                } ?: XvoxArtworkCache.markFailed(uri)
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (_: Exception) {
-                // A missing cover must not delay the next visible card.
+                // A missing cover must not delay the next visible card. Record it so every later
+                // consumer immediately uses the supplied XVOX fallback rather than a blank URI.
+                XvoxArtworkCache.markFailed(uri)
             }
         }
 
@@ -78,5 +83,8 @@ class XvoxArtworkPreloader(context: Context) {
             for (uri in uris) warmUri(uri)
         }
     }
-    suspend fun warmVisible(songs: List<Song>) { warm(songs, 0, 16, XvoxGridArtworkSize) }
+    // Keep first paint light: visible cards still request their full 256px artwork on demand, while
+    // only one compact runway warms after library load so startup decoding cannot compete with a
+    // fast All Songs scroll.
+    suspend fun warmVisible(songs: List<Song>) { warm(songs, 0, 8, XvoxGridArtworkSize) }
 }

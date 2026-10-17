@@ -67,19 +67,23 @@ fun XvoxBottomBar(
     val navEdge = navEdgeBase.copy(
         alpha = navEdgeBase.alpha * navBorderAlpha * navSurfaceAlpha
     )
+    // Match the Settings section-box material exactly in both themes. The selector deliberately
+    // follows the existing navbar transparency control without adding a separate slider: its
+    // transparency is always one half of the navbar transparency (6% -> 3%, 100% -> 50%).
+    val navbarTransparency = 1f - navSurfaceAlpha
+    val selectorSurfaceAlpha = (1f - navbarTransparency * .5f).coerceIn(.5f, 1f)
     val pillEdgeBase = com.xvox.music.core.ui.chrome.parseHexColor(chrome.pillBorder) ?: navEdgeBase
     // The active selector has the Settings-card surface, while its edge remains a quiet outline.
     val pillEdgeStrength = if (!colors.isLight && chrome.pillBorder.isBlank()) .14f else 1f
     val pillEdge = pillEdgeBase.copy(
-        alpha = pillEdgeBase.alpha * navBorderAlpha * navSurfaceAlpha * pillEdgeStrength
+        alpha = pillEdgeBase.alpha * navBorderAlpha * selectorSurfaceAlpha * pillEdgeStrength
     )
     val defaultNavSurface = colors.background
     val appliedNavSurfaceAlpha = navSurfaceAlpha
-
-    // Match the Settings section-box material exactly in both themes. The active selector must
-    // remain opaque even when navbar/pill transparency preferences are lowered, so an underlying
-    // route or custom navbar artwork can never bleed through it.
-    val pillFill = colors.card.copy(alpha = 1f)
+    // Override only the material's opacity here. `colors.card` can itself reflect the separate
+    // page-card transparency preference; multiplying that alpha again would violate the required
+    // exact half-navbar relationship for the selector.
+    val pillFill = colors.card.copy(alpha = selectorSurfaceAlpha)
 
     val isLandscape = androidx.compose.ui.platform.LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
     // Device-orientation baselines requested for the chrome remain separate from the editable

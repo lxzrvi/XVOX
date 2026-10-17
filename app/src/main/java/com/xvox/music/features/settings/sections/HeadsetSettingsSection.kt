@@ -1,14 +1,25 @@
 package com.xvox.music.features.settings.sections
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.features.settings.SettingsState
 import com.xvox.music.features.settings.SettingsViewModel
-import com.xvox.music.features.settings.components.SettingsAccordionItem
-import com.xvox.music.features.settings.components.SettingsChoiceRow
 import com.xvox.music.features.settings.components.SettingsControlsEditor
 
 /** Direct-persistence entry point retained for the regular Settings page. */
@@ -63,42 +74,109 @@ private fun HeadsetSettingsContent(
     onConnectAction: (String) -> Unit,
     onDisconnectAction: (String) -> Unit
 ) {
-    var expandedGroup by remember { mutableStateOf<String?>(null) }
-    fun toggle(group: String) {
-        expandedGroup = if (expandedGroup == group) null else group
-    }
-
-    SettingsControlsEditor(controls = {
-        SettingsAccordionItem(
-            title = "Audio Output Routing",
-            expanded = expandedGroup == "Routing",
-            onToggle = { toggle("Routing") }
-        ) {
+    SettingsControlsEditor {
+        HeadsetGroupBox(title = "Audio output routing") {
             audioOutput()
         }
 
-        SettingsAccordionItem(
-            title = "When Headset Connects",
-            expanded = expandedGroup == "Connect",
-            onToggle = { toggle("Connect") }
+        // Connection and disconnection behavior are independent but equally important. Put their
+        // complete controls side by side so neither action spills onto a detached next line.
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            SettingsChoiceRow(
+            HeadsetActionBox(
+                title = "When headset connects",
+                detail = "Choose what XVOX does after a wired, Bluetooth, or USB route is ready.",
                 options = listOf("none" to "Nothing", "play" to "Start playing"),
                 selected = state.btConnectAction,
-                onSelect = onConnectAction
+                onSelect = onConnectAction,
+                modifier = Modifier.weight(1f)
             )
-        }
-
-        SettingsAccordionItem(
-            title = "When Headset Disconnects",
-            expanded = expandedGroup == "Disconnect",
-            onToggle = { toggle("Disconnect") }
-        ) {
-            SettingsChoiceRow(
+            HeadsetActionBox(
+                title = "When headset disconnects",
+                detail = "Choose whether playback pauses when the private route goes away.",
                 options = listOf("pause" to "Pause", "keep" to "Keep playing"),
                 selected = state.btDisconnectAction,
-                onSelect = onDisconnectAction
+                onSelect = onDisconnectAction,
+                modifier = Modifier.weight(1f)
             )
         }
-    })
+    }
+}
+
+@Composable
+private fun HeadsetGroupBox(
+    title: String,
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    val colors = XvoxTheme.colors
+    val shape = RoundedCornerShape(16.dp)
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(colors.cardElevated.copy(alpha = .70f))
+            .border(.8.dp, colors.cardBorder.copy(alpha = .78f), shape)
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(
+            text = title,
+            color = colors.primaryText,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold
+        )
+        content()
+    }
+}
+
+@Composable
+private fun HeadsetActionBox(
+    title: String,
+    detail: String,
+    options: List<Pair<String, String>>,
+    selected: String,
+    onSelect: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val colors = XvoxTheme.colors
+    val shape = RoundedCornerShape(16.dp)
+    Column(
+        modifier = modifier
+            .clip(shape)
+            .background(colors.cardElevated.copy(alpha = .70f))
+            .border(.8.dp, colors.cardBorder.copy(alpha = .78f), shape)
+            .padding(10.dp),
+        verticalArrangement = Arrangement.spacedBy(7.dp)
+    ) {
+        Text(title, color = colors.primaryText, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+        Text(
+            detail,
+            color = colors.secondaryText,
+            fontSize = 9.5.sp,
+            lineHeight = 12.sp,
+            minLines = 3,
+            maxLines = 3
+        )
+        options.forEach { (key, label) ->
+            val active = selected == key
+            val optionShape = RoundedCornerShape(11.dp)
+            Text(
+                text = label,
+                color = if (active) colors.background else colors.primaryText,
+                fontSize = 10.sp,
+                fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(optionShape)
+                    .background(if (active) colors.primaryAccent else colors.card.copy(alpha = .78f))
+                    .border(.7.dp, if (active) colors.primaryAccent else colors.cardBorder.copy(alpha = .65f), optionShape)
+                    .xvoxPressScale { onSelect(key) }
+                    .padding(horizontal = 8.dp, vertical = 8.dp),
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
+        }
+    }
 }

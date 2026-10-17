@@ -6,10 +6,11 @@ import android.content.ContextWrapper
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.CubicBezierEasing
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -277,16 +278,13 @@ fun XvoxSheet(
     val scope = rememberCoroutineScope()
     val dismiss by rememberUpdatedState(onDismiss)
     // Target the entrance before the first composition frame. A post-composition LaunchedEffect
-    // added a visible beat before every sheet began fading in.
+    // added a visible beat before every sheet began its upward entrance.
     val visibility = remember { MutableTransitionState(false).apply { targetState = true } }
     var closing by remember { mutableStateOf(false) }
-    // The dimmed upper canvas owns an opacity-only morph. It is immediately full-screen and never
-    // rides upward with the sheet, avoiding a visible empty/slide-in strip behind a new sheet.
-    val scrimAlpha by animateFloatAsState(
-        targetValue = if (visibility.targetState) .40f else 0f,
-        animationSpec = tween(150, easing = XvoxBoxEasing),
-        label = "sheetScrimAlpha"
-    )
+    // Paint the full-screen dimmed canvas on the first frame. The backdrop never translates or
+    // fades in as a second moving layer; only the sheet itself receives the short smooth entrance.
+    // Keep it present through close so the outgoing surface does not reveal a second animation.
+    val scrimAlpha = if (visibility.targetState || closing) .40f else 0f
     val swallowInteraction = remember { MutableInteractionSource() }
 
     fun close() {
@@ -294,8 +292,9 @@ fun XvoxSheet(
         closing = true
         visibility.targetState = false
         scope.launch {
-            // Keep the host mounted through the complete compact fade-out, then release it.
-            delay(160)
+            // Keep the host mounted through the sheet's complete downward exit. The static scrim
+            // remains in place until this finishes, so it never appears to travel with the sheet.
+            delay(250)
             dismiss()
         }
     }
@@ -331,6 +330,11 @@ fun XvoxSheet(
                 val pillCloseHeightPx = maxSheetHeightPx * .40f
                 var requestedHeightPx by remember(presentation) { mutableFloatStateOf(0f) }
                 var measuredHeightPx by remember { mutableIntStateOf(0) }
+                // Equalizer begins at exactly its real content height—never an empty oversized
+                // panel. Once that compact height is measured, enabling Bands grows the *body*
+                // beneath the fixed sheet chrome; the listener can scroll upward to expand the
+                // sheet deliberately, then scroll the remaining content inside it.
+                var equalizerBaseHeightPx by remember(presentation, maxSheetHeightPx) { mutableFloatStateOf(0f) }
                 var bodyViewportHeightPx by remember { mutableFloatStateOf(0f) }
                 // Default to no content cap. Scroll bodies such as Queue report their real
                 // natural list height so bottom-anchored growth ends on the last row, not blank.
@@ -386,20 +390,31 @@ fun XvoxSheet(
                     .takeIf { it > 0f }
                     ?.let { with(density) { it.coerceIn(1f, contentBoundedMaxHeightPx()).toDp() } }
                 val sheetShape = RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp)
+                val lockedEqualizerHeight = equalizerBaseHeightPx
+                    .takeIf { presentation == XvoxBoxPresentation.EQUALIZER && requestedHeight == null && it > 0f }
+                    ?.let { with(density) { it.toDp() } }
                 val sheetSizing = when {
-                    // Equalizer is content-led like every other sheet. Its body remains a bounded
-                    // scroll viewport once needed, but a short disabled-EQ state never claims an
-                    // empty full-screen panel merely because its footer exists.
                     requestedHeight != null -> Modifier.height(requestedHeight)
+                    // Preserve the naturally measured compact EQ frame when rows are toggled on.
+                    // It never creates blank space at open, and only expands in response to a
+                    // real upward scroll gesture from the body/drag handle.
+                    lockedEqualizerHeight != null -> Modifier.height(lockedEqualizerHeight)
                     else -> Modifier.heightIn(max = maxSheetHeight)
                 }
 
                 AnimatedVisibility(
                     visibleState = visibility,
-                    // Start immediately while retaining a short, complete opacity transition.
-                    // The content never rises from the bottom or leaves a faded top strip behind it.
-                    enter = fadeIn(tween(150, easing = XvoxBoxEasing)),
-                    exit = fadeOut(tween(130, easing = XvoxBoxEasing))
+                    // The dim canvas is already full-screen and stationary. Only this material
+                    // sheet travels from the bottom, which eliminates the old illusion that the
+                    // faded backdrop itself was sliding upward with the content.
+                    enter = slideInVertically(
+                        initialOffsetY = { it },
+                        animationSpec = tween(240, easing = XvoxBoxEasing)
+                    ) + fadeIn(tween(120, easing = XvoxBoxEasing)),
+                    exit = slideOutVertically(
+                        targetOffsetY = { it },
+                        animationSpec = tween(220, easing = XvoxBoxEasing)
+                    ) + fadeOut(tween(110, easing = XvoxBoxEasing))
                 ) {
                     Column(
                         modifier = Modifier
@@ -408,7 +423,15 @@ fun XvoxSheet(
                             .clip(sheetShape)
                             .background(optionSurface)
                             .clickable(swallowInteraction, indication = null) { }
-                            .onGloballyPositioned { measuredHeightPx = it.size.height }
+                            .onGloballyPositioned { layout ->
+                                measuredHeightPx = layout.size.height
+                                if (
+                                    presentation == XvoxBoxPresentation.EQUALIZER &&
+                                    equalizerBaseHeightPx <= 0f && layout.size.height > 0
+                                ) {
+                                    equalizerBaseHeightPx = layout.size.height.toFloat()
+                                }
+                            }
                             .semantics { paneTitle = title }
                     ) {
                         // This is a real drag pill, not a decorative handle. Downward release
@@ -505,7 +528,8 @@ fun XvoxSheet(
                         // Only fixed (overflowing) sheets fill their bounded viewport. Compact
                         // content keeps its intrinsic height instead of gaining blank space.
                         val bodyViewport = if (
-                            requestedHeight != null || presentation == XvoxBoxPresentation.EQUALIZER
+                            requestedHeight != null ||
+                            (presentation == XvoxBoxPresentation.EQUALIZER && equalizerBaseHeightPx > 0f)
                         ) Modifier.weight(1f) else Modifier
                         Box(
                             modifier = Modifier
@@ -604,13 +628,9 @@ private fun XvoxCenteredBox(
     // bottom sheets while still fading smoothly.
     val visibility = remember { MutableTransitionState(false).apply { targetState = true } }
     var closing by remember { mutableStateOf(false) }
-    // The Dialog paints one full-screen, opacity-only scrim.  It never scales or translates with
-    // a centred sheet, so the sheet is the only moving layer in every overlay presentation.
-    val scrimAlpha by animateFloatAsState(
-        targetValue = if (visibility.targetState) .48f else 0f,
-        animationSpec = tween(150, easing = XvoxBoxEasing),
-        label = "centeredSheetScrimAlpha"
-    )
+    // The full-screen dim layer is established at once, never sliding/fading separately behind
+    // the centred surface. This leaves one smooth moving element instead of a travelling backdrop.
+    val scrimAlpha = if (visibility.targetState || closing) .48f else 0f
     val swallowInteraction = remember { MutableInteractionSource() }
 
     fun close() {
@@ -618,7 +638,9 @@ private fun XvoxCenteredBox(
         closing = true
         visibility.targetState = false
         scope.launch {
-            delay(160)
+            // Match the stable-scrim motion contract used by bottom sheets: the compact surface
+            // completes its downward travel before the overlay unmounts.
+            delay(250)
             dismiss()
         }
     }
@@ -678,10 +700,16 @@ private fun XvoxCenteredBox(
             )
             AnimatedVisibility(
                 visibleState = visibility,
-                // Centered pickers follow the same immediate, complete fade-only contract as
-                // bottom sheets. Neither surface nor backdrop translates while opening or closing.
-                enter = fadeIn(tween(150, easing = XvoxBoxEasing)),
-                exit = fadeOut(tween(130, easing = XvoxBoxEasing))
+                // Preserve one stationary dim layer for compact pickers too. The picker itself
+                // rises and falls independently; no background pixel participates in that motion.
+                enter = slideInVertically(
+                    initialOffsetY = { it },
+                    animationSpec = tween(240, easing = XvoxBoxEasing)
+                ) + fadeIn(tween(120, easing = XvoxBoxEasing)),
+                exit = slideOutVertically(
+                    targetOffsetY = { it },
+                    animationSpec = tween(220, easing = XvoxBoxEasing)
+                ) + fadeOut(tween(110, easing = XvoxBoxEasing))
             ) {
                 Column(
                     modifier = Modifier

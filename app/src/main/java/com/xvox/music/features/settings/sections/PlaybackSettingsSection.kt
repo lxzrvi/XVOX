@@ -5,9 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -74,26 +72,25 @@ private fun PlaybackSettingsContent(
     onClashControl: (Float) -> Unit,
     onBeatSync: (Boolean) -> Unit
 ) {
-    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         if (showPreview) com.xvox.music.features.settings.components.CrossfadeSettingsPreview(state)
 
-        SettingsToggle(
-            title = "Crossfade",
-            subtitle = "Smoothly transition between consecutive songs",
-            checked = state.crossfade,
-            onChange = onCrossfade
-        )
-        SettingsToggle(
-            title = "Gapless Playback",
-            subtitle = "Trim empty silence at the end of songs for instant seamless playback",
-            checked = state.gapless,
-            onChange = onGapless
-        )
-
-        if (state.crossfade) {
-            // Each live amount has its own clear material rather than leaving a rail loose among
-            // toggles.  This holds both the label and slider together in short and tall sheets.
-            CrossfadeOptionBox(title = "Transition length · ${state.crossfadeDuration}s") {
+        // Crossfade owns one complete group: its primary switch, label, timing rail, Smart Blend,
+        // Seamless Blend and Beat Align all remain in the same box when it is active.
+        CrossfadeOptionBox(title = "Playback & crossfade") {
+            SettingsToggle(
+                title = "Crossfade",
+                subtitle = "Smoothly transition between consecutive songs",
+                checked = state.crossfade,
+                onChange = onCrossfade
+            )
+            if (state.crossfade) {
+                androidx.compose.material3.Text(
+                    text = "Transition length · ${state.crossfadeDuration}s",
+                    color = com.xvox.music.core.design.theme.XvoxTheme.colors.primaryText,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
                 XvoxSlider(
                     value = state.crossfadeDuration.toFloat(),
                     onValueChange = { onDuration(it.roundToInt()) },
@@ -102,12 +99,20 @@ private fun PlaybackSettingsContent(
                     steps = 19,
                     valueLabel = { "${it.roundToInt()} s" }
                 )
-            }
 
-            CrossfadeOptionBox(title = "Smart blend & beat align") {
+                androidx.compose.material3.Text(
+                    text = "Smart blend",
+                    color = com.xvox.music.core.design.theme.XvoxTheme.colors.primaryText,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
                 SettingsToggle("Seamless Blend", null, state.crossfadeSmart, onSmartBlend)
                 if (state.crossfadeSmart) {
-                    Spacer(Modifier.height(8.dp))
+                    androidx.compose.material3.Text(
+                        text = "Bass hand-off · ${(state.crossfadeClashControl * 100).roundToInt()}%",
+                        color = com.xvox.music.core.design.theme.XvoxTheme.colors.secondaryText,
+                        fontSize = 11.sp
+                    )
                     XvoxSlider(
                         value = state.crossfadeClashControl,
                         onValueChange = onClashControl,
@@ -117,9 +122,19 @@ private fun PlaybackSettingsContent(
                         valueLabel = { "Bass hand-off · ${(it * 100).roundToInt()}%" }
                     )
                 }
-                Spacer(Modifier.height(8.dp))
                 SettingsToggle("Beat Align", null, state.crossfadeBeatSync, onBeatSync)
             }
+        }
+
+        // Gapless Playback is the next distinct option group, never visually detached from the
+        // playback sheet or accidentally nested in Crossfade's active-only controls.
+        CrossfadeOptionBox(title = "Gapless playback") {
+            SettingsToggle(
+                title = "Gapless Playback",
+                subtitle = "Trim empty silence at the end of songs for instant seamless playback",
+                checked = state.gapless,
+                onChange = onGapless
+            )
         }
     }
 }
@@ -131,7 +146,7 @@ fun PlaybackSettingsEditor(state: SettingsState, viewModel: SettingsViewModel) {
     )
 }
 
-/** A boxed crossfade control group keeps its label and slider visibly associated. */
+/** A single material group keeps each playback option, its labels, and any slider together. */
 @Composable
 private fun CrossfadeOptionBox(
     title: String,

@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -110,12 +111,18 @@ fun XvoxNowPlayingBackdrop(
     } else {
         0f
     }
-    // Once the pager has shown its incoming cover at the endpoint, the persistent primary slot
-    // must adopt that decoded bitmap directly. Otherwise its own old→new morph would replay the
-    // outgoing cover for one frame after the incoming layer is removed.
+    // Once—and only once—the pager has visibly reached its incoming endpoint, the persistent
+    // primary slot may adopt that already-painted bitmap directly. Recording this at gesture start
+    // made a tiny first swipe look like base → incoming → base in Cover-background mode. A partial
+    // swipe that returns home now leaves the primary identity untouched, so the blur stays stable.
     var completedIncomingKey by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(pagerArtworkTransition, incomingArtworkKey) {
-        if (pagerArtworkTransition) completedIncomingKey = incomingArtworkKey
+    SideEffect {
+        if (
+            pagerArtworkTransition && incomingArtworkKey != null &&
+            fraction >= .999f && displayedIncomingFraction >= .999f
+        ) {
+            completedIncomingKey = incomingArtworkKey
+        }
     }
     val primaryAlreadyShownByPager = !pagerArtworkTransition && artworkKey == completedIncomingKey
 

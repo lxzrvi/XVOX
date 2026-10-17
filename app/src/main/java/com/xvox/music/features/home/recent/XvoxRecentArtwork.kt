@@ -2,7 +2,6 @@ package com.xvox.music.features.home.recent
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -22,7 +21,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -33,6 +32,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.animation.animateContentSize
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -120,27 +120,22 @@ fun XvoxRecentArtwork(
             )
         }
 
-        // A true shape morph: the resting 30dp circle stretches into a pill on activation. The
-        // pause state and its label share that one outer width animation, avoiding two competing
-        // card-level scale effects.
+        // A true content-sized shape morph: the resting 30dp circle grows only as wide as the
+        // pause icon plus "Playing" requires. There is no hard-coded spare capsule space.
         val playbackActive = current && playing
-        val badgeWidth by animateDpAsState(
-            targetValue = if (playbackActive) 76.dp else 30.dp,
-            animationSpec = tween(240),
-            label = "recentPlayingBadgeWidth"
-        )
         Row(
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .padding(9.dp)
-                .width(badgeWidth)
                 .height(30.dp)
+                .wrapContentWidth()
+                .animateContentSize(animationSpec = tween(240, easing = androidx.compose.animation.core.FastOutSlowInEasing))
                 .clip(CircleShape)
                 .background(Color.Black.copy(alpha = if (playbackActive) 0.68f else 0.52f))
                 .padding(horizontal = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
-            // Keep the icon anchored at the circle's original centre/left inset as the frame
-            // grows rightward; only the label travels in, so it reads as a circle-to-pill morph.
+            // Keep the icon anchored at the original circle centre/left inset. The text alone
+            // enters from the newly created right edge as that same capsule grows.
             horizontalArrangement = Arrangement.Start
         ) {
             AnimatedContent(
@@ -159,16 +154,15 @@ fun XvoxRecentArtwork(
             }
             AnimatedVisibility(
                 visible = playbackActive,
-                // The word enters from the newly opened right side of the pill, rather than
-                // fading in at its final position beside the icon.
+                // Explicit horizontal-only travel avoids the old vertical/default expansion look.
                 enter = slideInHorizontally(
                     initialOffsetX = { it },
-                    animationSpec = tween(180)
-                ) + fadeIn(tween(150)),
+                    animationSpec = tween(170, delayMillis = 45)
+                ) + fadeIn(tween(130, delayMillis = 45)),
                 exit = slideOutHorizontally(
                     targetOffsetX = { it / 2 },
-                    animationSpec = tween(120)
-                ) + fadeOut(tween(100))
+                    animationSpec = tween(110)
+                ) + fadeOut(tween(90))
             ) {
                 Text(
                     text = "Playing",
