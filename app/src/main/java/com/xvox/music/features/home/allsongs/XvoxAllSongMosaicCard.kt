@@ -51,8 +51,8 @@ fun XvoxAllSongMosaicCard(
         else -> CardCorners(22.dp, 22.dp, 8.dp, 8.dp)
     }
     val shape = corners.inset(0.dp)
-    // Decode newly visible covers only once scrolling is idle; cached full-size covers stay live.
-    val loadArtwork = !LocalXvoxAllSongsScrollActive.current
+    // A card with a real URI starts its exact-size load immediately. Coil's bounded decoder pool
+    // keeps scrolling responsive without substituting a default cover for a song that has artwork.
     // The cover is inset by 3dp, so reduce every outer/asymmetric corner by that same gutter.
     // This makes the image curve visually parallel to the enclosing card instead of more rounded.
     val inset = 3.dp
@@ -90,8 +90,8 @@ fun XvoxAllSongMosaicCard(
     }
     @Composable
     fun Cover(modifier: Modifier = Modifier) {
-        // Single-unit tiles share the same 256px request/cache key as the standard All Songs
-        // card, so vertical next-page warming removes decode work without compromising quality.
+        // Single-unit tiles share the same exact 256px request/cache key as the standard All
+        // Songs card. Larger mosaic tiles keep their 512px request rather than a softened preview.
         XvoxSongArtwork(
             artwork = song.artworkUri,
             fallbackSeed = song.id.hashCode(),
@@ -100,7 +100,6 @@ fun XvoxAllSongMosaicCard(
             } else {
                 XvoxRecentArtworkSize
             },
-            loadArtwork = loadArtwork,
             modifier = modifier.clip(artShape)
         )
     }

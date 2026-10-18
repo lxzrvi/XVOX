@@ -27,12 +27,6 @@ fun AllSongsHeader(total: Int, selectedCount: Int = 0) {
     )
 }
 
-/**
- * While the All Songs parent is moving, uncached card artwork defers its exact-size request. This
- * protects the finger from decoder work; cached/full-size images still render immediately.
- */
-val LocalXvoxAllSongsScrollActive = staticCompositionLocalOf { false }
-
 /** Emit separate lazy pages instead of composing the entire library inside one LazyColumn item. */
 fun LazyListScope.allSongsItems(
     songs: List<Song>,

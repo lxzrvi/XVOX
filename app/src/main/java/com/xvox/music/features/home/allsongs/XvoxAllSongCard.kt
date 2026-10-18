@@ -42,9 +42,8 @@ fun XvoxAllSongCard(
     val colors = XvoxTheme.colors
     val cardColor = rememberSongCardColor(song, current, selected)
     val cardShape = RoundedCornerShape(11.dp)
-    // Do not let a new full-size decode compete with an active All Songs drag. Cached artwork
-    // still draws immediately and the original request size is unchanged once scrolling settles.
-    val loadArtwork = !LocalXvoxAllSongsScrollActive.current
+    // A card with a real URI starts its exact-size load immediately. Coil's app-wide bounded
+    // decoder pool keeps this off the UI thread while preventing a default-cover flash during a drag.
     // The cover sits inside a 3dp gutter. Subtract that inset so its visible curve runs parallel
     // with the outer 11dp card border instead of looking more rounded than the card itself.
     val artworkShape = RoundedCornerShape(8.dp)
@@ -66,7 +65,6 @@ fun XvoxAllSongCard(
                 artwork = song.artworkUri,
                 fallbackSeed = song.id.hashCode(),
                 requestSize = XvoxGridArtworkSize,
-                loadArtwork = loadArtwork,
                 modifier = Modifier
                     .fillMaxSize()
                     .clip(artworkShape)

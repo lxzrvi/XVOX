@@ -20,7 +20,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.collectAsState
@@ -45,7 +44,6 @@ import com.xvox.music.data.preferences.XvoxPlaylist
 import com.xvox.music.features.artist.ArtistInfoDialog
 import com.xvox.music.features.artist.XvoxArtist
 import com.xvox.music.features.artist.XvoxArtistGrid
-import com.xvox.music.features.home.allsongs.LocalXvoxAllSongsScrollActive
 import com.xvox.music.features.home.allsongs.XvoxMosaicPagePlan
 import com.xvox.music.features.home.allsongs.allSongsItems
 import com.xvox.music.features.home.allsongs.buildMosaicPagePlans
@@ -764,12 +762,10 @@ fun HomeScreen(
                     }
             }
 
-            // The parent owns a direct scroll gate for All Songs. It never lowers request size or
-            // quality; it simply prevents uncached decode work from starting under an active finger.
-            CompositionLocalProvider(
-                LocalXvoxAllSongsScrollActive provides listState.isScrollInProgress
-            ) {
-                LazyColumn(
+            // All Songs keeps each song's own exact-size artwork request live. The app ImageLoader
+            // bounds decoding off the UI thread, so real covers replace the old default placeholder
+            // without reducing their 256px/512px request quality.
+            LazyColumn(
                 state = listState,
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(bottom = bottomInset)
@@ -849,7 +845,6 @@ fun HomeScreen(
                         }
                     }
                 }
-            }
             }
 
         if (!nowPlayingVisible) {

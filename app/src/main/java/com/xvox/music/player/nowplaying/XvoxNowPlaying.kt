@@ -99,9 +99,9 @@ private fun Color.xvoxReadableCoverLyricColor(): Color {
 
 
 /**
- * The cover blur is deliberately committed from the audible player item only. Pager preview
- * frames may reverse or be abandoned, so allowing them to own another blurred image layer can
- * briefly replay the opposite song during a rapid Next/Previous change.
+ * The Cover background uses the pager's stable outgoing/incoming pair. Its adjacent layer is
+ * keyed only to the active target and alpha follows the same fraction as the visible pager, so a
+ * rapid reversal removes the abandoned adjacent cover instead of replaying it behind the player.
  */
 @Composable
 private fun XvoxNowPlayingBackdropLayer(
@@ -109,16 +109,24 @@ private fun XvoxNowPlayingBackdropLayer(
     paletteState: XvoxNowPlayingPaletteState,
     style: String,
     coverBlur: Float,
+    swipeBase: Song?,
+    swipeAdjacent: Song?,
+    swipeFraction: () -> Float,
     modifier: Modifier = Modifier
 ) {
+    val base = swipeBase ?: song
     XvoxNowPlayingBackdrop(
         dominant = paletteState.color,
-        artwork = song.artworkUri,
-        artworkKey = song.xvoxArtworkPaletteKey(),
-        artworkSeed = song.id.hashCode(),
+        artwork = base.artworkUri,
+        artworkKey = base.xvoxArtworkPaletteKey(),
+        artworkSeed = base.id.hashCode(),
         style = style,
         coverBlur = coverBlur,
         isCoverTransitionInProgress = paletteState.isCoverTransitionInProgress,
+        adjacentCover = swipeAdjacent?.let {
+            XvoxBackdropCover(it.artworkUri, it.xvoxArtworkPaletteKey(), it.id.hashCode())
+        },
+        adjacentFraction = swipeFraction,
         modifier = modifier
     )
 }
@@ -193,6 +201,12 @@ fun XvoxNowPlaying(
     val lyricsState by lyricsViewModel.state.collectAsState()
     val settingsState by settingsViewModel.state.collectAsState()
     val paletteState = rememberXvoxNowPlayingPalette(song, queue, currentIndex)
+    // These reflect the pager's stable outgoing/incoming pair for the local Cover background.
+    // They are intentionally separate from palette colour state so each blur layer can read the
+    // live gesture fraction without depending on an image-ready callback.
+    var coverSwipeBase by remember { mutableStateOf<Song?>(null) }
+    var coverSwipeAdjacent by remember { mutableStateOf<Song?>(null) }
+    var coverSwipeFraction by remember { mutableFloatStateOf(0f) }
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
     val screenHeight = with(density) {
@@ -302,6 +316,13 @@ fun XvoxNowPlaying(
 
     /** Reject stale pager emissions from the cover that playback just left. */
     fun applyPagerPalette(base: Song, adjacent: Song?, fraction: Float) {
+        // Capture the same stable pair emitted by the pager before palette filtering. The backdrop
+        // then has one explicit base/adjacent identity instead of guessing from a moving page.
+        if (!holdPagerPaletteDuringShuffle) {
+            coverSwipeBase = base
+            coverSwipeAdjacent = adjacent
+            coverSwipeFraction = fraction.coerceIn(0f, 1f)
+        }
         val baseIsAudible = base.xvoxArtworkPaletteKey() == song.xvoxArtworkPaletteKey()
         val isActivePagerTravel = fraction > .0001f
         if (!holdPagerPaletteDuringShuffle && (baseIsAudible || previewGestureActive || isActivePagerTravel)) {
@@ -310,9 +331,14 @@ fun XvoxNowPlaying(
         }
     }
 
-    // Lyrics replaces the pager, so it resolves the audible song directly. The blur layer itself
-    // already keys from that same committed song and therefore cannot inherit a preview backdrop.
-    LaunchedEffect(song.xvoxArtworkPaletteKey(), isLyricsShowing) {
+    // Lyrics has no artwork pager to emit a pair. Reset its local backdrop to the committed
+    // song, and also protect externally advanced playback from retaining an old swipe pair.
+    LaunchedEffect(song.xvoxArtworkPaletteKey(), isLyricsShowing, holdPagerPaletteDuringShuffle) {
+        if (!holdPagerPaletteDuringShuffle) {
+            coverSwipeBase = song
+            coverSwipeAdjacent = null
+            coverSwipeFraction = 0f
+        }
         if (isLyricsShowing) {
             paletteState.show(song)
         }
@@ -639,6 +665,9 @@ fun XvoxNowPlaying(
             paletteState = paletteState,
             style = settingsState.nowPlayingBackgroundStyle,
             coverBlur = settingsState.nowPlayingCoverBlur,
+            swipeBase = coverSwipeBase,
+            swipeAdjacent = coverSwipeAdjacent,
+            swipeFraction = { coverSwipeFraction },
             modifier = Modifier.fillMaxSize()
         )
 
@@ -933,6 +962,9 @@ fun XvoxNowPlaying(
                                 cancelPreview()
                                 holdPagerPaletteDuringShuffle = true
                                 paletteState.pin(song)
+                                coverSwipeBase = song
+                                coverSwipeAdjacent = null
+                                coverSwipeFraction = 0f
                                 onToggleShuffle?.invoke()
                             },
                             onPreviewPrevious = { movePreview(-1) },
@@ -1267,6 +1299,9 @@ fun XvoxNowPlaying(
                         cancelPreview()
                         holdPagerPaletteDuringShuffle = true
                         paletteState.pin(song)
+                        coverSwipeBase = song
+                        coverSwipeAdjacent = null
+                        coverSwipeFraction = 0f
                         onToggleShuffle?.invoke()
                     },
                     onPreviewPrevious = { movePreview(-1) },

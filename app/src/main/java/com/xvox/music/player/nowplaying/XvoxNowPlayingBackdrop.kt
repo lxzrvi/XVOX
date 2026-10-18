@@ -25,11 +25,18 @@ import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.features.home.XvoxNowPlayingArtworkSize
 import com.xvox.music.features.home.XvoxSongArtwork
 
+/** One stable cover occurrence in the controlled Now Playing backdrop swipe pair. */
+data class XvoxBackdropCover(
+    val artwork: Uri?,
+    val key: String,
+    val seed: Int
+)
+
 /**
- * Now Playing's adaptive canvas plus its optional local Cover background. The blur is deliberately
- * committed from the audible song only: the swipe pager may preview/reverse independently, but it
- * never gets a second blurred-cover layer that could flash the opposite song. This stays local to
- * Now Playing—not a global blur.
+ * Now Playing's adaptive canvas plus its optional local Cover background. During a pager gesture,
+ * the backdrop receives the pager's stable outgoing/incoming cover pair—not a transient raw page
+ * frame—so reversals can fade only the current adjacent target without replaying a stale blur.
+ * This stays local to Now Playing—not a global blur.
  */
 @Composable
 fun XvoxNowPlayingBackdrop(
@@ -41,6 +48,8 @@ fun XvoxNowPlayingBackdrop(
     style: String = XvoxNowPlayingBackgroundStyles.DEFAULT,
     coverBlur: Float = 24f,
     isCoverTransitionInProgress: Boolean = false,
+    adjacentCover: XvoxBackdropCover? = null,
+    adjacentFraction: () -> Float = { 0f },
     modifier: Modifier = Modifier
 ) {
     val target = xvoxNowPlayingBackgroundColor(style, dominant)
@@ -78,16 +87,26 @@ fun XvoxNowPlayingBackdrop(
             .background(displayed.value)
     ) {
         if (keepCoverLayer) {
-            // Exactly one blur slot exists. It is keyed by the committed artwork identity and does
-            // not retain an older bitmap on a song change: a resolving target paints its supplied
-            // fallback instead of ever replaying an adjacent swipe preview behind the player.
-            key(artworkKey) {
-                PremiumBlurredCover(
-                    artwork = artwork,
-                    fallbackSeed = artworkSeed,
-                    blur = coverBlur,
-                    alpha = coverLayerAlpha
-                )
+            // Keep a stable outgoing base plus at most one current adjacent cover. The pair comes
+            // from the pager's stable base, so a reversal replaces/removes the old adjacent key
+            // before it can be painted again; each layer owns only its own artwork identity.
+            val layers = listOfNotNull(
+                XvoxBackdropCover(artwork, artworkKey, artworkSeed),
+                adjacentCover?.takeIf { it.key != artworkKey }
+            )
+            for (layer in layers) {
+                key(layer.key) {
+                    val isBase = layer.key == artworkKey
+                    PremiumBlurredCover(
+                        artwork = layer.artwork,
+                        fallbackSeed = layer.seed,
+                        blur = coverBlur,
+                        alpha = {
+                            if (isBase) coverLayerAlpha
+                            else coverLayerAlpha * adjacentFraction().coerceIn(0f, 1f)
+                        }
+                    )
+                }
             }
             // A gentle tonal veil removes noisy blur artifacts and keeps controls readable while
             // retaining actual cover/wave colour—not an opaque unrelated replacement surface.
@@ -113,7 +132,7 @@ private fun PremiumBlurredCover(
     artwork: Uri?,
     fallbackSeed: Int,
     blur: Float,
-    alpha: Float
+    alpha: () -> Float
 ) {
     XvoxSongArtwork(
         artwork = artwork,
@@ -128,7 +147,7 @@ private fun PremiumBlurredCover(
             .fillMaxSize()
             // Overscan eliminates exposed hard edges as the local blur samples its boundaries.
             .graphicsLayer {
-                this.alpha = alpha.coerceIn(0f, 1f)
+                this.alpha = alpha().coerceIn(0f, 1f)
                 scaleX = 1.15f
                 scaleY = 1.15f
             }
