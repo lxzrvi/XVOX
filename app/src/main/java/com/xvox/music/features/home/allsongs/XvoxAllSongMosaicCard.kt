@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -19,9 +20,9 @@ import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
 import com.xvox.music.core.ui.effects.xvoxSongPress
+import com.xvox.music.features.home.XvoxGridArtwork
 import com.xvox.music.features.home.XvoxGridArtworkSize
 import com.xvox.music.features.home.XvoxRecentArtworkSize
-import com.xvox.music.features.home.XvoxSongArtwork
 import com.xvox.music.features.home.rememberSongCardColor
 
 private data class CardCorners(val tl: Dp, val tr: Dp, val br: Dp, val bl: Dp) {
@@ -50,13 +51,13 @@ fun XvoxAllSongMosaicCard(
         4 -> CardCorners(8.dp, 24.dp, 8.dp, 24.dp)
         else -> CardCorners(22.dp, 22.dp, 8.dp, 8.dp)
     }
-    val shape = corners.inset(0.dp)
     // A card with a real URI starts its exact-size load immediately. Coil's bounded decoder pool
     // keeps scrolling responsive without substituting a default cover for a song that has artwork.
     // The cover is inset by 3dp, so reduce every outer/asymmetric corner by that same gutter.
     // This makes the image curve visually parallel to the enclosing card instead of more rounded.
     val inset = 3.dp
-    val artShape = corners.inset(inset)
+    val shape = remember(corners) { corners.inset(0.dp) }
+    val artShape = remember(corners) { corners.inset(inset) }
     val presentation = if (classic) 0 else styleIndex % 4
 
     @Composable
@@ -92,7 +93,7 @@ fun XvoxAllSongMosaicCard(
     fun Cover(modifier: Modifier = Modifier) {
         // Single-unit tiles share the same exact 256px request/cache key as the standard All
         // Songs card. Larger mosaic tiles keep their 512px request rather than a softened preview.
-        XvoxSongArtwork(
+        XvoxGridArtwork(
             artwork = song.artworkUri,
             fallbackSeed = song.id.hashCode(),
             requestSize = if (widthUnits == 1f && heightUnits == 1f) {

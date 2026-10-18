@@ -1,6 +1,7 @@
 package com.xvox.music.features.home
 
 import android.graphics.Bitmap
+import android.net.Uri
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
@@ -399,4 +400,120 @@ fun XvoxSongArtwork(
         keepPreviousOnLoading = keepPreviousOnLoading,
         fallbackSeed = song?.id?.hashCode()
     )
+}
+
+/**
+ * Lean all-songs artwork path. It avoids the full-player retained-image machinery while preserving
+ * the exact 256px/512px request. A smaller cached cover may draw as a bridge only while its own
+ * requested size resolves; songs with artwork never fall back to the default cover during a scroll.
+ */
+@Composable
+fun XvoxGridArtwork(
+    artwork: Uri?,
+    fallbackSeed: Int,
+    modifier: Modifier = Modifier,
+    requestSize: Int = XvoxGridArtworkSize
+) {
+    val colors = XvoxTheme.colors
+    if (artwork == null) {
+        WavePatternSquare(
+            modifier = modifier,
+            seed = fallbackSeed,
+            bitmapSize = requestSize,
+            brand = XvoxFallbackBrand.STANDARD
+        )
+        return
+    }
+
+    val context = LocalContext.current
+    val baseKey = remember(artwork) { XvoxArtworkCache.keyFor(artwork) }
+    val cacheKey = remember(baseKey, requestSize) { "${baseKey}_$requestSize" }
+    // Preserve image quality: a 512px mosaic tile accepts only a 512px/original cached bitmap as
+    // final output. A 256px cache may appear temporarily beneath an invisible exact-size request.
+    val cachedExactOrBetter = remember(cacheKey, requestSize) {
+        when {
+            requestSize >= XvoxRecentArtworkSize -> {
+                XvoxArtworkCache.get(cacheKey)
+                    ?: XvoxArtworkCache.get("${baseKey}_512")
+                    ?: XvoxArtworkCache.get("${baseKey}_1024")
+                    ?: XvoxArtworkCache.get("${baseKey}_0")
+            }
+            else -> {
+                XvoxArtworkCache.get(cacheKey)
+                    ?: XvoxArtworkCache.get("${baseKey}_256")
+                    ?: XvoxArtworkCache.get(baseKey)
+                    ?: XvoxArtworkCache.get("${baseKey}_512")
+                    ?: XvoxArtworkCache.get("${baseKey}_0")
+            }
+        }
+    }
+    val cachedBridge = remember(cacheKey, requestSize, cachedExactOrBetter) {
+        cachedExactOrBetter
+            ?: if (requestSize >= XvoxRecentArtworkSize) XvoxArtworkCache.get("${baseKey}_256") else null
+    }
+    var decodedBitmap by remember(cacheKey) { mutableStateOf(cachedExactOrBetter) }
+    var failed by remember(cacheKey) { mutableStateOf(XvoxArtworkCache.isKnownFailed(artwork)) }
+    val visibleBitmap = decodedBitmap ?: cachedBridge
+    val visibleImage = remember(visibleBitmap) { visibleBitmap?.asImageBitmap() }
+    val needsExactRequest = decodedBitmap == null && !failed
+
+    Box(modifier = modifier) {
+        visibleImage?.let { image ->
+            Image(
+                bitmap = image,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+
+        when {
+            needsExactRequest -> {
+                val request = remember(cacheKey, requestSize) {
+                    ImageRequest.Builder(context)
+                        .data(artwork)
+                        .size(requestSize, requestSize)
+                        .precision(Precision.EXACT)
+                        .memoryCachePolicy(CachePolicy.ENABLED)
+                        .diskCachePolicy(CachePolicy.ENABLED)
+                        .networkCachePolicy(CachePolicy.DISABLED)
+                        .build()
+                }
+                AsyncImage(
+                    model = request,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    onSuccess = { success ->
+                        (success.result.image as? BitmapImage)?.bitmap?.let { bitmap ->
+                            XvoxArtworkCache.markSuccessful(artwork)
+                            XvoxArtworkCache.put(cacheKey, bitmap)
+                            decodedBitmap = bitmap
+                        } ?: run {
+                            failed = true
+                            XvoxArtworkCache.markFailed(artwork)
+                        }
+                    },
+                    onError = {
+                        failed = true
+                        XvoxArtworkCache.markFailed(artwork)
+                    },
+                    // A lower-size cached bridge remains visible until the requested exact image
+                    // arrives; otherwise Coil draws the real cover itself over the card surface.
+                    modifier = if (visibleImage == null) {
+                        Modifier.fillMaxSize().background(colors.cardElevated)
+                    } else {
+                        Modifier.fillMaxSize().graphicsLayer { alpha = 0f }
+                    }
+                )
+            }
+            failed && visibleImage == null -> {
+                WavePatternSquare(
+                    modifier = Modifier.fillMaxSize(),
+                    seed = fallbackSeed,
+                    bitmapSize = requestSize,
+                    brand = XvoxFallbackBrand.STANDARD
+                )
+            }
+        }
+    }
 }

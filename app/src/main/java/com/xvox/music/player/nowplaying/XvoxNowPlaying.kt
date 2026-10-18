@@ -294,8 +294,8 @@ fun XvoxNowPlaying(
     }
     var previewSongReference by remember { mutableStateOf(queue.getOrNull(currentIndex)) }
     var previewGestureActive by remember { mutableStateOf(false) }
-    // Blur artwork is intentionally tied to the committed audible song—not pager previews—so a
-    // rapid reversal cannot place a next/previous cover behind the still-active player surface.
+    // Audio commits after a preview settles. The backdrop separately follows the pager's stable
+    // base/adjacent pair, so it can reverse without retaining a stale outgoing blur layer.
     var previewCommitJob by remember { mutableStateOf<Job?>(null) }
     var previewCommitVersion by remember { mutableIntStateOf(0) }
     // Lyrics replaces the visible pager, so its Next/Previous path commits directly and records
@@ -314,21 +314,14 @@ fun XvoxNowPlaying(
             ?: -1
     }
 
-    /** Reject stale pager emissions from the cover that playback just left. */
+    /** Keep the Cover pair and Default canvas on the exact stable pager frame. */
     fun applyPagerPalette(base: Song, adjacent: Song?, fraction: Float) {
-        // Capture the same stable pair emitted by the pager before palette filtering. The backdrop
-        // then has one explicit base/adjacent identity instead of guessing from a moving page.
-        if (!holdPagerPaletteDuringShuffle) {
-            coverSwipeBase = base
-            coverSwipeAdjacent = adjacent
-            coverSwipeFraction = fraction.coerceIn(0f, 1f)
-        }
-        val baseIsAudible = base.xvoxArtworkPaletteKey() == song.xvoxArtworkPaletteKey()
-        val isActivePagerTravel = fraction > .0001f
-        if (!holdPagerPaletteDuringShuffle && (baseIsAudible || previewGestureActive || isActivePagerTravel)) {
-            val safeFraction = fraction.coerceIn(0f, 1f)
-            paletteState.blend(base, adjacent, safeFraction)
-        }
+        if (holdPagerPaletteDuringShuffle) return
+        val safeFraction = fraction.coerceIn(0f, 1f)
+        coverSwipeBase = base
+        coverSwipeAdjacent = adjacent
+        coverSwipeFraction = safeFraction
+        paletteState.blend(base, adjacent, safeFraction)
     }
 
     // Lyrics has no artwork pager to emit a pair. Reset its local backdrop to the committed

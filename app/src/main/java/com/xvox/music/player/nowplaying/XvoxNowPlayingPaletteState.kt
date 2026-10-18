@@ -172,7 +172,9 @@ class XvoxNowPlayingPaletteState internal constructor(
         pinnedSongUsesThemeFallback = usesThemeFallback(base)
         val amount = fraction.coerceIn(0f, 1f)
         val from = getOrFallback(base)
-        val to = adjacent?.let { getOrFallback(it) } ?: from
+        // Do not fall back to the previous live canvas for an unprepared adjacent cover: that
+        // path could pin Default mode to one song's colour through a completed pager handoff.
+        val to = adjacent?.let { knownColor(it) } ?: from
         color = lerp(from, to, amount)
         isCoverTransitionInProgress = amount > .0001f
     }

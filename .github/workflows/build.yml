@@ -30,7 +30,7 @@ jobs:
           # does not replace the raw log; it surfaces a compact diagnostic on the run summary so
           # a headless verification pass can identify the exact source line without local builds.
           set +e
-          ./gradlew :app:assembleDebug 2>&1 | tee gradle-build.log
+          ./gradlew :app:assembleRelease 2>&1 | tee gradle-build.log
           status=${PIPESTATUS[0]}
           if [ "$status" -ne 0 ]; then
             while IFS= read -r line; do
@@ -48,7 +48,7 @@ jobs:
       - name: APK
         uses: actions/upload-artifact@v4
         with:
-          name: XVOX-debug
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: XVOX-release
+          path: app/build/outputs/apk/release/*.apk
           compression-level: 0
           retention-days: 7

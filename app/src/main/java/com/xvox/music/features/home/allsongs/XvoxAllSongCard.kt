@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
@@ -23,8 +24,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
+import com.xvox.music.features.home.XvoxGridArtwork
 import com.xvox.music.features.home.XvoxGridArtworkSize
-import com.xvox.music.features.home.XvoxSongArtwork
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -41,12 +42,12 @@ fun XvoxAllSongCard(
 ) {
     val colors = XvoxTheme.colors
     val cardColor = rememberSongCardColor(song, current, selected)
-    val cardShape = RoundedCornerShape(11.dp)
+    val cardShape = remember { RoundedCornerShape(11.dp) }
     // A card with a real URI starts its exact-size load immediately. Coil's app-wide bounded
     // decoder pool keeps this off the UI thread while preventing a default-cover flash during a drag.
     // The cover sits inside a 3dp gutter. Subtract that inset so its visible curve runs parallel
     // with the outer 11dp card border instead of looking more rounded than the card itself.
-    val artworkShape = RoundedCornerShape(8.dp)
+    val artworkShape = remember { RoundedCornerShape(8.dp) }
 
     Column(
         modifier = modifier
@@ -61,7 +62,7 @@ fun XvoxAllSongCard(
                 .fillMaxWidth()
                 .aspectRatio(1f)
         ) {
-            XvoxSongArtwork(
+            XvoxGridArtwork(
                 artwork = song.artworkUri,
                 fallbackSeed = song.id.hashCode(),
                 requestSize = XvoxGridArtworkSize,

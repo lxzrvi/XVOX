@@ -27,6 +27,8 @@ fun AllSongsHeader(total: Int, selectedCount: Int = 0) {
     )
 }
 
+val LocalXvoxAllSongsScrollActive = compositionLocalOf { false }
+
 /** Emit separate lazy pages instead of composing the entire library inside one LazyColumn item. */
 fun LazyListScope.allSongsItems(
     songs: List<Song>,
@@ -61,8 +63,9 @@ fun LazyListScope.allSongsItems(
             )
         }
     } else {
-        // Pages may compose ahead of the viewport, but they never launch speculative decoding.
-        // Exact-sized artwork loads only for settled visible cards, keeping a fast fling smooth.
+        // Pages may compose ahead of the viewport, but there is no speculative bulk warming.
+        // Their lean card renderer requests each real 256px/512px cover on demand via the bounded
+        // image decoder, rather than substituting a default cover while the list moves.
         itemsIndexed(
             plans,
             key = { _, plan -> "all_page_${plan.startIndex}" },

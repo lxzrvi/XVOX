@@ -31,9 +31,8 @@ android {
     }
 
     buildTypes {
-        // The CI-delivered artifact is the debug APK, so it must receive the same safe code and
-        // resource shrinking as release. Functional code/content remains intact; R8 only removes
-        // unreachable bytecode/resources and rewrites the remaining DEX compactly.
+        // CI now publishes the release variant. Keep debug similarly optimized for local parity;
+        // R8 only removes unreachable bytecode/resources and rewrites the remaining DEX compactly.
         getByName("debug") {
             isMinifyEnabled = true
             isShrinkResources = true
@@ -66,6 +65,10 @@ android {
     buildFeatures {
         compose = true
     }
+}
+
+composeCompiler {
+    stabilityConfigurationFiles.add(layout.projectDirectory.file("stability_config.conf"))
 }
 
 dependencies {

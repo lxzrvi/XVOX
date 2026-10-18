@@ -28,6 +28,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -329,23 +330,21 @@ private fun XvoxNowPlayingArtworkPage(
     onArtworkTap: () -> Unit
 ) {
     val song = queue.getOrNull(page) ?: return
-    val pageOffset = ((pager.currentPage - page) + pager.currentPageOffsetFraction).coerceIn(-1f, 1f)
-    val amount = abs(pageOffset)
+    val shape = remember(artworkCornerRadius) { RoundedCornerShape(artworkCornerRadius) }
     Box(
         Modifier
-            // Clip the whole moving page, not only its nested image. This keeps every rounded
-            // cover edge intact while previous/next pages are scaled during a swipe.
             .fillMaxSize()
-            .clip(RoundedCornerShape(artworkCornerRadius))
             .graphicsLayer {
-                // Now Playing artwork has one intentional treatment: Depth. It remains
-                // responsive to native pager drag while the background owns its own variety.
-                // Keep both adjacent covers fully opaque.  The former alpha dip exposed the
-                // changing backdrop in the pager seam, which read as a cover jump/flicker during
-                // Previous/Next even when both original-quality images were already warm.
-                scaleX = if (applyDepth) 1f - .08f * amount else 1f
-                scaleY = scaleX
-                alpha = 1f
+                val offset = ((pager.currentPage - page) + pager.currentPageOffsetFraction)
+                    .coerceIn(-1f, 1f)
+                val scale = if (applyDepth) 1f - .08f * abs(offset) else 1f
+                scaleX = scale
+                scaleY = scale
+                // Apply one offscreen-shaped clip to the scaled pager page. This prevents the
+                // cover radius from separating from its moving border while pages overlap.
+                this.shape = shape
+                clip = true
+                compositingStrategy = CompositingStrategy.Offscreen
             }
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
@@ -354,21 +353,17 @@ private fun XvoxNowPlayingArtworkPage(
             ),
         contentAlignment = Alignment.Center
     ) {
-        // The page retains its full edge-to-edge clipping boundary. In landscape an inner
-        // inset reduces cover width, while adjacent covers remain outside that boundary.
         Box(
-            modifier = Modifier
+            Modifier
                 .fillMaxSize()
                 .padding(horizontal = artworkHorizontalInset)
-                .clip(RoundedCornerShape(artworkCornerRadius))
+                .then(if (artworkHorizontalInset > 0.dp) Modifier.clip(shape) else Modifier)
         ) {
             XvoxSongArtwork(
                 artwork = song.artworkUri,
                 fallbackSeed = song.id.hashCode(),
                 fallbackBrand = XvoxFallbackBrand.NOW_PLAYING,
                 requestSize = XvoxNowPlayingArtworkSize,
-                // Never replace the outgoing decoded cover with a flat placeholder while the
-                // next original-quality image is resolving; this removes playback/queue flicker.
                 keepPreviousOnLoading = true,
                 modifier = Modifier.fillMaxSize()
             )
