@@ -174,7 +174,7 @@ fun HomeMultiSelectBar(
                             if (allInScopeSelected) "Unselect all in $sourceLabel" else "Select all in $sourceLabel",
                             onToggleSelectAll
                         )
-                        MultiActionItem(actionHeight, R.drawable.ic_xvox_play, "Play next") {
+                        MultiActionItem(actionHeight, R.drawable.ic_xvox_play, "Play next", onClick = {
                             val msg = if (selectedSongs.size == 1) {
                                 playerViewModel.playNextInQueue(selectedSongs[0])
                             } else {
@@ -182,50 +182,50 @@ fun HomeMultiSelectBar(
                             }
                             overlays.showP(msg)
                             onClearSelection()
-                        }
-                        MultiActionItem(actionHeight, R.drawable.ic_xvox_queue, "Add to queue") {
+                        })
+                        MultiActionItem(actionHeight, R.drawable.ic_xvox_queue, "Add to queue", onClick = {
                             overlays.showP(playerViewModel.addToQueue(selectedSongs))
                             onClearSelection()
-                        }
-                        MultiActionItem(actionHeight, R.drawable.ic_xvox_playlist, "Add to playlist") {
+                        })
+                        MultiActionItem(actionHeight, R.drawable.ic_xvox_playlist, "Add to playlist", onClick = {
                             showMultiAddToPlaylistOverlay(
                                 overlays = overlays,
                                 viewModel = viewModel,
                                 songs = selectedSongs,
                                 onDone = onClearSelection
                             )
-                        }
+                        })
                         when {
-                            selectedPlaylist != null -> MultiActionItem(actionHeight, R.drawable.ic_xvox_delete, "Remove from ${selectedPlaylist.name}") {
+                            selectedPlaylist != null -> MultiActionItem(actionHeight, R.drawable.ic_xvox_delete, "Remove from ${selectedPlaylist.name}", onClick = {
                                 viewModel.removeMultipleFromPlaylist(selectedPlaylist.id, selectedSongs) {
                                     overlays.showP("${selectedSongs.size} songs removed from ${selectedPlaylist.name}")
                                     onClearSelection()
                                 }
-                            }
-                            libraryMode == XvoxHomeLibraryMode.LIKED -> MultiActionItem(actionHeight, R.drawable.ic_xvox_heart_outline, "Remove from liked") {
+                            })
+                            libraryMode == XvoxHomeLibraryMode.LIKED -> MultiActionItem(actionHeight, R.drawable.ic_xvox_heart_outline, "Remove from liked", onClick = {
                                 viewModel.removeMultipleFromLiked(selectedSongs)
                                 overlays.showP("${selectedSongs.size} songs removed from Liked")
                                 onClearSelection()
-                            }
-                            else -> MultiActionItem(actionHeight, R.drawable.ic_xvox_heart, "Add to liked") {
+                            })
+                            else -> MultiActionItem(actionHeight, R.drawable.ic_xvox_heart, "Add to liked", onClick = {
                                 viewModel.addMultipleToLiked(selectedSongs)
                                 overlays.showP("${selectedSongs.size} songs added to Liked")
                                 onClearSelection()
-                            }
+                            })
                         }
                         if (categoryName == "Recently Played") {
-                            MultiActionItem(actionHeight, R.drawable.ic_xvox_delete, "Remove from recently played") {
+                            MultiActionItem(actionHeight, R.drawable.ic_xvox_delete, "Remove from recently played", onClick = {
                                 viewModel.removeMultipleFromRecent(selectedSongs)
                                 overlays.showP("${selectedSongs.size} removed from Recently Played")
                                 onClearSelection()
-                            }
+                            })
                         } else if (onDeleteSelected != null) {
                             MultiActionItem(actionHeight, R.drawable.ic_xvox_delete, "Delete selected songs", onDeleteSelected)
                         }
-                        MultiActionItem(actionHeight, R.drawable.ic_xvox_share, "Share selected songs") {
+                        MultiActionItem(actionHeight, R.drawable.ic_xvox_share, "Share selected songs", onClick = {
                             XvoxSongActions.shareMultiple(context, selectedSongs)
                             onClearSelection()
-                        }
+                        })
                         MultiActionItem(actionHeight, R.drawable.ic_xvox_close, "Clear selection", onClearSelection)
                         MultiActionItem(
                             actionHeight,
