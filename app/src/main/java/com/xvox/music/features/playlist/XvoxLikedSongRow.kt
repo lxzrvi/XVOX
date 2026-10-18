@@ -49,6 +49,8 @@ fun XvoxLikedSongRow(
     val colors = XvoxTheme.colors
     val cardColor = rememberSongCardColor(song, current, selected)
     val shape = RoundedCornerShape(14.dp)
+    // The artwork is inset by the shared 3dp frame, so 11dp preserves the card's visible curve.
+    val artworkShape = RoundedCornerShape(11.dp)
 
     Row(
         modifier = modifier
@@ -70,7 +72,7 @@ fun XvoxLikedSongRow(
             requestSize = 128,
             modifier = Modifier
                 .size(58.dp)
-                .clip(shape)
+                .clip(artworkShape)
         )
 
         Spacer(Modifier.size(10.dp))

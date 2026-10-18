@@ -187,6 +187,8 @@ fun CreatePlaylistBox(
             items(items = displaySongs, key = { "create_pl_${it.id}" }) { song ->
                 val checked = song.id in selected
                 val rowShape = RoundedCornerShape(10.dp)
+                // The 4dp row gutter lowers the artwork radius to keep both curves parallel.
+                val artworkShape = RoundedCornerShape(6.dp)
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -203,7 +205,7 @@ fun CreatePlaylistBox(
                         requestSize = 96,
                         modifier = Modifier
                             .size(38.dp)
-                            .clip(rowShape)
+                            .clip(artworkShape)
                     )
 
                     Column(

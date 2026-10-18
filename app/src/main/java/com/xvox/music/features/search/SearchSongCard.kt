@@ -43,6 +43,8 @@ fun SearchSongCard(
     val colors = XvoxTheme.colors
     val cardColor = rememberSongCardColor(song, current, selected)
     val shape = RoundedCornerShape(14.dp)
+    // Match the 3dp inner gutter geometrically so the cover does not look rounder than its card.
+    val artworkShape = RoundedCornerShape(11.dp)
 
     SearchPressSurface(
         modifier = modifier
@@ -66,7 +68,7 @@ fun SearchSongCard(
                 requestSize = 112,
                 modifier = Modifier
                     .size(52.dp)
-                    .clip(shape)
+                    .clip(artworkShape)
             )
 
             Spacer(Modifier.size(10.dp))

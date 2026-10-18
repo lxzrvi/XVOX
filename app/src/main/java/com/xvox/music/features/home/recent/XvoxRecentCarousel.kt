@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -66,36 +67,47 @@ fun XvoxRecentCarousel(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         rowSongs.forEach { song ->
-                            XvoxRecentArtwork(
-                                song = song,
-                                current = song.id == currentSongId,
-                                playing = song.id == currentSongId && isPlaying,
-                                selected = song.id in selectedSongIds,
-                                onClick = { click(song) },
-                                onLongClick = { options(song) },
-                                source = sources[song.id] ?: song.source,
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(96.dp)
-                            )
+                            // Recents reorder immediately when a new track is played. Key by song
+                            // identity so the old pill can contract and the tapped row can expand
+                            // from their own progress values, rather than inheriting a neighbour's
+                            // animation state after the list moves.
+                            key(song.id) {
+                                XvoxRecentArtwork(
+                                    song = song,
+                                    current = song.id == currentSongId,
+                                    playing = song.id == currentSongId && isPlaying,
+                                    selected = song.id in selectedSongIds,
+                                    onClick = { click(song) },
+                                    onLongClick = { options(song) },
+                                    source = sources[song.id] ?: song.source,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(96.dp)
+                                )
+                            }
                         }
                         if (rowSongs.size == 1) Spacer(Modifier.weight(1f))
                     }
                 }
             } else {
                 songs.forEach { song ->
-                    XvoxRecentArtwork(
-                        song = song,
-                        current = song.id == currentSongId,
-                        playing = song.id == currentSongId && isPlaying,
-                        selected = song.id in selectedSongIds,
-                        onClick = { click(song) },
-                        onLongClick = { options(song) },
-                        source = sources[song.id] ?: song.source,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(96.dp)
-                    )
+                    // A tap promotes this song to the top of Recents. Stable identity is essential
+                    // here: it lets both affected badges retarget smoothly instead of transferring
+                    // a half-expanded circle/pill state to whichever row now occupies this slot.
+                    key(song.id) {
+                        XvoxRecentArtwork(
+                            song = song,
+                            current = song.id == currentSongId,
+                            playing = song.id == currentSongId && isPlaying,
+                            selected = song.id in selectedSongIds,
+                            onClick = { click(song) },
+                            onLongClick = { options(song) },
+                            source = sources[song.id] ?: song.source,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(96.dp)
+                        )
+                    }
                 }
             }
         }

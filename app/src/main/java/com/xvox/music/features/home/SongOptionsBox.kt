@@ -60,6 +60,8 @@ fun SongOptionsBox(
     val colors = XvoxTheme.colors
     val scrollState = rememberScrollState()
     val identityShape = RoundedCornerShape(16.dp)
+    // The identity artwork is inset by 4dp, so 12dp follows the outer card curve precisely.
+    val artworkShape = RoundedCornerShape(12.dp)
     // Action cards deliberately share the song identity card's rounded silhouette.
     val tileShape = identityShape
     // Settings-page card fill/border: this overlay is intentionally the same palette in light,
@@ -128,7 +130,7 @@ fun SongOptionsBox(
             Box(
                 modifier = Modifier
                     .size(68.dp)
-                    .clip(identityShape),
+                    .clip(artworkShape),
                 contentAlignment = Alignment.Center
             ) {
                 XvoxSongArtwork(

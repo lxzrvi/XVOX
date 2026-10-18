@@ -127,11 +127,13 @@ fun HiddenSongsSettingsSection(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             if (song != null) {
+                                // The row has a 4dp vertical inner frame, so this 8dp card uses
+                                // a 4dp cover curve instead of making the artwork look rounder.
                                 XvoxSongArtwork(
                                     artwork = song.artworkUri,
                                     fallbackSeed = song.id.hashCode(),
                                     requestSize = 96,
-                                    modifier = Modifier.size(38.dp).clip(RoundedCornerShape(6.dp))
+                                    modifier = Modifier.size(38.dp).clip(RoundedCornerShape(4.dp))
                                 )
                             }
                             Column(Modifier.weight(1f).padding(horizontal = 10.dp)) {

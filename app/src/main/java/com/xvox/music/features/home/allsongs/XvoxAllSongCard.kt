@@ -42,9 +42,12 @@ fun XvoxAllSongCard(
     val colors = XvoxTheme.colors
     val cardColor = rememberSongCardColor(song, current, selected)
     val cardShape = RoundedCornerShape(11.dp)
-    // The 3dp inner gutter is spacing only: default All Songs artwork uses the card's exact
-    // corner radius just like the mosaic and long-card variants.
-    val artworkShape = cardShape
+    // Do not let a new full-size decode compete with an active All Songs drag. Cached artwork
+    // still draws immediately and the original request size is unchanged once scrolling settles.
+    val loadArtwork = !LocalXvoxAllSongsScrollActive.current
+    // The cover sits inside a 3dp gutter. Subtract that inset so its visible curve runs parallel
+    // with the outer 11dp card border instead of looking more rounded than the card itself.
+    val artworkShape = RoundedCornerShape(8.dp)
 
     Column(
         modifier = modifier
@@ -63,6 +66,7 @@ fun XvoxAllSongCard(
                 artwork = song.artworkUri,
                 fallbackSeed = song.id.hashCode(),
                 requestSize = XvoxGridArtworkSize,
+                loadArtwork = loadArtwork,
                 modifier = Modifier
                     .fillMaxSize()
                     .clip(artworkShape)

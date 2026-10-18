@@ -1049,6 +1049,8 @@ private fun androidx.compose.foundation.lazy.LazyListScope.searchResultsContent(
             val cardColor = rememberSongCardColor(song = song, current = false)
 
             val resultShape = RoundedCornerShape(12.dp)
+            // A 3dp inner frame means 9dp keeps the cover curve parallel to this 12dp card.
+            val artworkShape = RoundedCornerShape(9.dp)
             SearchPressSurface(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1069,7 +1071,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.searchResultsContent(
                     Box(
                         modifier = Modifier
                             .size(44.dp)
-                            .clip(resultShape),
+                            .clip(artworkShape),
                         contentAlignment = Alignment.Center
                     ) {
                         XvoxSongArtwork(
@@ -1159,9 +1161,9 @@ private fun SearchPlaylistCompactItem(
 ) {
     val colors = XvoxTheme.colors
     val cardShape = RoundedCornerShape(12.dp)
-    // The inset cover retains the enclosing compact playlist card's exact corner radius, so this
-    // wide result reads as one cohesive card rather than two differently rounded surfaces.
-    val coverShape = cardShape
+    // The compact cover sits inside a 4dp frame, so 8dp keeps its visible curve aligned with the
+    // enclosing card instead of making the image corners look rounder.
+    val coverShape = RoundedCornerShape(8.dp)
     SearchPressSurface(
         modifier = Modifier
             .width(170.dp)
@@ -1234,6 +1236,8 @@ private fun SearchSongRow(
     val cardColor = rememberSongCardColor(song = song, current = false)
 
     val resultShape = RoundedCornerShape(12.dp)
+    // Match this 3dp row frame geometrically; the artwork should not exceed the card curvature.
+    val artworkShape = RoundedCornerShape(9.dp)
     SearchPressSurface(
         modifier = Modifier
             .fillMaxWidth()
@@ -1255,7 +1259,7 @@ private fun SearchSongRow(
             Box(
                 modifier = Modifier
                     .size(44.dp)
-                    .clip(resultShape),
+                    .clip(artworkShape),
                 contentAlignment = Alignment.Center
             ) {
                 XvoxSongArtwork(

@@ -4,7 +4,6 @@ import android.app.Application
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.xvox.music.artwork.XvoxArtworkPreloader
 import com.xvox.music.core.model.Song
 import com.xvox.music.data.preferences.UserPreferencesRepository
 import com.xvox.music.data.preferences.XvoxLibraryPreferences
@@ -16,7 +15,6 @@ import com.xvox.music.features.sourcemode.XvoxSourceMode
 import com.xvox.music.features.playlist.XvoxPlaylistCoverStorage
 import com.xvox.music.media.MediaStoreSongRepository
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -26,7 +24,6 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.withContext
 
 data class FolderInfo(
@@ -42,7 +39,6 @@ class HomeViewModel(
     private val songRepository = MediaStoreSongRepository(application)
     private val preferencesRepository = UserPreferencesRepository(application)
     private val libraryPreferences = XvoxLibraryPreferences(application)
-    private val artworkPreloader = XvoxArtworkPreloader(application)
     private val coverStorage = XvoxPlaylistCoverStorage(application)
     private val infoReader = SongInfoReader(application)
 
@@ -58,7 +54,6 @@ class HomeViewModel(
     private var rawReady = false
     private var filterReady = false
     private var hiddenReady = false
-    private var warmed = false
     private var splitHidden = false
     // This build has no approved online gateway. Never quietly substitute the local library when
     // Online is selected; a future official provider populates its own source explicitly.
@@ -67,20 +62,6 @@ class HomeViewModel(
     private var allRawSongs: List<Song> = emptyList()
     private var recentIds: List<Long> = emptyList()
     private var recentHistoryCapacity = 20
-    private data class ArtworkPrefetch(
-        val startIndex: Int,
-        val count: Int,
-        val requestSize: Int
-    )
-
-    private var prefetchJob: Job? = null
-    /** Deferred first-paint warming is cancelled as soon as the live viewport asks for artwork. */
-    private var startupWarmJob: Job? = null
-    private var lastPrefetch: ArtworkPrefetch? = null
-    /** Latest page requested while the current quality-preserving artwork warm is in flight. */
-    private var pendingPrefetch: ArtworkPrefetch? = null
-    /** The exact warm currently decoding; separate from [lastPrefetch] so cancellation is honest. */
-    private var activePrefetch: ArtworkPrefetch? = null
     private var transitionId = 0L
 
     private var filterConfig = LibraryFilterConfig("A-Z", 0, 0, emptySet())
@@ -238,24 +219,6 @@ class HomeViewModel(
                 Triple(sorted, raw.filter { it.id in hidden }, resolveRecent(sorted, recent))
             }
             _state.update { it.copy(songs = result.first, hiddenSongs = result.second, recentlyPlayed = result.third, loading = false) }
-            if (!warmed) {
-                warmed = true
-                // Let first composition and a possible immediate Home → All Songs fling take
-                // priority. The visible cards keep their exact requests; this optional cache warm
-                // begins only after a quiet first paint and is cancelled by prefetchFrom below.
-                val firstPaintSongs = result.first
-                startupWarmJob?.cancel()
-                startupWarmJob = viewModelScope.launch {
-                    // Keep opening touch/scroll work entirely clear before any speculative
-                    // decode begins; the first real viewport request can still cancel this.
-                    delay(1200)
-                    // Do not spend post-startup decode time on a list that has already been
-                    // replaced by a filter/refresh change before its quiet frame arrived.
-                    if (_state.value.songs === firstPaintSongs) {
-                        withTimeoutOrNull(3500) { artworkPreloader.warmVisible(firstPaintSongs) }
-                    }
-                }
-            }
             _state.update { it.copy(startupReady = true) }
         }
     }
@@ -285,9 +248,6 @@ class HomeViewModel(
 
             allRawSongs = refreshed
             _folders.value = withContext(Dispatchers.Default) { HomeLibraryFilterHelper.groupFolders(refreshed) }
-            prefetchJob?.cancel()
-            pendingPrefetch = null
-            lastPrefetch = null
             publishFilteredSongs()
 
             _state.update { it.copy(refreshing = false, loading = false) }
@@ -507,70 +467,6 @@ class HomeViewModel(
         viewModelScope.launch { preferencesRepository.recordRecentSong(song.id, source) }
     }
 
-    /** Called from the first Home scroll frame so speculative decoding never competes with touch. */
-    fun cancelArtworkPrefetchForScroll() {
-        startupWarmJob?.cancel()
-        startupWarmJob = null
-        pendingPrefetch = null
-        prefetchJob?.cancel()
-        prefetchJob = null
-        activePrefetch = null
-    }
-
-    fun prefetchFrom(
-        sourceIndex: Int,
-        count: Int = 12,
-        requestSize: Int = com.xvox.music.features.home.XvoxGridArtworkSize
-    ) {
-        val songs = _state.value.songs
-        if (songs.isEmpty()) return
-        // Directly visible artwork and gesture work win over the optional startup runway.
-        startupWarmJob?.cancel()
-        startupWarmJob = null
-        val target = ArtworkPrefetch(
-            startIndex = sourceIndex.coerceIn(0, songs.lastIndex),
-            // Decode only the immediate visual runway at each card's exact quality. A smaller
-            // latest-wins window keeps any Home layout responsive during a long fling; visible
-            // cards still request their unchanged full 256px/512px artwork on demand.
-            count = count.coerceIn(
-                1,
-                if (requestSize >= XvoxRecentArtworkSize) 4 else 8
-            ),
-            requestSize = requestSize.coerceAtLeast(XvoxGridArtworkSize)
-        )
-        if (target == lastPrefetch || target == pendingPrefetch || target == activePrefetch) return
-
-        // Artwork is still warmed at each card's exact display resolution, but a rapid fling no
-        // longer lets a stale batch monopolise CPU after the viewport has moved on. A meaningful
-        // quiet-frame debounce coalesces page-boundary signals, then a latest-wins job warms only
-        // the page the user actually settled near. Visual quality is unchanged; decode work yields
-        // to the finger instead of competing with it.
-        pendingPrefetch = target
-        prefetchJob?.cancel()
-        prefetchJob = viewModelScope.launch {
-            // Wait for a genuine quiet point after a fling. This keeps full-resolution decode
-            // work completely off the active scroll path instead of only cancelling it after it
-            // has already contended with the UI thread and visible artwork.
-            delay(900)
-            val next = pendingPrefetch ?: return@launch
-            pendingPrefetch = null
-            activePrefetch = next
-            try {
-                withContext(Dispatchers.IO) {
-                    artworkPreloader.warm(
-                        songs = songs,
-                        fromIndex = next.startIndex,
-                        count = next.count,
-                        requestSize = next.requestSize
-                    )
-                }
-                lastPrefetch = next
-            } finally {
-                if (activePrefetch == next) activePrefetch = null
-            }
-        }
-    }
-
     /**
      * Recents stack from every source, not just All Songs: a track that has been filtered out of
      * the main library is still resolved here.
@@ -650,9 +546,4 @@ class HomeViewModel(
     fun setHomeHorizontalRows(rows: Int) = viewModelScope.launch { preferencesRepository.setHomeHorizontalRows(rows) }
     fun setRecentsPlacement(placement: String) = viewModelScope.launch { preferencesRepository.setRecentsPlacement(placement) }
 
-    override fun onCleared() {
-        pendingPrefetch = null
-        prefetchJob?.cancel()
-        super.onCleared()
-    }
 }

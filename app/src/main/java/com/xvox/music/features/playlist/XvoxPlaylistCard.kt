@@ -40,10 +40,10 @@ fun XvoxPlaylistCard(
     selected: Boolean = false
 ) {
     val colors = XvoxTheme.colors
-    // Long playlist cards intentionally use one shared corner language: the inset cover keeps
-    // the enclosing card's exact radius instead of looking like a separately rounded tile.
+    // The cover is inset by the card's 3dp frame. Its radius is reduced by that gutter so the
+    // two outlines follow the same visible curvature rather than making the cover look rounder.
     val shape = RoundedCornerShape(16.dp)
-    val coverShape = shape
+    val coverShape = RoundedCornerShape(13.dp)
 
     Column(
         modifier = modifier

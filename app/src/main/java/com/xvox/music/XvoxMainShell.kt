@@ -12,6 +12,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -731,7 +732,9 @@ fun XvoxMainShell(
         val density = LocalDensity.current
         val bottomInset = with(density) { WindowInsets.navigationBars.getBottom(this).toDp() } +
             if (isLandscape) navigationBarHeight + 20.dp
-            else if (player.miniPlayerVisible) navigationBarHeight + 116.dp
+            // Settings does not reserve the resting Mini Player lane: its card leaves only
+            // after the Settings route has visibly started arriving, then descends with it.
+            else if (player.miniPlayerVisible && destination != XvoxDestination.SETTINGS) navigationBarHeight + 116.dp
             else navigationBarHeight + 40.dp
 
         // One shell-owned Header spans every tab. Its background begins behind the status bar,
@@ -901,9 +904,11 @@ fun XvoxMainShell(
         // Keep the navigation host mounted at its ordinary shell/root position through both
         // directions of the player handoff. Now Playing is always painted above it, so the bar is
         // physically underneath the moving player instead of becoming foreground chrome.
-        // Settings is a regular shell destination for the Mini Player: Home/Search → Settings
-        // retains the same live bottom card instead of sending it downward and removing it.
-        val miniVisible = miniVisibleBase
+        // Settings uses an intentional route handoff: the card stays visible through the first
+        // part of the incoming Settings motion, then descends above that page rather than leaving
+        // before it appears or remaining mounted after it settles.
+        val settingsMiniExit = destination == XvoxDestination.SETTINGS && miniVisibleBase
+        val miniVisible = miniVisibleBase && destination != XvoxDestination.SETTINGS
         var landscapeQuickActionsVisible by remember(currentSongId) { mutableStateOf(false) }
         LaunchedEffect(miniVisible) {
             if (!miniVisible) landscapeQuickActionsVisible = false
@@ -944,12 +949,20 @@ fun XvoxMainShell(
                             .height(122.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        // Keep the landscape card mounted on every shell destination, including
-                        // Settings. Now Playing still owns its own below-screen handoff lifecycle.
+                        // Settings begins its route arrival before this card moves. Its delayed
+                        // shell exit then slides the visible card below the lane in parallel with
+                        // the page, instead of leaving an already-open Settings surface empty.
                         this@row.AnimatedVisibility(
-                            visible = miniSurfacePrepared,
+                            visible = miniSurfacePrepared && destination != XvoxDestination.SETTINGS,
                             enter = androidx.compose.animation.EnterTransition.None,
-                            exit = androidx.compose.animation.ExitTransition.None
+                            exit = if (settingsMiniExit) {
+                                slideOutVertically(
+                                    targetOffsetY = { it + with(density) { 18.dp.roundToPx() } },
+                                    animationSpec = tween(260, delayMillis = 72)
+                                ) + fadeOut(tween(150, delayMillis = 72))
+                            } else {
+                                androidx.compose.animation.ExitTransition.None
+                            }
                         ) {
                             XvoxMiniPlayer(
                                 queue = player.queue,
@@ -959,9 +972,9 @@ fun XvoxMainShell(
                                 position = player.position,
                                 duration = player.duration,
                                 riseKey = player.miniPlayerRiseKey,
-                                // Settings retains this same live card; only Now Playing closes
-                                // the normal entrance gate for its sequential handoff.
-                                entranceEnabled = miniVisible,
+                                // The enclosing Settings route owns its delayed descent; do not
+                                // start an independent child exit before that route is visible.
+                                entranceEnabled = miniVisible || settingsMiniExit,
                                 togglePlay = { playerViewModel.togglePlay() },
                                 playQueueIndex = { playerViewModel.playQueueIndex(it) },
                                 stopAndDismiss = { playerViewModel.stopPlayback() },
@@ -1007,10 +1020,11 @@ fun XvoxMainShell(
         } else {
             // Portrait Mode: Stacked layout
             XvoxShellMiniPlayerHost(
-                // While Now Playing is open this remains a fully composed, below-screen card.
-                // All ordinary destinations—including Settings—retain the host and its normal
-                // bottom position rather than animating it away during a route change.
-                visible = miniSurfacePrepared,
+                // Now Playing retains a prepared below-screen surface. Settings instead keeps
+                // this card visible for the first route frames, then lets its host descend above
+                // the arriving Settings surface.
+                visible = miniSurfacePrepared && destination != XvoxDestination.SETTINGS,
+                settingsExit = settingsMiniExit,
                 currentSongId = if (miniSurfacePrepared) currentSongId else null,
                 queue = player.queue,
                 currentIndex = player.currentIndex,
@@ -1018,7 +1032,7 @@ fun XvoxMainShell(
                 position = player.position,
                 duration = player.duration,
                 riseKey = player.miniPlayerRiseKey,
-                entranceEnabled = miniVisible,
+                entranceEnabled = miniVisible || settingsMiniExit,
                 onTogglePlay = { playerViewModel.togglePlay() },
                 onPlayQueueIndex = { playerViewModel.playQueueIndex(it) },
                 onStopAndDismiss = { playerViewModel.stopPlayback() },

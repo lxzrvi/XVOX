@@ -99,70 +99,13 @@ private fun Color.xvoxReadableCoverLyricColor(): Color {
 
 
 /**
- * The pager updates this small state holder every drag frame. Keeping those reads in the backdrop
- * child prevents a cover swipe from invalidating the full control/lyrics tree on every pixel.
+ * The cover blur is deliberately committed from the audible player item only. Pager preview
+ * frames may reverse or be abandoned, so allowing them to own another blurred image layer can
+ * briefly replay the opposite song during a rapid Next/Previous change.
  */
-@Stable
-private class XvoxNowPlayingBackdropState(initialSong: Song?) {
-    var artwork by mutableStateOf(initialSong?.artworkUri)
-        private set
-    // URI alone is not enough: two coverless songs are both null but still need distinct stable
-    // identities while their pager/background blend travels.
-    var artworkKey by mutableStateOf(initialSong?.xvoxArtworkPaletteKey() ?: "xvox_fallback_initial")
-        private set
-    var artworkSeed by mutableIntStateOf(initialSong?.id?.hashCode() ?: 11)
-        private set
-    var incomingArtwork by mutableStateOf<android.net.Uri?>(null)
-        private set
-    var incomingArtworkKey by mutableStateOf<String?>(null)
-        private set
-    var incomingArtworkSeed by mutableIntStateOf(11)
-        private set
-    var artworkTransitionFraction by mutableFloatStateOf(0f)
-        private set
-    /** Endpoint rendered by the pager before the persistent primary backdrop adopts it. */
-    var alreadyPresentedArtworkKey by mutableStateOf<String?>(null)
-        private set
-    // This is intentionally not composition state. It is a synchronous ledger between adjacent
-    // snapshotFlow emissions, so a final moving frame and a settled frame cannot be coalesced into
-    // an old-image replay by Compose.
-    private var travellingIncomingArtworkKey: String? = null
-
-    fun update(base: Song?, incoming: Song?, fraction: Float) {
-        val baseKey = base?.xvoxArtworkPaletteKey() ?: "xvox_fallback_initial"
-        val nextIncomingKey = incoming?.xvoxArtworkPaletteKey()
-        val safeFraction = fraction.coerceIn(0f, 1f)
-        val hasDistinctIncoming = nextIncomingKey != null && nextIncomingKey != baseKey
-
-        if (hasDistinctIncoming && safeFraction > .0001f) {
-            // Remember the actual visual destination as soon as travel starts. On the following
-            // settled emission we can tell completion from a cancelled swipe even when no compose
-            // pass occurred at fraction 1.0.
-            travellingIncomingArtworkKey = nextIncomingKey
-        } else if (nextIncomingKey == null && safeFraction <= .0001f) {
-            if (baseKey == travellingIncomingArtworkKey) {
-                alreadyPresentedArtworkKey = baseKey
-            } else if (baseKey != alreadyPresentedArtworkKey) {
-                // A direct playback/lyrics update is not a pager endpoint and should retain its
-                // normal controlled morph rather than inheriting an unrelated old endpoint.
-                alreadyPresentedArtworkKey = null
-            }
-            travellingIncomingArtworkKey = null
-        }
-
-        artwork = base?.artworkUri
-        artworkKey = baseKey
-        artworkSeed = base?.id?.hashCode() ?: 11
-        incomingArtwork = incoming?.artworkUri
-        incomingArtworkKey = nextIncomingKey
-        incomingArtworkSeed = incoming?.id?.hashCode() ?: 11
-        artworkTransitionFraction = safeFraction
-    }
-}
-
 @Composable
 private fun XvoxNowPlayingBackdropLayer(
-    backdropState: XvoxNowPlayingBackdropState,
+    song: Song,
     paletteState: XvoxNowPlayingPaletteState,
     style: String,
     coverBlur: Float,
@@ -170,14 +113,9 @@ private fun XvoxNowPlayingBackdropLayer(
 ) {
     XvoxNowPlayingBackdrop(
         dominant = paletteState.color,
-        artwork = backdropState.artwork,
-        artworkKey = backdropState.artworkKey,
-        artworkSeed = backdropState.artworkSeed,
-        incomingArtwork = backdropState.incomingArtwork,
-        incomingArtworkKey = backdropState.incomingArtworkKey,
-        incomingArtworkSeed = backdropState.incomingArtworkSeed,
-        artworkTransitionFraction = backdropState.artworkTransitionFraction,
-        alreadyPresentedArtworkKey = backdropState.alreadyPresentedArtworkKey,
+        artwork = song.artworkUri,
+        artworkKey = song.xvoxArtworkPaletteKey(),
+        artworkSeed = song.id.hashCode(),
         style = style,
         coverBlur = coverBlur,
         isCoverTransitionInProgress = paletteState.isCoverTransitionInProgress,
@@ -342,9 +280,8 @@ fun XvoxNowPlaying(
     }
     var previewSongReference by remember { mutableStateOf(queue.getOrNull(currentIndex)) }
     var previewGestureActive by remember { mutableStateOf(false) }
-    // The backdrop follows the pager's actual outgoing/incoming covers, not merely the audible
-    // song. Its state stays local to the draw layer so cover drag frames do not recompose controls.
-    val backdropState = remember { XvoxNowPlayingBackdropState(song) }
+    // Blur artwork is intentionally tied to the committed audible song—not pager previews—so a
+    // rapid reversal cannot place a next/previous cover behind the still-active player surface.
     var previewCommitJob by remember { mutableStateOf<Job?>(null) }
     var previewCommitVersion by remember { mutableIntStateOf(0) }
     // Lyrics replaces the visible pager, so its Next/Previous path commits directly and records
@@ -370,18 +307,13 @@ fun XvoxNowPlaying(
         if (!holdPagerPaletteDuringShuffle && (baseIsAudible || previewGestureActive || isActivePagerTravel)) {
             val safeFraction = fraction.coerceIn(0f, 1f)
             paletteState.blend(base, adjacent, safeFraction)
-            backdropState.update(base, adjacent, safeFraction)
         }
     }
 
-    // Lyrics replaces the pager. When it is visible, update its matching local backdrop from the
-    // audible cover and let the backdrop crossfade the two images rather than retaining a stale
-    // preview card behind the orb/aurora canvas.
+    // Lyrics replaces the pager, so it resolves the audible song directly. The blur layer itself
+    // already keys from that same committed song and therefore cannot inherit a preview backdrop.
     LaunchedEffect(song.xvoxArtworkPaletteKey(), isLyricsShowing) {
         if (isLyricsShowing) {
-            backdropState.update(song, null, 0f)
-            // There is no pager underneath lyrics to emit palette frames. Resolve the same cover
-            // directly; XvoxArtworkLyrics animates this live colour into its orb/aurora canvas.
             paletteState.show(song)
         }
     }
@@ -703,7 +635,7 @@ fun XvoxNowPlaying(
             }
     ) {
         XvoxNowPlayingBackdropLayer(
-            backdropState = backdropState,
+            song = song,
             paletteState = paletteState,
             style = settingsState.nowPlayingBackgroundStyle,
             coverBlur = settingsState.nowPlayingCoverBlur,

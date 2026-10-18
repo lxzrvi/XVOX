@@ -1,9 +1,13 @@
 package com.xvox.music.features.home
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -17,7 +21,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -26,10 +29,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -64,78 +69,137 @@ fun HomeCollectionMultiSelectBar(
     val colors = XvoxTheme.colors
     var entered by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { entered = true }
-    val railShape = RoundedCornerShape(topStart = 20.dp, bottomStart = 20.dp)
+    var railOnLeft by rememberSaveable { mutableStateOf(false) }
+    val railSide = if (railOnLeft) XvoxSelectionRailSide.LEFT else XvoxSelectionRailSide.RIGHT
+    // Match the counter and action-box radius; the rail is no longer a separate large edge arc.
+    val railShape = RoundedCornerShape(10.dp)
     val screenHeightDp = LocalConfiguration.current.screenHeightDp
-    val actionCount = actions.size + 2 // select/unselect all + clear
+    val actionCount = actions.size + 3 // select/unselect all + clear + side switch
     val railSpacing = if (screenHeightDp < 560) 3.dp else 6.dp
+    val countBoxHeight = 30.dp
+    val titleHeight = 22.dp
     val actionHeight = (
-        ((screenHeightDp - 76f - (actionCount + 1) * railSpacing.value) / actionCount)
-            .coerceIn(20f, 48f)
-        ).dp
+        (
+            screenHeightDp - 14f - titleHeight.value - countBoxHeight.value -
+                (actionCount + 1) * railSpacing.value
+            ) / actionCount
+        ).coerceIn(20f, 48f).dp
 
-    // Stay in Home's fixed full-screen Box. A window Popup remeasures/repositions around the
-    // rail while it enters, which can read as diagonal even with a horizontal transition.
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.CenterEnd
-    ) {
+    // A full-screen transition host gives the side switch a real sequential edge transfer rather
+    // than remeasuring a popup and producing a diagonal/overlapping rail.
+    Box(modifier = Modifier.fillMaxSize()) {
         AnimatedVisibility(
             visible = entered,
+            modifier = Modifier.fillMaxSize(),
             enter = slideInHorizontally(
-                initialOffsetX = { it },
+                initialOffsetX = { fullWidth ->
+                    if (railSide == XvoxSelectionRailSide.RIGHT) fullWidth else -fullWidth
+                },
                 animationSpec = tween(190)
-            ),
+            ) + fadeIn(tween(120)),
             exit = slideOutHorizontally(
-                targetOffsetX = { it },
+                targetOffsetX = { fullWidth ->
+                    if (railSide == XvoxSelectionRailSide.RIGHT) fullWidth else -fullWidth
+                },
                 animationSpec = tween(150)
-            )
+            ) + fadeOut(tween(100))
         ) {
-            Column(
-                modifier = modifier
-                    .width(70.dp)
-                    .clip(railShape)
-                    .background(colors.cardElevated)
-                    .border(.8.dp, colors.cardBorder, railShape)
-                    .padding(start = 4.dp, top = 7.dp, end = 3.dp, bottom = 7.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(railSpacing)
-            ) {
-                Text(
-                    text = title,
-                    color = colors.secondaryText,
-                    fontSize = 9.sp,
-                    lineHeight = 11.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 2,
-                    modifier = Modifier.padding(horizontal = 3.dp)
-                )
-                Box(
-                    modifier = Modifier
-                        .size(33.dp)
-                        .clip(CircleShape)
-                        .background(colors.primaryAccent)
-                        .border(.8.dp, colors.cardBorder, CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "$selectedCount",
-                        color = colors.background,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.ExtraBold
+            AnimatedContent(
+                targetState = railSide,
+                transitionSpec = {
+                    val exitDirection = if (initialState == XvoxSelectionRailSide.RIGHT) 1 else -1
+                    val enterDirection = if (targetState == XvoxSelectionRailSide.RIGHT) 1 else -1
+                    (slideInHorizontally(
+                        initialOffsetX = { fullWidth -> fullWidth * enterDirection },
+                        animationSpec = tween(190, delayMillis = 150)
+                    ) + fadeIn(tween(110, delayMillis = 150))).togetherWith(
+                        slideOutHorizontally(
+                            targetOffsetX = { fullWidth -> fullWidth * exitDirection },
+                            animationSpec = tween(150)
+                        ) + fadeOut(tween(100))
                     )
+                },
+                modifier = Modifier.fillMaxSize(),
+                label = "collectionSelectionRailSide"
+            ) { side ->
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = if (side == XvoxSelectionRailSide.LEFT) {
+                        Alignment.CenterStart
+                    } else {
+                        Alignment.CenterEnd
+                    }
+                ) {
+                    Column(
+                        modifier = modifier
+                            .width(70.dp)
+                            .clip(railShape)
+                            .background(colors.cardElevated)
+                            .border(.8.dp, colors.cardBorder, railShape)
+                            .padding(start = 3.dp, top = 7.dp, end = 3.dp, bottom = 7.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(railSpacing)
+                    ) {
+                        Text(
+                            text = title,
+                            color = colors.secondaryText,
+                            fontSize = 9.sp,
+                            lineHeight = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 2,
+                            modifier = Modifier.padding(horizontal = 3.dp)
+                        )
+                        CollectionSelectionRailCountBox(selectedCount, countBoxHeight)
+                        CollectionSelectionAction(
+                            height = actionHeight,
+                            iconRes = R.drawable.ic_xvox_done_all,
+                            label = if (allSelected) "Unselect all $title" else "Select all $title",
+                            onClick = onToggleAll
+                        )
+                        actions.forEach { action ->
+                            CollectionSelectionAction(actionHeight, action.iconRes, action.label, action.onClick)
+                        }
+                        CollectionSelectionAction(actionHeight, R.drawable.ic_xvox_close, "Clear $title selection", onClear)
+                        CollectionSelectionAction(
+                            height = actionHeight,
+                            iconRes = R.drawable.ic_xvox_arrow_left,
+                            label = if (side == XvoxSelectionRailSide.RIGHT) {
+                                "Move selection rail to left"
+                            } else {
+                                "Move selection rail to right"
+                            },
+                            onClick = { railOnLeft = side == XvoxSelectionRailSide.RIGHT },
+                            mirrorIcon = side == XvoxSelectionRailSide.LEFT
+                        )
+                    }
                 }
-                CollectionSelectionAction(
-                    height = actionHeight,
-                    iconRes = R.drawable.ic_xvox_done_all,
-                    label = if (allSelected) "Unselect all $title" else "Select all $title",
-                    onClick = onToggleAll
-                )
-                actions.forEach { action ->
-                    CollectionSelectionAction(actionHeight, action.iconRes, action.label, action.onClick)
-                }
-                CollectionSelectionAction(actionHeight, R.drawable.ic_xvox_close, "Clear $title selection", onClear)
             }
         }
+    }
+}
+
+@Composable
+private fun CollectionSelectionRailCountBox(
+    count: Int,
+    height: androidx.compose.ui.unit.Dp
+) {
+    val colors = XvoxTheme.colors
+    val shape = RoundedCornerShape(10.dp)
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(height)
+            .clip(shape)
+            .background(colors.primaryAccent)
+            .border(.8.dp, colors.cardBorder, shape),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = count.toString(),
+            color = colors.background,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.ExtraBold
+        )
     }
 }
 
@@ -145,7 +209,8 @@ private fun CollectionSelectionAction(
     height: androidx.compose.ui.unit.Dp,
     iconRes: Int,
     label: String,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    mirrorIcon: Boolean = false
 ) {
     val colors = XvoxTheme.colors
     val overlays = LocalXvoxOverlayController.current
@@ -164,7 +229,9 @@ private fun CollectionSelectionAction(
             painter = painterResource(iconRes),
             contentDescription = label,
             tint = colors.primaryAccent,
-            modifier = Modifier.size(20.dp)
+            modifier = Modifier
+                .size(20.dp)
+                .graphicsLayer { scaleX = if (mirrorIcon) -1f else 1f }
         )
     }
 }

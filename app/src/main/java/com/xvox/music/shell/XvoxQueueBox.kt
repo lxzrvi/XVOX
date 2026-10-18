@@ -542,10 +542,11 @@ private fun QueueItemRow(
     ) {
         Box(
             // RowHeight is 60dp with the shared 3dp card frame: a 54dp cover reaches that
-            // frame equally on all four sides instead of leaving extra vertical air.
+            // frame equally on all four sides. Reduce 14dp by that gutter so its visible curve
+            // follows the enclosing queue card instead of looking more rounded.
             modifier = Modifier
                 .size(54.dp)
-                .clip(RoundedCornerShape(10.dp)),
+                .clip(RoundedCornerShape(11.dp)),
             contentAlignment = Alignment.Center
         ) {
             XvoxSongArtwork(

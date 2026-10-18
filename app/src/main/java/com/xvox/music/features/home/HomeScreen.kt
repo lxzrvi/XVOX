@@ -20,6 +20,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.collectAsState
@@ -44,6 +45,7 @@ import com.xvox.music.data.preferences.XvoxPlaylist
 import com.xvox.music.features.artist.ArtistInfoDialog
 import com.xvox.music.features.artist.XvoxArtist
 import com.xvox.music.features.artist.XvoxArtistGrid
+import com.xvox.music.features.home.allsongs.LocalXvoxAllSongsScrollActive
 import com.xvox.music.features.home.allsongs.XvoxMosaicPagePlan
 import com.xvox.music.features.home.allsongs.allSongsItems
 import com.xvox.music.features.home.allsongs.buildMosaicPagePlans
@@ -742,18 +744,6 @@ fun HomeScreen(
             }
 
             val currentOnScrollProgress by androidx.compose.runtime.rememberUpdatedState(onScrollProgress)
-            val cancelArtworkPrefetch by androidx.compose.runtime.rememberUpdatedState(
-                viewModel::cancelArtworkPrefetchForScroll
-            )
-            LaunchedEffect(listState) {
-                // Cancel at the first drag/fling frame, before an adjacent lazy page's artwork
-                // work can contend with the finger during the especially sensitive opening scrolls.
-                androidx.compose.runtime.snapshotFlow { listState.isScrollInProgress }
-                    .distinctUntilChanged()
-                    .collect { scrolling ->
-                        if (scrolling) cancelArtworkPrefetch()
-                    }
-            }
             LaunchedEffect(listState) {
                 // Header travel matters only until its first spacer has left the viewport. Keep
                 // that tiny range visually smooth at 2px precision, then collapse all deeper
@@ -774,7 +764,12 @@ fun HomeScreen(
                     }
             }
 
-            LazyColumn(
+            // The parent owns a direct scroll gate for All Songs. It never lowers request size or
+            // quality; it simply prevents uncached decode work from starting under an active finger.
+            CompositionLocalProvider(
+                LocalXvoxAllSongsScrollActive provides listState.isScrollInProgress
+            ) {
+                LazyColumn(
                 state = listState,
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(bottom = bottomInset)
@@ -834,8 +829,7 @@ fun HomeScreen(
                                     allSongsItems(
                                         state.songs, plans, config, currentSongId, isPlaying, allSongsSelected,
                                         onSongClick = { handleSongClick(it, state.songs, "All Songs") },
-                                        onSongLongClick = { if (isSelectionMode) handleSongLongClick(it, "All Songs") else openSingleSongOptions(it) },
-                                        onPrefetch = viewModel::prefetchFrom
+                                        onSongLongClick = { if (isSelectionMode) handleSongLongClick(it, "All Songs") else openSingleSongOptions(it) }
                                     )
                                 }
                                 HomeSections.RECENT -> recentSection()
@@ -855,6 +849,7 @@ fun HomeScreen(
                         }
                     }
                 }
+            }
             }
 
         if (!nowPlayingVisible) {

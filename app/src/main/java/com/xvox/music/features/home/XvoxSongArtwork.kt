@@ -49,6 +49,8 @@ fun XvoxSongArtwork(
     requestSize: Int = XvoxGridArtworkSize,
     contentScale: ContentScale = ContentScale.Crop,
     keepPreviousOnLoading: Boolean = false,
+    /** Active All Songs scrolling defers uncached decode; cached/full-size art remains drawable. */
+    loadArtwork: Boolean = true,
     /** The surrounding transition already rendered this decoded incoming cover at full opacity. */
     skipDecodedMorph: Boolean = false,
     /** Use the bundled default cover as a bitmap so a local blur can morph it with real covers. */
@@ -280,6 +282,16 @@ fun XvoxSongArtwork(
                 bitmapSize = requestSize,
                 brand = if (artwork == null || artworkFailed) fallbackBrand else XvoxFallbackBrand.NONE
             )
+        } else if (!loadArtwork && visibleImageBitmap == null && !artworkFailed) {
+            // During an active All Songs drag do not launch a fresh full-size decode on the cards
+            // crossing the viewport. Draw the exact supplied fallback briefly, then request the
+            // unchanged 256px/512px artwork once the finger has settled.
+            WavePatternSquare(
+                modifier = Modifier.fillMaxSize(),
+                seed = fallbackSeed ?: 11,
+                bitmapSize = requestSize,
+                brand = fallbackBrand
+            )
         } else if (visibleImageBitmap == null && keepPreviousOnLoading && !artworkFailed) {
             // Keep only a *cold real-artwork* frame transparent. A known dead endpoint must fall
             // through to the supplied default below; otherwise Now Playing can expose its card
@@ -333,7 +345,7 @@ fun XvoxSongArtwork(
 
         // Do not draw a solid loading layer above a retained full-player cover. Coil only decodes
         // the original here; controlled Compose rendering owns the visible bridge-to-original handoff.
-        if (artwork != null && decodedBitmap == null && !artworkFailed) {
+        if (loadArtwork && artwork != null && decodedBitmap == null && !artworkFailed) {
             AsyncImage(
                 model = request,
                 contentDescription = null,

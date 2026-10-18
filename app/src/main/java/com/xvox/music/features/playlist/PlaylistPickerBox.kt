@@ -324,6 +324,9 @@ fun PlaylistPickerBox(
                         val batchAlreadyIn = if (!isSingleSong) targetSongs.filter { it.id in playlist.songIds } else emptyList()
 
                         val rowShape = RoundedCornerShape(12.dp)
+                        // The cover is inset by the row's 6dp side frame; use the corresponding
+                        // inner radius so it does not appear rounder than the playlist card.
+                        val coverShape = RoundedCornerShape(6.dp)
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -357,10 +360,10 @@ fun PlaylistPickerBox(
                                 coverSongIds = playlist.coverSongIds,
                                 customCoverUri = playlist.customCoverUri,
                                 requestSize = 96,
-                                coverShape = rowShape,
+                                coverShape = coverShape,
                                 modifier = Modifier
                                     .size(44.dp)
-                                    .clip(rowShape)
+                                    .clip(coverShape)
                             )
 
                             Column(

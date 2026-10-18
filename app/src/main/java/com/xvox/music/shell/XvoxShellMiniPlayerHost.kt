@@ -5,6 +5,9 @@ package com.xvox.music.shell
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -34,6 +37,8 @@ import com.xvox.music.core.ui.miniplayer.XvoxMiniPlayerPlacement
 @Composable
 fun BoxScope.XvoxShellMiniPlayerHost(
     visible: Boolean,
+    /** Settings owns a delayed, visibly downward route handoff instead of keeping this card. */
+    settingsExit: Boolean = false,
     currentSongId: Long?,
     queue: List<Song>,
     currentIndex: Int,
@@ -54,6 +59,9 @@ fun BoxScope.XvoxShellMiniPlayerHost(
     onOpenMiniPlayerSettings: () -> Unit = {},
     navigationBarHeight: Dp = 62.dp
 ) {
+    // Let the incoming Settings page become visible before the card descends, so the card reads
+    // as part of that route handoff rather than disappearing before Settings has opened.
+    val settingsExitExtraPx = with(LocalDensity.current) { 18.dp.roundToPx() }
     var quickActionsVisible by remember(currentSongId) { mutableStateOf(false) }
     LaunchedEffect(visible) {
         if (!visible) quickActionsVisible = false
@@ -69,10 +77,17 @@ fun BoxScope.XvoxShellMiniPlayerHost(
     }
     AnimatedVisibility(
         visible = visible,
-        // Route changes never dismiss the Mini Player. Playback/Now Playing keeps its separate
-        // sequential handoff, while Home, Search, and Settings share this one persistent host.
+        // Home/Search stay mounted. Settings is the one deliberate route exit and begins only
+        // after its page has started to enter; Now Playing keeps its separate handoff lifecycle.
         enter = EnterTransition.None,
-        exit = ExitTransition.None,
+        exit = if (settingsExit) {
+            slideOutVertically(
+                targetOffsetY = { fullHeight -> fullHeight + settingsExitExtraPx },
+                animationSpec = tween(260, delayMillis = 72)
+            ) + fadeOut(tween(150, delayMillis = 72))
+        } else {
+            ExitTransition.None
+        },
         // The shell paints the navbar after this host. Keep the card at the natural layer so its
         // complete arrival/departure passes behind the navbar pill instead of over that surface.
         modifier = Modifier

@@ -133,6 +133,9 @@ fun XvoxAddPlaylistSongsBox(
                     val isSelected = song.id in selectedSongIds
 
                     val rowShape = RoundedCornerShape(12.dp)
+                    // This row has an 8dp horizontal frame, so its cover needs a tighter inner
+                    // radius to follow—not exceed—the row's 12dp outer curve.
+                    val artworkShape = RoundedCornerShape(4.dp)
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -155,7 +158,7 @@ fun XvoxAddPlaylistSongsBox(
                             artwork = song.artworkUri,
                             fallbackSeed = song.id.hashCode(),
                             requestSize = 96,
-                            modifier = Modifier.size(42.dp).clip(rowShape)
+                            modifier = Modifier.size(42.dp).clip(artworkShape)
                         )
 
                         Column(

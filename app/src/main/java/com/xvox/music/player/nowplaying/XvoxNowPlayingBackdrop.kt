@@ -13,9 +13,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Brush
@@ -28,9 +26,10 @@ import com.xvox.music.features.home.XvoxNowPlayingArtworkSize
 import com.xvox.music.features.home.XvoxSongArtwork
 
 /**
- * Now Playing's adaptive canvas plus its optional local Cover background. The two artwork inputs
- * are supplied by the pager, so foreground cover, blurred background, palette, and lyric canvas
- * all travel on one live timeline. This is intentionally local to Now Playing—not a global blur.
+ * Now Playing's adaptive canvas plus its optional local Cover background. The blur is deliberately
+ * committed from the audible song only: the swipe pager may preview/reverse independently, but it
+ * never gets a second blurred-cover layer that could flash the opposite song. This stays local to
+ * Now Playing—not a global blur.
  */
 @Composable
 fun XvoxNowPlayingBackdrop(
@@ -39,12 +38,6 @@ fun XvoxNowPlayingBackdrop(
     /** Song identity remains non-null even when [artwork] is null, preserving stable handoff keys. */
     artworkKey: String,
     artworkSeed: Int,
-    incomingArtwork: Uri? = null,
-    incomingArtworkKey: String? = null,
-    incomingArtworkSeed: Int = 11,
-    artworkTransitionFraction: Float = 0f,
-    /** A pager endpoint that was already painted at full opacity before the persistent slot updates. */
-    alreadyPresentedArtworkKey: String? = null,
     style: String = XvoxNowPlayingBackgroundStyles.DEFAULT,
     coverBlur: Float = 24f,
     isCoverTransitionInProgress: Boolean = false,
@@ -78,46 +71,6 @@ fun XvoxNowPlayingBackdrop(
         label = "nowPlayingCoverBackgroundAlpha"
     )
     val keepCoverLayer = showCoverTarget || coverLayerAlpha > .001f
-    val fraction = artworkTransitionFraction.coerceIn(0f, 1f)
-    // Incoming identity—not URI—defines a transition. This preserves a stable fallback handoff
-    // between coverless songs and avoids treating a shared URI as a new visual identity.
-    val pagerArtworkTransition = showCoverTarget && incomingArtworkKey != null &&
-        incomingArtworkKey != artworkKey && fraction > .0001f
-
-    // An incoming layer is never allowed to take over before it is drawable. A decoded bitmap,
-    // error fallback, or no-cover default art reports readiness; the outgoing cover stays visible until
-    // then, eliminating blank/glitch frames during swipes and lyrics navigation.
-    var readyArtworkKeys by remember { mutableStateOf(emptySet<String>()) }
-    fun markArtworkReady(key: String?) {
-        key ?: return
-        if (key !in readyArtworkKeys) readyArtworkKeys = readyArtworkKeys + key
-    }
-    // Null artwork also waits for its bundled default-cover bitmap. That lets a real cover ↔
-    // no-cover handoff blend rather than revealing the local surface for a frame.
-    val incomingAvailable = incomingArtworkKey != null && incomingArtworkKey in readyArtworkKeys
-    val incomingAvailability = remember(incomingArtworkKey) { Animatable(0f) }
-    LaunchedEffect(incomingArtworkKey, pagerArtworkTransition, incomingAvailable) {
-        when {
-            !pagerArtworkTransition -> incomingAvailability.snapTo(0f)
-            !incomingAvailable -> incomingAvailability.snapTo(0f)
-            else -> {
-                // Once drawable, bind the background directly to the pager fraction. The previous
-                // delayed release ramp left a 0.5–0.9 layer behind a button Next/Previous motion,
-                // then jumped to the settled primary cover on the final frame.
-                incomingAvailability.snapTo(1f)
-            }
-        }
-    }
-    val displayedIncomingFraction = if (pagerArtworkTransition) {
-        fraction * incomingAvailability.value
-    } else {
-        0f
-    }
-    // The pager state holder records a completed endpoint synchronously between its moving and
-    // settled emissions. This avoids the former post-composition SideEffect race where a Next or
-    // Previous settle could briefly replay the opposite background before the primary slot caught up.
-    val primaryAlreadyShownByPager = !pagerArtworkTransition &&
-        artworkKey == alreadyPresentedArtworkKey
 
     Box(
         modifier = modifier
@@ -125,33 +78,16 @@ fun XvoxNowPlayingBackdrop(
             .background(displayed.value)
     ) {
         if (keepCoverLayer) {
-            // Keep one persistent primary slot in composition. XvoxSongArtwork retains/morphs a
-            // decoded outgoing bitmap (or bundled fallback) while the settled/lyrics song changes.
-            PremiumBlurredCover(
-                artwork = artwork,
-                fallbackSeed = artworkSeed,
-                skipDecodedMorph = primaryAlreadyShownByPager,
-                // Once an endpoint was already painted by the pager, a new source must use its
-                // supplied fallback/original rather than retaining the previous song beneath it.
-                retainPreviousOnLoading = !primaryAlreadyShownByPager,
-                blur = coverBlur,
-                alpha = coverLayerAlpha * (1f - displayedIncomingFraction),
-                onReady = { markArtworkReady(artworkKey) }
-            )
-            if (pagerArtworkTransition) {
-                // Give every incoming occurrence its own composition identity and never retain a
-                // former incoming bitmap. A rapid Next ↔ Previous reversal can therefore show only
-                // this target (or its supplied fallback), never the opposite song's blurred cover.
-                key(incomingArtworkKey) {
-                    PremiumBlurredCover(
-                        artwork = incomingArtwork,
-                        fallbackSeed = incomingArtworkSeed,
-                        retainPreviousOnLoading = false,
-                        blur = coverBlur,
-                        alpha = coverLayerAlpha * displayedIncomingFraction,
-                        onReady = { markArtworkReady(incomingArtworkKey) }
-                    )
-                }
+            // Exactly one blur slot exists. It is keyed by the committed artwork identity and does
+            // not retain an older bitmap on a song change: a resolving target paints its supplied
+            // fallback instead of ever replaying an adjacent swipe preview behind the player.
+            key(artworkKey) {
+                PremiumBlurredCover(
+                    artwork = artwork,
+                    fallbackSeed = artworkSeed,
+                    blur = coverBlur,
+                    alpha = coverLayerAlpha
+                )
             }
             // A gentle tonal veil removes noisy blur artifacts and keeps controls readable while
             // retaining actual cover/wave colour—not an opaque unrelated replacement surface.
@@ -176,24 +112,18 @@ fun XvoxNowPlayingBackdrop(
 private fun PremiumBlurredCover(
     artwork: Uri?,
     fallbackSeed: Int,
-    skipDecodedMorph: Boolean = false,
-    /** Incoming pager layers must never reuse a previous target's bitmap. */
-    retainPreviousOnLoading: Boolean = true,
     blur: Float,
-    alpha: Float,
-    onReady: (() -> Unit)? = null
+    alpha: Float
 ) {
     XvoxSongArtwork(
         artwork = artwork,
         requestSize = XvoxNowPlayingArtworkSize,
         contentScale = ContentScale.Crop,
-        // The persistent primary may bridge a normal controlled change. Incoming pager slots and
-        // already-presented endpoints deliberately opt out so an old target cannot flicker back.
-        keepPreviousOnLoading = retainPreviousOnLoading,
-        skipDecodedMorph = skipDecodedMorph,
+        // Never retain an earlier song in this committed blur slot. The exact supplied fallback
+        // is safer and more truthful than a stale next/previous cover while decoding completes.
+        keepPreviousOnLoading = false,
         renderFallbackAsBitmap = true,
         fallbackSeed = fallbackSeed,
-        onArtworkReady = onReady,
         modifier = Modifier
             .fillMaxSize()
             // Overscan eliminates exposed hard edges as the local blur samples its boundaries.

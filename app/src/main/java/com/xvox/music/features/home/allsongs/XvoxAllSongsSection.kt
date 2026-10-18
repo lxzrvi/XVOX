@@ -16,10 +16,7 @@ import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
 import com.xvox.music.features.home.HomePresentation
-import com.xvox.music.features.home.XvoxGridArtworkSize
 import com.xvox.music.features.home.XvoxHomeSectionHeading
-import com.xvox.music.features.home.XvoxRecentArtworkSize
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlin.math.roundToInt
 
 @Composable
@@ -30,30 +27,11 @@ fun AllSongsHeader(total: Int, selectedCount: Int = 0) {
     )
 }
 
-/** Match the exact card request used by a page; prefetching never substitutes a smaller bitmap. */
-private fun allSongsPageArtworkRequestSize(
-    songs: List<Song>,
-    plan: XvoxMosaicPagePlan,
-    config: HomePresentation,
-    compact: Boolean,
-    columns: Int
-): Int {
-    if (config.style == "uniform") return XvoxGridArtworkSize
-    val page = buildMosaicPage(
-        songs = songs,
-        plan = plan,
-        rows = config.rows,
-        isUniform = false,
-        mosaicOne = config.style == "mosaic1",
-        fillRows = !compact,
-        cols = columns
-    )
-    return if (page.tiles.any { it.width != 1f || it.height != 1f }) {
-        XvoxRecentArtworkSize
-    } else {
-        XvoxGridArtworkSize
-    }
-}
+/**
+ * While the All Songs parent is moving, uncached card artwork defers its exact-size request. This
+ * protects the finger from decoder work; cached/full-size images still render immediately.
+ */
+val LocalXvoxAllSongsScrollActive = staticCompositionLocalOf { false }
 
 /** Emit separate lazy pages instead of composing the entire library inside one LazyColumn item. */
 fun LazyListScope.allSongsItems(
@@ -64,29 +42,11 @@ fun LazyListScope.allSongsItems(
     isPlaying: Boolean,
     selectedSongIds: Set<Long>,
     onSongClick: (Song) -> Unit,
-    onSongLongClick: (Song) -> Unit,
-    onPrefetch: (startIndex: Int, count: Int, requestSize: Int) -> Unit
+    onSongLongClick: (Song) -> Unit
 ) {
     item(key = "all_header", contentType = "all_header") {
-        val firstPlan = plans.firstOrNull()
-        val firstLandscape = LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
-        val firstColumns = config.columnsFor(firstLandscape)
-        val initialRequestSize = remember(firstPlan, songs, config, firstColumns) {
-            firstPlan?.let { plan ->
-                allSongsPageArtworkRequestSize(
-                    songs = songs,
-                    plan = plan,
-                    config = config,
-                    compact = config.direction != "horizontal",
-                    columns = firstColumns
-                )
-            } ?: XvoxGridArtworkSize
-        }
-        LaunchedEffect(firstPlan?.startIndex, firstPlan?.songCount, initialRequestSize) {
-            firstPlan?.let { plan ->
-                onPrefetch(plan.startIndex, plan.songCount, initialRequestSize)
-            }
-        }
+        // Visible cards keep their exact 256px/512px requests. Avoid a speculative decoder batch
+        // here so opening All Songs leaves the first real drag entirely free of image contention.
         AllSongsHeader(songs.size, selectedSongIds.size)
     }
 
@@ -103,41 +63,17 @@ fun LazyListScope.allSongsItems(
         item(key = "all_horizontal", contentType = "mosaic_pager") {
             HorizontalSongPages(
                 songs, plans, config, currentSongId, isPlaying, selectedSongIds,
-                onSongClick, onSongLongClick, onPrefetch
+                onSongClick, onSongLongClick
             )
         }
     } else {
-        // Vertical pages are composed just ahead of the viewport. Use that visibility signal to
-        // warm only the following page at the exact 256px grid quality, avoiding decode stalls
-        // without lowering artwork resolution or preloading an unbounded library.
+        // Pages may compose ahead of the viewport, but they never launch speculative decoding.
+        // Exact-sized artwork loads only for settled visible cards, keeping a fast fling smooth.
         itemsIndexed(
             plans,
             key = { _, plan -> "all_page_${plan.startIndex}" },
             contentType = { _, _ -> "mosaic_page" }
-        ) { pageIndex, plan ->
-            val nextPlan = plans.getOrNull(pageIndex + 1)
-            val nextLandscape = LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
-            val nextColumns = config.columnsFor(nextLandscape)
-            val nextRequestSize = remember(nextPlan, songs, config, nextColumns) {
-                nextPlan?.let { candidate ->
-                    allSongsPageArtworkRequestSize(
-                        songs = songs,
-                        plan = candidate,
-                        config = config,
-                        compact = true,
-                        columns = nextColumns
-                    )
-                } ?: XvoxGridArtworkSize
-            }
-            // Warm only the immediately upcoming page. A wider full-quality decode queue was
-            // competing with a fast fling for CPU/heap work; one exact page keeps the next cards
-            // warm without making the current All Songs scroll lag behind the finger.
-            val nextWindowCount = remember(nextPlan) { nextPlan?.songCount ?: 0 }
-            LaunchedEffect(nextPlan?.startIndex, nextWindowCount, nextRequestSize) {
-                nextPlan?.let { candidate ->
-                    onPrefetch(candidate.startIndex, nextWindowCount.coerceAtLeast(candidate.songCount), nextRequestSize)
-                }
-            }
+        ) { _, plan ->
             XvoxSongGridPage(
                 songs, plan, config, currentSongId, isPlaying, selectedSongIds,
                 onSongClick, onSongLongClick, compact = true,
@@ -159,31 +95,11 @@ fun HorizontalSongPages(
     selectedSongIds: Set<Long>,
     onSongClick: (Song) -> Unit,
     onSongLongClick: (Song) -> Unit,
-    onPrefetch: (startIndex: Int, count: Int, requestSize: Int) -> Unit = { _, _, _ -> },
     modifier: Modifier = Modifier
 ) {
     val state = rememberLazyListState()
-    val prefetch by rememberUpdatedState(onPrefetch)
     val isLandscape = LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
     val columns = config.columnsFor(isLandscape)
-    // A horizontal page can be taller than the viewport. Use the page's actual decode class so
-    // its first visible covers come from cache at full requested resolution.
-    val horizontalPrefetchSize = if (config.style == "uniform") XvoxGridArtworkSize else XvoxRecentArtworkSize
-
-    LaunchedEffect(plans, horizontalPrefetchSize) {
-        // Warm the page immediately after the trailing visible page, rather than waiting until it
-        // becomes the first page. That keeps a fast horizontal fling decode-free at the exact
-        // 256px card quality the grid renders.
-        snapshotFlow { state.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1 }
-            .distinctUntilChanged()
-            .collect { lastVisible ->
-                plans.getOrNull(lastVisible + 1)?.let { next ->
-                    // Keep one exact next page hot without running several full-quality decode
-                    // batches alongside a horizontal fling.
-                    prefetch(next.startIndex, next.songCount, horizontalPrefetchSize)
-                }
-            }
-    }
 
     BoxWithConstraints(modifier.fillMaxWidth()) {
         val rows = remember(songs.size, config.rows, config.style) {
