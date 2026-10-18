@@ -5,9 +5,6 @@ package com.xvox.music.shell
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -37,8 +34,6 @@ import com.xvox.music.core.ui.miniplayer.XvoxMiniPlayerPlacement
 @Composable
 fun BoxScope.XvoxShellMiniPlayerHost(
     visible: Boolean,
-    /** Only the Settings route gets the visible downward shell handoff. */
-    settingsExit: Boolean = false,
     currentSongId: Long?,
     queue: List<Song>,
     currentIndex: Int,
@@ -59,7 +54,6 @@ fun BoxScope.XvoxShellMiniPlayerHost(
     onOpenMiniPlayerSettings: () -> Unit = {},
     navigationBarHeight: Dp = 62.dp
 ) {
-    val settingsExitExtraPx = with(LocalDensity.current) { 18.dp.roundToPx() }
     var quickActionsVisible by remember(currentSongId) { mutableStateOf(false) }
     LaunchedEffect(visible) {
         if (!visible) quickActionsVisible = false
@@ -75,17 +69,10 @@ fun BoxScope.XvoxShellMiniPlayerHost(
     }
     AnimatedVisibility(
         visible = visible,
-        // Playback/Now Playing continues to use the Mini Player's own sequential handoff. Only
-        // Settings receives a shell-level downward exit so users can actually see it leave.
+        // Route changes never dismiss the Mini Player. Playback/Now Playing keeps its separate
+        // sequential handoff, while Home, Search, and Settings share this one persistent host.
         enter = EnterTransition.None,
-        exit = if (settingsExit) {
-            slideOutVertically(
-                targetOffsetY = { fullHeight -> fullHeight + settingsExitExtraPx },
-                animationSpec = tween(260)
-            ) + fadeOut(tween(150))
-        } else {
-            ExitTransition.None
-        },
+        exit = ExitTransition.None,
         // The shell paints the navbar after this host. Keep the card at the natural layer so its
         // complete arrival/departure passes behind the navbar pill instead of over that surface.
         modifier = Modifier

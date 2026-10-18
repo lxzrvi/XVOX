@@ -150,7 +150,7 @@ fun XvoxSongArtwork(
     // Original-quality adjacent pages can be composed a frame before the preloader completes.
     // Listen only for that narrow full-player case so the cache write becomes a visible bridge on
     // the first swipe rather than leaving a one-frame fallback flicker.
-    if (keepPreviousOnLoading && requestSize == 0 && artwork != null && decodedBitmap == null) {
+    if (requestSize == 0 && artwork != null && decodedBitmap == null) {
         val artworkCacheRevision by XvoxArtworkCache.revision.collectAsState()
         LaunchedEffect(cacheKey, artworkCacheRevision) {
             // A same-cover 256/512 bridge is already a real drawable for the local Now Playing

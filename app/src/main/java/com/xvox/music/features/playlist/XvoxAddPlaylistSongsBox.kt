@@ -132,10 +132,11 @@ fun XvoxAddPlaylistSongsBox(
                 items(availableSongs, key = { it.id }) { song ->
                     val isSelected = song.id in selectedSongIds
 
+                    val rowShape = RoundedCornerShape(12.dp)
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
+                            .clip(rowShape)
                             .background(if (isSelected) colors.card.copy(alpha = 0.95f) else Color.Transparent)
                             .clickable(
                                 interactionSource = remember { MutableInteractionSource() },
@@ -154,7 +155,7 @@ fun XvoxAddPlaylistSongsBox(
                             artwork = song.artworkUri,
                             fallbackSeed = song.id.hashCode(),
                             requestSize = 96,
-                            modifier = Modifier.size(42.dp).clip(RoundedCornerShape(8.dp))
+                            modifier = Modifier.size(42.dp).clip(rowShape)
                         )
 
                         Column(

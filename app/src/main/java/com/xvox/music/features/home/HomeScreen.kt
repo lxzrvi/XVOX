@@ -742,6 +742,18 @@ fun HomeScreen(
             }
 
             val currentOnScrollProgress by androidx.compose.runtime.rememberUpdatedState(onScrollProgress)
+            val cancelArtworkPrefetch by androidx.compose.runtime.rememberUpdatedState(
+                viewModel::cancelArtworkPrefetchForScroll
+            )
+            LaunchedEffect(listState) {
+                // Cancel at the first drag/fling frame, before an adjacent lazy page's artwork
+                // work can contend with the finger during the especially sensitive opening scrolls.
+                androidx.compose.runtime.snapshotFlow { listState.isScrollInProgress }
+                    .distinctUntilChanged()
+                    .collect { scrolling ->
+                        if (scrolling) cancelArtworkPrefetch()
+                    }
+            }
             LaunchedEffect(listState) {
                 // Header travel matters only until its first spacer has left the viewport. Keep
                 // that tiny range visually smooth at 2px precision, then collapse all deeper

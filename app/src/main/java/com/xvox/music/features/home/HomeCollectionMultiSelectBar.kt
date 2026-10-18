@@ -6,6 +6,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -94,7 +95,8 @@ fun HomeCollectionMultiSelectBar(
                     .width(70.dp)
                     .clip(railShape)
                     .background(colors.cardElevated)
-                    .padding(start = 7.dp, top = 8.dp, end = 2.dp, bottom = 8.dp),
+                    .border(.8.dp, colors.cardBorder, railShape)
+                    .padding(start = 4.dp, top = 7.dp, end = 3.dp, bottom = 7.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(railSpacing)
             ) {
@@ -111,7 +113,8 @@ fun HomeCollectionMultiSelectBar(
                     modifier = Modifier
                         .size(33.dp)
                         .clip(CircleShape)
-                        .background(colors.primaryAccent),
+                        .background(colors.primaryAccent)
+                        .border(.8.dp, colors.cardBorder, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
@@ -146,11 +149,14 @@ private fun CollectionSelectionAction(
 ) {
     val colors = XvoxTheme.colors
     val overlays = LocalXvoxOverlayController.current
+    val actionShape = RoundedCornerShape(10.dp)
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(height)
-            .clip(RoundedCornerShape(12.dp))
+            .clip(actionShape)
+            .background(colors.background.copy(alpha = .72f))
+            .border(.8.dp, colors.cardBorder.copy(alpha = .88f), actionShape)
             .combinedClickable(onClick = onClick, onLongClick = { overlays.showP(label) }),
         contentAlignment = Alignment.Center
     ) {

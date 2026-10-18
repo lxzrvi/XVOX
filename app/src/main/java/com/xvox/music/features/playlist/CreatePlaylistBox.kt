@@ -186,10 +186,11 @@ fun CreatePlaylistBox(
         ) {
             items(items = displaySongs, key = { "create_pl_${it.id}" }) { song ->
                 val checked = song.id in selected
+                val rowShape = RoundedCornerShape(10.dp)
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(10.dp))
+                        .clip(rowShape)
                         .clickable {
                             if (checked) selected.remove(song.id) else selected.add(song.id)
                         }
@@ -202,7 +203,7 @@ fun CreatePlaylistBox(
                         requestSize = 96,
                         modifier = Modifier
                             .size(38.dp)
-                            .clip(RoundedCornerShape(8.dp))
+                            .clip(rowShape)
                     )
 
                     Column(

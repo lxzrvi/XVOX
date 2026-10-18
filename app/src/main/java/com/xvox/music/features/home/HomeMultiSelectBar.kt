@@ -7,6 +7,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -107,11 +108,12 @@ fun HomeMultiSelectBar(
             Column(
                 modifier = modifier
                     .width(70.dp)
-                    // This rail is deliberately borderless and its square right edge meets the
-                    // window edge directly; only the left corners carry the selection surface.
+                    // Keep the selection rail compact against the edge, but give the rail and
+                    // every action a real outlined box so icons never float without a surface.
                     .clip(railShape)
                     .background(railSurface)
-                    .padding(start = 7.dp, top = 8.dp, end = 2.dp, bottom = 8.dp),
+                    .border(.8.dp, colors.cardBorder, railShape)
+                    .padding(start = 4.dp, top = 7.dp, end = 3.dp, bottom = 7.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(railSpacing)
             ) {
@@ -128,7 +130,8 @@ fun HomeMultiSelectBar(
                     modifier = Modifier
                         .size(33.dp)
                         .clip(CircleShape)
-                        .background(colors.primaryAccent),
+                        .background(colors.primaryAccent)
+                        .border(.8.dp, colors.cardBorder, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
@@ -215,11 +218,14 @@ private fun MultiActionItem(
 ) {
     val colors = XvoxTheme.colors
     val overlays = LocalXvoxOverlayController.current
+    val actionShape = RoundedCornerShape(10.dp)
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(height)
-            .clip(RoundedCornerShape(12.dp))
+            .clip(actionShape)
+            .background(colors.background.copy(alpha = .72f))
+            .border(.8.dp, colors.cardBorder.copy(alpha = .88f), actionShape)
             .combinedClickable(
                 onClick = onClick,
                 onLongClick = { overlays.showP(label) }

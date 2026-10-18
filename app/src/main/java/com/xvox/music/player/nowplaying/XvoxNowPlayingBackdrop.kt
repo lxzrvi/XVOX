@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -130,21 +131,27 @@ fun XvoxNowPlayingBackdrop(
                 artwork = artwork,
                 fallbackSeed = artworkSeed,
                 skipDecodedMorph = primaryAlreadyShownByPager,
+                // Once an endpoint was already painted by the pager, a new source must use its
+                // supplied fallback/original rather than retaining the previous song beneath it.
+                retainPreviousOnLoading = !primaryAlreadyShownByPager,
                 blur = coverBlur,
                 alpha = coverLayerAlpha * (1f - displayedIncomingFraction),
                 onReady = { markArtworkReady(artworkKey) }
             )
             if (pagerArtworkTransition) {
-                // The incoming layer uses the same progress as the foreground cover. Its identity
-                // remains stable across Pager.currentPage's midpoint hand-off, so roles cannot
-                // swap and flash halfway through a finger drag.
-                PremiumBlurredCover(
-                    artwork = incomingArtwork,
-                    fallbackSeed = incomingArtworkSeed,
-                    blur = coverBlur,
-                    alpha = coverLayerAlpha * displayedIncomingFraction,
-                    onReady = { markArtworkReady(incomingArtworkKey) }
-                )
+                // Give every incoming occurrence its own composition identity and never retain a
+                // former incoming bitmap. A rapid Next ↔ Previous reversal can therefore show only
+                // this target (or its supplied fallback), never the opposite song's blurred cover.
+                key(incomingArtworkKey) {
+                    PremiumBlurredCover(
+                        artwork = incomingArtwork,
+                        fallbackSeed = incomingArtworkSeed,
+                        retainPreviousOnLoading = false,
+                        blur = coverBlur,
+                        alpha = coverLayerAlpha * displayedIncomingFraction,
+                        onReady = { markArtworkReady(incomingArtworkKey) }
+                    )
+                }
             }
             // A gentle tonal veil removes noisy blur artifacts and keeps controls readable while
             // retaining actual cover/wave colour—not an opaque unrelated replacement surface.
@@ -170,6 +177,8 @@ private fun PremiumBlurredCover(
     artwork: Uri?,
     fallbackSeed: Int,
     skipDecodedMorph: Boolean = false,
+    /** Incoming pager layers must never reuse a previous target's bitmap. */
+    retainPreviousOnLoading: Boolean = true,
     blur: Float,
     alpha: Float,
     onReady: (() -> Unit)? = null
@@ -178,11 +187,9 @@ private fun PremiumBlurredCover(
         artwork = artwork,
         requestSize = XvoxNowPlayingArtworkSize,
         contentScale = ContentScale.Crop,
-        // During a live pager blend, retain decoded art so the two local blur layers crossfade.
-        // Once the pager endpoint has already been presented, do not retain the old primary image
-        // while the new source resolves: the supplied fallback is safer than briefly replaying the
-        // opposite song's artwork at the beginning/end of a rapid Next or Previous handoff.
-        keepPreviousOnLoading = !skipDecodedMorph,
+        // The persistent primary may bridge a normal controlled change. Incoming pager slots and
+        // already-presented endpoints deliberately opt out so an old target cannot flicker back.
+        keepPreviousOnLoading = retainPreviousOnLoading,
         skipDecodedMorph = skipDecodedMorph,
         renderFallbackAsBitmap = true,
         fallbackSeed = fallbackSeed,

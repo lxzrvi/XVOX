@@ -128,7 +128,7 @@ fun SongOptionsBox(
             Box(
                 modifier = Modifier
                     .size(68.dp)
-                    .clip(RoundedCornerShape(12.dp)),
+                    .clip(identityShape),
                 contentAlignment = Alignment.Center
             ) {
                 XvoxSongArtwork(

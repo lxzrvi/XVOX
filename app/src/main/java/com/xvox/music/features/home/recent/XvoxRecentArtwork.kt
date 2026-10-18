@@ -117,7 +117,9 @@ fun XvoxRecentArtwork(
             label = "recentPlayingBadgeProgress"
         )
         val badgeShape = RoundedCornerShape(percent = 50)
-        val badgeWidth = 30.dp + 40.dp * badgeProgress
+        // 64dp is the circle plus the measured Playing lane and a normal 7dp tail—not a spare
+        // empty capsule segment after the word.
+        val badgeWidth = 30.dp + 34.dp * badgeProgress
         // Delay label visibility until there is real room for it. The physical pill outline is
         // already rounded throughout the whole expansion, so its right edge never appears flat or
         // clipped while a circle turns into the Playing capsule.

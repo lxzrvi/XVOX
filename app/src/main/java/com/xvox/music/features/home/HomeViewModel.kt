@@ -246,7 +246,9 @@ class HomeViewModel(
                 val firstPaintSongs = result.first
                 startupWarmJob?.cancel()
                 startupWarmJob = viewModelScope.launch {
-                    delay(700)
+                    // Keep opening touch/scroll work entirely clear before any speculative
+                    // decode begins; the first real viewport request can still cancel this.
+                    delay(1200)
                     // Do not spend post-startup decode time on a list that has already been
                     // replaced by a filter/refresh change before its quiet frame arrived.
                     if (_state.value.songs === firstPaintSongs) {
@@ -505,6 +507,16 @@ class HomeViewModel(
         viewModelScope.launch { preferencesRepository.recordRecentSong(song.id, source) }
     }
 
+    /** Called from the first Home scroll frame so speculative decoding never competes with touch. */
+    fun cancelArtworkPrefetchForScroll() {
+        startupWarmJob?.cancel()
+        startupWarmJob = null
+        pendingPrefetch = null
+        prefetchJob?.cancel()
+        prefetchJob = null
+        activePrefetch = null
+    }
+
     fun prefetchFrom(
         sourceIndex: Int,
         count: Int = 12,
@@ -539,7 +551,7 @@ class HomeViewModel(
             // Wait for a genuine quiet point after a fling. This keeps full-resolution decode
             // work completely off the active scroll path instead of only cancelling it after it
             // has already contended with the UI thread and visible artwork.
-            delay(650)
+            delay(900)
             val next = pendingPrefetch ?: return@launch
             pendingPrefetch = null
             activePrefetch = next

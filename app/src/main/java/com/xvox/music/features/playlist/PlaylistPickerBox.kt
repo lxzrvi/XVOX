@@ -323,10 +323,11 @@ fun PlaylistPickerBox(
                         val singleContains = isSingleSong && singleSong != null && singleSong.id in playlist.songIds
                         val batchAlreadyIn = if (!isSingleSong) targetSongs.filter { it.id in playlist.songIds } else emptyList()
 
+                        val rowShape = RoundedCornerShape(12.dp)
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
+                                .clip(rowShape)
                                 .clickable {
                                     haptics.tap()
                                     if (isSingleSong) {
@@ -356,10 +357,10 @@ fun PlaylistPickerBox(
                                 coverSongIds = playlist.coverSongIds,
                                 customCoverUri = playlist.customCoverUri,
                                 requestSize = 96,
-                                coverShape = RoundedCornerShape(8.dp),
+                                coverShape = rowShape,
                                 modifier = Modifier
                                     .size(44.dp)
-                                    .clip(RoundedCornerShape(8.dp))
+                                    .clip(rowShape)
                             )
 
                             Column(
