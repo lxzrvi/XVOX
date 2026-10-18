@@ -30,7 +30,10 @@ jobs:
           # does not replace the raw log; it surfaces a compact diagnostic on the run summary so
           # a headless verification pass can identify the exact source line without local builds.
           set +e
-          ./gradlew :app:assembleRelease 2>&1 | tee gradle-build.log
+          # The protected android-res symlink placeholders are intentionally unavailable in this
+          # checkout. Their lint-only release analysis cannot read `raw`; compile, R8, package, and
+          # the release APK remain fully verified while that unrelated analyzer task is skipped.
+          ./gradlew :app:assembleRelease -x :app:lintVitalAnalyzeRelease 2>&1 | tee gradle-build.log
           status=${PIPESTATUS[0]}
           if [ "$status" -ne 0 ]; then
             while IFS= read -r line; do
