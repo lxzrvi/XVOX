@@ -66,7 +66,7 @@ fun SearchSongCard(
                 requestSize = 112,
                 modifier = Modifier
                     .size(52.dp)
-                    .clip(RoundedCornerShape(9.dp))
+                    .clip(shape)
             )
 
             Spacer(Modifier.size(10.dp))

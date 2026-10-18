@@ -1,47 +1,34 @@
 package com.xvox.music.features.home.recent
 
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.animation.animateContentSize
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.xvox.music.R
 import com.xvox.music.core.model.Song
 import com.xvox.music.core.ui.effects.xvoxSongPress
 import com.xvox.music.features.home.PlaybackIcon
@@ -120,58 +107,67 @@ fun XvoxRecentArtwork(
             )
         }
 
-        // A true content-sized shape morph: the resting 30dp circle grows only as wide as the
-        // pause icon plus "Playing" requires. There is no hard-coded spare capsule space.
+        // One interruptible progress owns both width and icon state. Unlike nested
+        // AnimatedVisibility/AnimatedContent transitions, rapid song changes retarget the old
+        // badge back to a circle and the new badge to a pill without retaining stale exit nodes.
         val playbackActive = current && playing
-        Row(
+        val badgeProgress by animateFloatAsState(
+            targetValue = if (playbackActive) 1f else 0f,
+            animationSpec = tween(220, easing = FastOutSlowInEasing),
+            label = "recentPlayingBadgeProgress"
+        )
+        val badgeShape = RoundedCornerShape(percent = 50)
+        val badgeWidth = 30.dp + 40.dp * badgeProgress
+        // Delay label visibility until there is real room for it. The physical pill outline is
+        // already rounded throughout the whole expansion, so its right edge never appears flat or
+        // clipped while a circle turns into the Playing capsule.
+        val labelAlpha = ((badgeProgress - .18f) / .82f).coerceIn(0f, 1f)
+
+        Box(
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .padding(9.dp)
+                .width(badgeWidth)
                 .height(30.dp)
-                .wrapContentWidth()
-                .animateContentSize(animationSpec = tween(240, easing = androidx.compose.animation.core.FastOutSlowInEasing))
-                .clip(CircleShape)
-                .background(Color.Black.copy(alpha = if (playbackActive) 0.68f else 0.52f))
-                .padding(horizontal = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            // Keep the icon anchored at the original circle centre/left inset. The text alone
-            // enters from the newly created right edge as that same capsule grows.
-            horizontalArrangement = Arrangement.Start
+                .clip(badgeShape)
+                .background(Color.Black.copy(alpha = .52f + .16f * badgeProgress))
         ) {
-            AnimatedContent(
-                targetState = playbackActive,
-                transitionSpec = {
-                    (fadeIn(tween(130)) + scaleIn(initialScale = .88f, animationSpec = tween(150)))
-                        .togetherWith(fadeOut(tween(110)) + scaleOut(targetScale = .88f, animationSpec = tween(120)))
-                },
-                label = "recentPlayPauseMorph"
-            ) { active ->
-                PlaybackIcon(
-                    type = if (active) PlaybackIconType.PAUSE else PlaybackIconType.PLAY,
-                    color = Color.White,
-                    modifier = Modifier.size(14.dp)
-                )
-            }
-            AnimatedVisibility(
-                visible = playbackActive,
-                // Explicit horizontal-only travel avoids the old vertical/default expansion look.
-                enter = slideInHorizontally(
-                    initialOffsetX = { it },
-                    animationSpec = tween(170, delayMillis = 45)
-                ) + fadeIn(tween(130, delayMillis = 45)),
-                exit = slideOutHorizontally(
-                    targetOffsetX = { it / 2 },
-                    animationSpec = tween(110)
-                ) + fadeOut(tween(90))
+            Box(
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .padding(start = 8.dp)
+                    .size(14.dp),
+                contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = "Playing",
+                PlaybackIcon(
+                    type = PlaybackIconType.PLAY,
                     color = Color.White,
-                    fontSize = 9.sp,
-                    fontWeight = FontWeight.Normal,
-                    modifier = Modifier.padding(start = 4.dp)
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer { alpha = (1f - badgeProgress).coerceIn(0f, 1f) }
+                )
+                PlaybackIcon(
+                    type = PlaybackIconType.PAUSE,
+                    color = Color.White,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer { alpha = badgeProgress.coerceIn(0f, 1f) }
                 )
             }
+            Text(
+                text = "Playing",
+                color = Color.White,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Normal,
+                maxLines = 1,
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .padding(start = 26.dp)
+                    .graphicsLayer {
+                        alpha = labelAlpha
+                        translationX = (-5f * (1f - badgeProgress))
+                    }
+            )
         }
     }
 }

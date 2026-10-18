@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -43,6 +42,8 @@ fun XvoxNowPlayingBackdrop(
     incomingArtworkKey: String? = null,
     incomingArtworkSeed: Int = 11,
     artworkTransitionFraction: Float = 0f,
+    /** A pager endpoint that was already painted at full opacity before the persistent slot updates. */
+    alreadyPresentedArtworkKey: String? = null,
     style: String = XvoxNowPlayingBackgroundStyles.DEFAULT,
     coverBlur: Float = 24f,
     isCoverTransitionInProgress: Boolean = false,
@@ -111,20 +112,11 @@ fun XvoxNowPlayingBackdrop(
     } else {
         0f
     }
-    // Once—and only once—the pager has visibly reached its incoming endpoint, the persistent
-    // primary slot may adopt that already-painted bitmap directly. Recording this at gesture start
-    // made a tiny first swipe look like base → incoming → base in Cover-background mode. A partial
-    // swipe that returns home now leaves the primary identity untouched, so the blur stays stable.
-    var completedIncomingKey by remember { mutableStateOf<String?>(null) }
-    SideEffect {
-        if (
-            pagerArtworkTransition && incomingArtworkKey != null &&
-            fraction >= .999f && displayedIncomingFraction >= .999f
-        ) {
-            completedIncomingKey = incomingArtworkKey
-        }
-    }
-    val primaryAlreadyShownByPager = !pagerArtworkTransition && artworkKey == completedIncomingKey
+    // The pager state holder records a completed endpoint synchronously between its moving and
+    // settled emissions. This avoids the former post-composition SideEffect race where a Next or
+    // Previous settle could briefly replay the opposite background before the primary slot caught up.
+    val primaryAlreadyShownByPager = !pagerArtworkTransition &&
+        artworkKey == alreadyPresentedArtworkKey
 
     Box(
         modifier = modifier
@@ -186,10 +178,11 @@ private fun PremiumBlurredCover(
         artwork = artwork,
         requestSize = XvoxNowPlayingArtworkSize,
         contentScale = ContentScale.Crop,
-        // The pager has already requested this exact original-quality key. Retaining the last
-        // bitmap while an adjacent one resolves makes the two blurred layers crossfade instead of
-        // sticking on an empty/placeholder frame mid-swipe.
-        keepPreviousOnLoading = true,
+        // During a live pager blend, retain decoded art so the two local blur layers crossfade.
+        // Once the pager endpoint has already been presented, do not retain the old primary image
+        // while the new source resolves: the supplied fallback is safer than briefly replaying the
+        // opposite song's artwork at the beginning/end of a rapid Next or Previous handoff.
+        keepPreviousOnLoading = !skipDecodedMorph,
         skipDecodedMorph = skipDecodedMorph,
         renderFallbackAsBitmap = true,
         fallbackSeed = fallbackSeed,

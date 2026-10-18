@@ -40,10 +40,10 @@ fun XvoxPlaylistCard(
     selected: Boolean = false
 ) {
     val colors = XvoxTheme.colors
-    // The artwork sits inside a 3dp card frame. Reducing its radius by that inset keeps the two
-    // curves concentric, so the visible image corner exactly matches the containing box radius.
+    // Long playlist cards intentionally use one shared corner language: the inset cover keeps
+    // the enclosing card's exact radius instead of looking like a separately rounded tile.
     val shape = RoundedCornerShape(16.dp)
-    val coverShape = RoundedCornerShape(13.dp)
+    val coverShape = shape
 
     Column(
         modifier = modifier

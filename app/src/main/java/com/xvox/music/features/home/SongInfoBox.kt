@@ -38,6 +38,7 @@ fun SongInfoBox(
         "Year" to info.year,
         "Duration" to info.duration,
         "Format" to info.format,
+        "File name" to info.fileName,
         "File size" to info.size,
         "Bitrate" to info.bitrate,
         "Sample rate" to info.sampleRate,

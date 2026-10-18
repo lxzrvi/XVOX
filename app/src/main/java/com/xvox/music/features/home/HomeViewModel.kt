@@ -74,6 +74,8 @@ class HomeViewModel(
     )
 
     private var prefetchJob: Job? = null
+    /** Deferred first-paint warming is cancelled as soon as the live viewport asks for artwork. */
+    private var startupWarmJob: Job? = null
     private var lastPrefetch: ArtworkPrefetch? = null
     /** Latest page requested while the current quality-preserving artwork warm is in flight. */
     private var pendingPrefetch: ArtworkPrefetch? = null
@@ -237,8 +239,20 @@ class HomeViewModel(
             }
             _state.update { it.copy(songs = result.first, hiddenSongs = result.second, recentlyPlayed = result.third, loading = false) }
             if (!warmed) {
-                withTimeoutOrNull(3500) { artworkPreloader.warmVisible(result.first) }
                 warmed = true
+                // Let first composition and a possible immediate Home → All Songs fling take
+                // priority. The visible cards keep their exact requests; this optional cache warm
+                // begins only after a quiet first paint and is cancelled by prefetchFrom below.
+                val firstPaintSongs = result.first
+                startupWarmJob?.cancel()
+                startupWarmJob = viewModelScope.launch {
+                    delay(700)
+                    // Do not spend post-startup decode time on a list that has already been
+                    // replaced by a filter/refresh change before its quiet frame arrived.
+                    if (_state.value.songs === firstPaintSongs) {
+                        withTimeoutOrNull(3500) { artworkPreloader.warmVisible(firstPaintSongs) }
+                    }
+                }
             }
             _state.update { it.copy(startupReady = true) }
         }
@@ -251,7 +265,6 @@ class HomeViewModel(
             rawReady = true
             _folders.value = withContext(Dispatchers.Default) { HomeLibraryFilterHelper.groupFolders(loaded) }
             publishFilteredSongs()
-            prefetchFrom(0)
         }
     }
 
@@ -276,7 +289,6 @@ class HomeViewModel(
             publishFilteredSongs()
 
             _state.update { it.copy(refreshing = false, loading = false) }
-            prefetchFrom(0)
             onDone(result)
         }
     }
@@ -500,6 +512,9 @@ class HomeViewModel(
     ) {
         val songs = _state.value.songs
         if (songs.isEmpty()) return
+        // Directly visible artwork and gesture work win over the optional startup runway.
+        startupWarmJob?.cancel()
+        startupWarmJob = null
         val target = ArtworkPrefetch(
             startIndex = sourceIndex.coerceIn(0, songs.lastIndex),
             // Decode only the immediate visual runway at each card's exact quality. A smaller
@@ -522,8 +537,9 @@ class HomeViewModel(
         prefetchJob?.cancel()
         prefetchJob = viewModelScope.launch {
             // Wait for a genuine quiet point after a fling. This keeps full-resolution decode
-            // work off the active scroll path instead of merely cancelling it after it starts.
-            delay(300)
+            // work completely off the active scroll path instead of only cancelling it after it
+            // has already contended with the UI thread and visible artwork.
+            delay(650)
             val next = pendingPrefetch ?: return@launch
             pendingPrefetch = null
             activePrefetch = next

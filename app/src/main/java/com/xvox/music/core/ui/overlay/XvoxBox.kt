@@ -7,8 +7,6 @@ import android.content.ContextWrapper
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
@@ -410,11 +408,11 @@ fun XvoxSheet(
                     enter = slideInVertically(
                         initialOffsetY = { it },
                         animationSpec = tween(240, easing = XvoxBoxEasing)
-                    ) + fadeIn(tween(120, easing = XvoxBoxEasing)),
+                    ),
                     exit = slideOutVertically(
                         targetOffsetY = { it },
                         animationSpec = tween(220, easing = XvoxBoxEasing)
-                    ) + fadeOut(tween(110, easing = XvoxBoxEasing))
+                    )
                 ) {
                     Column(
                         modifier = Modifier
@@ -705,11 +703,11 @@ private fun XvoxCenteredBox(
                 enter = slideInVertically(
                     initialOffsetY = { it },
                     animationSpec = tween(240, easing = XvoxBoxEasing)
-                ) + fadeIn(tween(120, easing = XvoxBoxEasing)),
+                ),
                 exit = slideOutVertically(
                     targetOffsetY = { it },
                     animationSpec = tween(220, easing = XvoxBoxEasing)
-                ) + fadeOut(tween(110, easing = XvoxBoxEasing))
+                )
             ) {
                 Column(
                     modifier = Modifier

@@ -51,10 +51,10 @@ fun XvoxAllSongMosaicCard(
         else -> CardCorners(22.dp, 22.dp, 8.dp, 8.dp)
     }
     val shape = corners.inset(0.dp)
-    // Portrait's compact All Songs frame is the shared artwork-to-card reference everywhere.
-    // Keep mosaic/landscape tiles equally tight instead of inflating their cover gutter.
+    // Keep the cover and its enclosing long/wide mosaic card on the exact same radius, including
+    // asymmetric mosaic corners. The 3dp gutter remains a spacing detail, not a second shape.
     val inset = 3.dp
-    val artShape = corners.inset(inset)
+    val artShape = shape
     val presentation = if (classic) 0 else styleIndex % 4
 
     @Composable

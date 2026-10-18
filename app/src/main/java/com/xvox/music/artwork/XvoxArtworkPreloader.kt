@@ -84,7 +84,7 @@ class XvoxArtworkPreloader(context: Context) {
         }
     }
     // Keep first paint light: visible cards still request their full 256px artwork on demand, while
-    // only one compact runway warms after library load so startup decoding cannot compete with a
-    // fast All Songs scroll.
-    suspend fun warmVisible(songs: List<Song>) { warm(songs, 0, 8, XvoxGridArtworkSize) }
+    // only a four-cover runway warms after the initial quiet frame so startup decode cannot compete
+    // with a fast Home → All Songs scroll.
+    suspend fun warmVisible(songs: List<Song>) { warm(songs, 0, 4, XvoxGridArtworkSize) }
 }

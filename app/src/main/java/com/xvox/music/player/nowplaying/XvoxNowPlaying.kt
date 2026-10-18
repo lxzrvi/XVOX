@@ -120,15 +120,43 @@ private class XvoxNowPlayingBackdropState(initialSong: Song?) {
         private set
     var artworkTransitionFraction by mutableFloatStateOf(0f)
         private set
+    /** Endpoint rendered by the pager before the persistent primary backdrop adopts it. */
+    var alreadyPresentedArtworkKey by mutableStateOf<String?>(null)
+        private set
+    // This is intentionally not composition state. It is a synchronous ledger between adjacent
+    // snapshotFlow emissions, so a final moving frame and a settled frame cannot be coalesced into
+    // an old-image replay by Compose.
+    private var travellingIncomingArtworkKey: String? = null
 
     fun update(base: Song?, incoming: Song?, fraction: Float) {
+        val baseKey = base?.xvoxArtworkPaletteKey() ?: "xvox_fallback_initial"
+        val nextIncomingKey = incoming?.xvoxArtworkPaletteKey()
+        val safeFraction = fraction.coerceIn(0f, 1f)
+        val hasDistinctIncoming = nextIncomingKey != null && nextIncomingKey != baseKey
+
+        if (hasDistinctIncoming && safeFraction > .0001f) {
+            // Remember the actual visual destination as soon as travel starts. On the following
+            // settled emission we can tell completion from a cancelled swipe even when no compose
+            // pass occurred at fraction 1.0.
+            travellingIncomingArtworkKey = nextIncomingKey
+        } else if (nextIncomingKey == null && safeFraction <= .0001f) {
+            if (baseKey == travellingIncomingArtworkKey) {
+                alreadyPresentedArtworkKey = baseKey
+            } else if (baseKey != alreadyPresentedArtworkKey) {
+                // A direct playback/lyrics update is not a pager endpoint and should retain its
+                // normal controlled morph rather than inheriting an unrelated old endpoint.
+                alreadyPresentedArtworkKey = null
+            }
+            travellingIncomingArtworkKey = null
+        }
+
         artwork = base?.artworkUri
-        artworkKey = base?.xvoxArtworkPaletteKey() ?: "xvox_fallback_initial"
+        artworkKey = baseKey
         artworkSeed = base?.id?.hashCode() ?: 11
         incomingArtwork = incoming?.artworkUri
-        incomingArtworkKey = incoming?.xvoxArtworkPaletteKey()
+        incomingArtworkKey = nextIncomingKey
         incomingArtworkSeed = incoming?.id?.hashCode() ?: 11
-        artworkTransitionFraction = fraction.coerceIn(0f, 1f)
+        artworkTransitionFraction = safeFraction
     }
 }
 
@@ -149,6 +177,7 @@ private fun XvoxNowPlayingBackdropLayer(
         incomingArtworkKey = backdropState.incomingArtworkKey,
         incomingArtworkSeed = backdropState.incomingArtworkSeed,
         artworkTransitionFraction = backdropState.artworkTransitionFraction,
+        alreadyPresentedArtworkKey = backdropState.alreadyPresentedArtworkKey,
         style = style,
         coverBlur = coverBlur,
         isCoverTransitionInProgress = paletteState.isCoverTransitionInProgress,
@@ -171,8 +200,6 @@ fun XvoxNowPlaying(
     onClose: () -> Unit,
     /** Begins dismissal housekeeping while this surface completes its fixed descent. */
     onDismissStart: () -> Unit = {},
-    /** Lets the shell keep a physically moving player behind its persistent navigation layer. */
-    onNavbarHandoffLayerChange: (Boolean) -> Unit = {},
     onTogglePlay: () -> Unit,
     onPlayQueueIndex: (Int) -> Unit,
     onSeek: (Long) -> Unit,
@@ -230,7 +257,6 @@ fun XvoxNowPlaying(
     val paletteState = rememberXvoxNowPlayingPalette(song, queue, currentIndex)
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
-    val latestNavbarHandoffLayerChange by rememberUpdatedState(onNavbarHandoffLayerChange)
     val screenHeight = with(density) {
         LocalConfiguration.current.screenHeightDp.dp.toPx()
     }
@@ -366,10 +392,8 @@ fun XvoxNowPlaying(
     fun animateScreen(target: Float, finished: (() -> Unit)? = null) {
         motionJob?.cancel()
         val start = screenY
-        // The shell's navbar is a real foreground layer during a physical player handoff. Raise
-        // that layer before the first moving frame—not after it—so even a rapid downward fling
-        // remains visibly continuous behind the bar instead of being momentarily cut away.
-        if (target > 1f || start > 1f) latestNavbarHandoffLayerChange(true)
+        // The shell keeps its persistent navbar mounted beneath this full-player surface for the
+        // entire handoff. Only this surface moves; no navigation layer is promoted in front of it.
         motionJob = scope.launch {
             val animation = Animatable(start)
             animation.animateTo(
@@ -383,7 +407,6 @@ fun XvoxNowPlaying(
             }
             screenY = target
             motionJob = null
-            if (target <= 1f) latestNavbarHandoffLayerChange(false)
             finished?.invoke()
         }
     }
@@ -393,25 +416,12 @@ fun XvoxNowPlaying(
             // Precomposition lays the whole player out below the selected physical handoff point.
             // Its entrance remains held until the outgoing Mini Player has reached its own point.
             screenY = belowBottomY
-            latestNavbarHandoffLayerChange(true)
             if (entranceEnabled) {
                 entered = true
                 animateScreen(target = 0f)
             }
         }
     }
-    // Direct pull-down gestures assign screenY outside animateScreen. Keep their first moving
-    // frame behind the navbar too, then restore normal full-player layering at rest.
-    LaunchedEffect(screenY, entered, entranceEnabled) {
-        when {
-            screenY > 1f -> latestNavbarHandoffLayerChange(true)
-            entered && entranceEnabled -> latestNavbarHandoffLayerChange(false)
-        }
-    }
-    DisposableEffect(Unit) {
-        onDispose { latestNavbarHandoffLayerChange(false) }
-    }
-
     fun dismiss() {
         if (dismissing) return
         dismissing = true

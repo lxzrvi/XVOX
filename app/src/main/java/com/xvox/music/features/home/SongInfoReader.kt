@@ -83,6 +83,7 @@ class SongInfoReader(
             year = metadata?.year?.toString() ?: "Unknown",
             duration = formatDuration(metadata?.duration ?: song.duration),
             format = format.ifBlank { "Unknown" },
+            fileName = displayName.ifBlank { song.contentUri.lastPathSegment.orEmpty().ifBlank { "Unknown" } },
             size = formattedSize,
             bitrate = metadata?.bitrate?.takeIf { it > 0 }?.let { "${it / 1000} kbps" } ?: "Unknown",
             sampleRate = metadata?.sampleRate?.takeIf { it > 0 }?.let { "${it} Hz" } ?: "Unknown",

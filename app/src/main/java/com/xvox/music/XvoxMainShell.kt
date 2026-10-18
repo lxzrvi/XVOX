@@ -899,15 +899,9 @@ fun XvoxMainShell(
         val miniVisibleBase = player.miniPlayerVisible && currentSongId != null && player.queue.isNotEmpty()
         val miniSurfacePrepared = currentSongId != null && player.queue.isNotEmpty() &&
             (player.miniPlayerVisible || player.nowPlayingPrepared || player.nowPlayingVisible)
-        // A moving full-player sheet deliberately drops below the navbar sibling. Once it settles
-        // full-screen it resumes its normal foreground layer; this avoids a rapid close cutting
-        // the Mini Player handoff away behind an abruptly mounted surface.
-        var nowPlayingBehindNavbar by remember { mutableStateOf(false) }
-        LaunchedEffect(player.nowPlayingPrepared, player.nowPlayingVisible) {
-            if (!player.nowPlayingPrepared && !player.nowPlayingVisible) {
-                nowPlayingBehindNavbar = false
-            }
-        }
+        // Keep the navigation host mounted at its ordinary shell/root position through both
+        // directions of the player handoff. Now Playing is always painted above it, so the bar is
+        // physically underneath the moving player instead of becoming foreground chrome.
         // Settings lets the Mini Player visibly hand off downward in either orientation instead
         // of leaving it on the page or cutting it away mid-card.
         val miniVisible = miniVisibleBase && destination != XvoxDestination.SETTINGS
@@ -1075,12 +1069,10 @@ fun XvoxMainShell(
             visible = player.nowPlayingPrepared && currentSong != null,
             enter = androidx.compose.animation.EnterTransition.None,
             exit = androidx.compose.animation.ExitTransition.None,
-            // Keep the Header composed underneath for a clean return. The full player owns the
-            // foreground only while settled; physical handoffs intentionally pass below navbar chrome.
-            // At rest the full player deliberately covers shell chrome. During its physical
-            // entrance/exit, the navbar remains a foreground lane so the handoff travels behind
-            // it rather than disappearing above it on rapid downward movement.
-            modifier = Modifier.fillMaxSize().zIndex(if (nowPlayingBehindNavbar) 9f else 20f)
+            // Keep the Header and normal-position navbar composed underneath for a clean return.
+            // The player surface remains above them during both travel directions; once full-screen
+            // it may naturally cover them, but neither shell surface is removed for the handoff.
+            modifier = Modifier.fillMaxSize().zIndex(20f)
         ) {
             val playingSong = currentSong ?: return@AnimatedVisibility
 
@@ -1096,7 +1088,6 @@ fun XvoxMainShell(
                     entranceEnabled = player.nowPlayingVisible,
                     onClose = { playerViewModel.closeNowPlaying() },
                     onDismissStart = { playerViewModel.beginNowPlayingDismissal() },
-                    onNavbarHandoffLayerChange = { moving -> nowPlayingBehindNavbar = moving },
                     displayMode = nowPlayingDisplayMode,
                     onDisplayModeChange = { nowPlayingDisplayMode = it },
                     onTogglePlay = { playerViewModel.togglePlay() },

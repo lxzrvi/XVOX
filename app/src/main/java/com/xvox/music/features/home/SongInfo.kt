@@ -9,6 +9,7 @@ data class SongInfo(
     val year: String,
     val duration: String,
     val format: String,
+    val fileName: String,
     val size: String = "Unknown",
     val bitrate: String,
     val sampleRate: String,

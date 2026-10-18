@@ -1069,7 +1069,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.searchResultsContent(
                     Box(
                         modifier = Modifier
                             .size(44.dp)
-                            .clip(RoundedCornerShape(8.dp)),
+                            .clip(resultShape),
                         contentAlignment = Alignment.Center
                     ) {
                         XvoxSongArtwork(
@@ -1159,10 +1159,9 @@ private fun SearchPlaylistCompactItem(
 ) {
     val colors = XvoxTheme.colors
     val cardShape = RoundedCornerShape(12.dp)
-    // Keep the artwork height derived from the card's 4dp perimeter inset instead of letting a
-    // fixed cover crowd the horizontal gap at different display densities. An inset cover uses a
-    // 12dp − 4dp radius so its physical corner curve is concentric with the surrounding box.
-    val coverShape = RoundedCornerShape(8.dp)
+    // The inset cover retains the enclosing compact playlist card's exact corner radius, so this
+    // wide result reads as one cohesive card rather than two differently rounded surfaces.
+    val coverShape = cardShape
     SearchPressSurface(
         modifier = Modifier
             .width(170.dp)
@@ -1182,8 +1181,7 @@ private fun SearchPlaylistCompactItem(
             Box(
                 modifier = Modifier
                     .size(56.dp)
-                    // The inset curve follows the outer card exactly rather than looking like a
-                    // separately rounded tile.
+                    // Keep the cover on the card's exact corner language.
                     .clip(coverShape)
                     .background(colors.cardElevated),
                 contentAlignment = Alignment.Center
@@ -1257,7 +1255,7 @@ private fun SearchSongRow(
             Box(
                 modifier = Modifier
                     .size(44.dp)
-                    .clip(RoundedCornerShape(8.dp)),
+                    .clip(resultShape),
                 contentAlignment = Alignment.Center
             ) {
                 XvoxSongArtwork(

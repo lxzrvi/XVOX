@@ -67,23 +67,26 @@ fun XvoxBottomBar(
     val navEdge = navEdgeBase.copy(
         alpha = navEdgeBase.alpha * navBorderAlpha * navSurfaceAlpha
     )
-    // Match the Settings section-box material exactly in both themes. The selector deliberately
-    // follows the existing navbar transparency control without adding a separate slider: its
-    // transparency is always one half of the navbar transparency (6% -> 3%, 100% -> 50%).
+    // Match Settings' Appearance option-pill material (for example the Font choice box), not
+    // the larger section-card material. The selector deliberately follows the existing navbar
+    // transparency control without adding a separate slider: its transparency is always one half
+    // of the navbar transparency (6% -> 3%, 100% -> 50%).
     val navbarTransparency = 1f - navSurfaceAlpha
     val selectorSurfaceAlpha = (1f - navbarTransparency * .5f).coerceIn(.5f, 1f)
     val pillEdgeBase = com.xvox.music.core.ui.chrome.parseHexColor(chrome.pillBorder) ?: navEdgeBase
-    // The active selector has the Settings-card surface, while its edge remains a quiet outline.
+    // The active selector has the same option-pill surface as Settings, while its edge remains a
+    // quiet outline.
     val pillEdgeStrength = if (!colors.isLight && chrome.pillBorder.isBlank()) .14f else 1f
     val pillEdge = pillEdgeBase.copy(
         alpha = pillEdgeBase.alpha * navBorderAlpha * selectorSurfaceAlpha * pillEdgeStrength
     )
     val defaultNavSurface = colors.background
     val appliedNavSurfaceAlpha = navSurfaceAlpha
-    // Override only the material's opacity here. `colors.card` can itself reflect the separate
-    // page-card transparency preference; multiplying that alpha again would violate the required
-    // exact half-navbar relationship for the selector.
-    val pillFill = colors.card.copy(alpha = selectorSurfaceAlpha)
+    // Override only the material's opacity here. `colors.cardElevated` is the Settings option
+    // pill material in both themes, while its stored alpha can reflect the unrelated page-card
+    // transparency preference. Replacing—not multiplying—its alpha preserves the exact required
+    // half-navbar relationship for the selector.
+    val pillFill = colors.cardElevated.copy(alpha = selectorSurfaceAlpha)
 
     val isLandscape = androidx.compose.ui.platform.LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
     // Device-orientation baselines requested for the chrome remain separate from the editable

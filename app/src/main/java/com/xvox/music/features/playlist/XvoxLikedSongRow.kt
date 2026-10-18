@@ -70,7 +70,7 @@ fun XvoxLikedSongRow(
             requestSize = 128,
             modifier = Modifier
                 .size(58.dp)
-                .clip(RoundedCornerShape(9.dp))
+                .clip(shape)
         )
 
         Spacer(Modifier.size(10.dp))

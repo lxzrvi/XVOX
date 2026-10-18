@@ -57,7 +57,7 @@ fun XvoxSongArtwork(
     fallbackBrand: XvoxFallbackBrand = XvoxFallbackBrand.STANDARD,
     /** Retained only as a stable caller identity; every fallback now shares the supplied cover. */
     fallbackSeed: Int? = null,
-    /** Reports after either decoded artwork or the bundled fallback is ready. */
+    /** Reports after a current-key decoded bridge/original or the bundled fallback is ready. */
     onArtworkReady: (() -> Unit)? = null
 ) {
     val colors = XvoxTheme.colors
@@ -153,6 +153,11 @@ fun XvoxSongArtwork(
     if (keepPreviousOnLoading && requestSize == 0 && artwork != null && decodedBitmap == null) {
         val artworkCacheRevision by XvoxArtworkCache.revision.collectAsState()
         LaunchedEffect(cacheKey, artworkCacheRevision) {
+            // A same-cover 256/512 bridge is already a real drawable for the local Now Playing
+            // backdrop. Report that current-key bridge immediately, rather than keeping the old
+            // song's blur in place until a second original-size decode completes on a first swipe.
+            // This never reports the retained previous bitmap: the lookup is keyed to this source.
+            if (cachedVisualBridge() != null) latestArtworkReady?.invoke()
             if (XvoxArtworkCache.isKnownFailed(artwork)) {
                 artworkFailed = true
             } else {
