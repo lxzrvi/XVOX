@@ -75,20 +75,14 @@ object XvoxPlayerTransitionMotion {
     )
 
     fun handoffSpec(
-        durationMillis: Int = HandoffDuration,
-        easeControl: Float = .55f
-    ): AnimationSpec<Float> = tween(
-        durationMillis = durationMillis.coerceIn(120, 900),
-        easing = easingFor(easeControl)
-    )
+        @Suppress("UNUSED_PARAMETER") durationMillis: Int = HandoffDuration,
+        @Suppress("UNUSED_PARAMETER") easeControl: Float = .55f
+    ): AnimationSpec<Float> = xvoxHandoffExitSpec(XvoxHandoffExitMs)
 
     fun nowPlayingSpec(
-        durationMillis: Int = NowPlayingDuration,
-        easeControl: Float = .55f
-    ): AnimationSpec<Float> = tween(
-        durationMillis = durationMillis.coerceIn(120, 900),
-        easing = easingFor(easeControl)
-    )
+        @Suppress("UNUSED_PARAMETER") durationMillis: Int = NowPlayingDuration,
+        @Suppress("UNUSED_PARAMETER") easeControl: Float = .55f
+    ): AnimationSpec<Float> = xvoxHandoffEnterSpec(XvoxHandoffEnterMs)
 
     /**
      * Default is a pure physical slide. Scale shrinks toward the physical Mini Player handoff:

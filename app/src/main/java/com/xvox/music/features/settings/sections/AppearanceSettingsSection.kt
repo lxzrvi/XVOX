@@ -36,8 +36,8 @@ import com.xvox.music.features.settings.components.ColorPickerRow
 import com.xvox.music.features.settings.components.SettingsAccordionItem
 import com.xvox.music.features.settings.components.SettingsControlsEditor
 
-/** Matches the substantial full-width Appearance controls on the Settings landing screen. */
-private val AppearanceChoicePillHeight = 54.dp
+/** Matches the compact full-width Appearance controls on the Settings landing screen. */
+private val AppearanceChoicePillHeight = 42.dp
 
 @Composable
 fun AppearanceSettingsSection(

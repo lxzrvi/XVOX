@@ -3,9 +3,11 @@ package com.xvox.music.core.ui.overlay
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
+import android.view.WindowManager
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
@@ -49,11 +51,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
@@ -73,6 +77,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.DialogWindowProvider
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import com.xvox.music.R
@@ -112,6 +117,18 @@ private fun XvoxSheetImmersiveStatusBar(enabled: Boolean) {
     }
 }
 
+/** Dialog window ki native dim aur window animation band: sirf hamara scrim aur sheet chalenge. */
+@Composable
+private fun XvoxSheetWindowSetup() {
+    val window = (LocalView.current.parent as? DialogWindowProvider)?.window
+    SideEffect {
+        window?.apply {
+            setWindowAnimations(-1)
+            setDimAmount(0f)
+            clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+        }
+    }
+}
 
 /**
  * A bridge installed around scrollable sheet content.  It gives vertical space back to the sheet
@@ -279,10 +296,13 @@ fun XvoxSheet(
     // added a visible beat before every sheet began its upward entrance.
     val visibility = remember { MutableTransitionState(false).apply { targetState = true } }
     var closing by remember { mutableStateOf(false) }
-    // Paint the full-screen dimmed canvas on the first frame. The backdrop never translates or
-    // fades in as a second moving layer; only the sheet itself receives the short smooth entrance.
-    // Keep it present through close so the outgoing surface does not reveal a second animation.
-    val scrimAlpha = if (visibility.targetState || closing) .40f else 0f
+    // The scrim is immediately opaque on open, then fades independently as the sheet closes.
+    // This leaves the sheet as the only travelling layer while avoiding the Dialog's native dim.
+    val scrimAlpha by animateFloatAsState(
+        targetValue = if (closing) 0f else .40f,
+        animationSpec = tween(200),
+        label = "sheetScrim"
+    )
     val swallowInteraction = remember { MutableInteractionSource() }
 
     fun close() {
@@ -302,11 +322,12 @@ fun XvoxSheet(
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
     ) {
         XvoxSheetImmersiveStatusBar(overlayController.immersiveNowPlayingSheets)
+        XvoxSheetWindowSetup()
         Box(modifier = modifier.fillMaxSize()) {
             Box(
                 modifier = Modifier
                     .matchParentSize()
-                    .background(scrimColor.copy(alpha = scrimAlpha))
+                    .drawBehind { drawRect(scrimColor, alpha = scrimAlpha) }
                     .clickable(remember { MutableInteractionSource() }, indication = null) { close() }
             )
 
@@ -626,9 +647,12 @@ private fun XvoxCenteredBox(
     // bottom sheets while still fading smoothly.
     val visibility = remember { MutableTransitionState(false).apply { targetState = true } }
     var closing by remember { mutableStateOf(false) }
-    // The full-screen dim layer is established at once, never sliding/fading separately behind
-    // the centred surface. This leaves one smooth moving element instead of a travelling backdrop.
-    val scrimAlpha = if (visibility.targetState || closing) .48f else 0f
+    // Centered choices paint their dim layer immediately and fade it only while closing.
+    val scrimAlpha by animateFloatAsState(
+        targetValue = if (closing) 0f else .48f,
+        animationSpec = tween(200),
+        label = "centeredScrim"
+    )
     val swallowInteraction = remember { MutableInteractionSource() }
 
     fun close() {
@@ -648,6 +672,7 @@ private fun XvoxCenteredBox(
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
     ) {
         XvoxSheetImmersiveStatusBar(overlayController.immersiveNowPlayingSheets)
+        XvoxSheetWindowSetup()
         BoxWithConstraints(
             modifier = modifier
                 .fillMaxSize()
@@ -693,7 +718,7 @@ private fun XvoxCenteredBox(
             Box(
                 Modifier
                     .matchParentSize()
-                    .background(scrimColor.copy(alpha = scrimAlpha))
+                    .drawBehind { drawRect(scrimColor, alpha = scrimAlpha) }
                     .clickable(remember { MutableInteractionSource() }, indication = null) { close() }
             )
             AnimatedVisibility(

@@ -59,8 +59,8 @@ import com.xvox.music.features.settings.components.*
 import com.xvox.music.features.settings.sections.*
 import kotlin.math.abs
 
-/** Shared substantial control height for every choice surface in Appearance. */
-private val XvoxAppearancePillHeight = 54.dp
+/** Shared compact height for every full-width choice surface in Appearance. */
+private val XvoxAppearancePillHeight = 42.dp
 
 /**
  * The compact, single-column Settings landing page. It intentionally keeps just the everyday
@@ -401,7 +401,6 @@ private fun AppearanceSectionCard(
                 XvoxFontPickerButton(
                     selectedKey = state.fontFamily,
                     onClick = onOpenFontPicker,
-                    onSelect = viewModel::setFontFamily,
                     modifier = Modifier.fillMaxWidth(),
                     pillHeight = XvoxAppearancePillHeight
                 )

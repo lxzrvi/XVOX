@@ -5,26 +5,42 @@ import androidx.compose.animation.core.TweenSpec
 import androidx.compose.animation.core.tween
 import kotlin.math.roundToInt
 
+/** A light ease-in lets the outgoing card leave quickly without a hard first frame. */
+val XvoxHandoffExitEasing = CubicBezierEasing(0.3f, 0f, 0.8f, 0.6f)
+
+/** The incoming player still decelerates cleanly into its resting position. */
+val XvoxHandoffEnterEasing = CubicBezierEasing(0f, 0f, 0.2f, 1f)
+
+const val XvoxHandoffExitMs = 160
+const val XvoxHandoffEnterMs = 260
+private const val XvoxHandoffMinimumMs = 120
+private const val XvoxHandoffMaximumMs = 900
+
+/** Fixed-duration compatibility specs used by callers that do not know their travel distance. */
+fun xvoxHandoffExitSpec(durationMillis: Int = XvoxHandoffExitMs): TweenSpec<Float> = tween(
+    durationMillis = durationMillis.coerceIn(XvoxHandoffMinimumMs, XvoxHandoffMaximumMs),
+    easing = XvoxHandoffExitEasing
+)
+
+fun xvoxHandoffEnterSpec(durationMillis: Int = XvoxHandoffEnterMs): TweenSpec<Float> = tween(
+    durationMillis = durationMillis.coerceIn(XvoxHandoffMinimumMs, XvoxHandoffMaximumMs),
+    easing = XvoxHandoffEnterEasing
+)
+
 /**
  * Motion shared by the physical Mini Player <-> Now Playing handoff.
  *
- * The outgoing surface starts deliberately gently and gathers speed as it leaves, while the
- * incoming surface reaches its resting position quickly and eases into it. Both legs retain their
- * established full-distance timings, then shorten proportionally when a reversal resumes from an
- * already-travelled position. A lower bound keeps interrupted handoffs perceptible instead of
- * turning into a one-frame jump.
+ * Full-distance travel uses the short fixed handoff timings above. Interrupted or reversed
+ * handoffs scale that time to the actual segment, while retaining a visible lower bound.
  */
 object XvoxHandoffSpecs {
-    const val ExitBaseDurationMillis = 360
-    const val EnterBaseDurationMillis = 320
-    const val MinimumDurationMillis = 120
-    const val MaximumDurationMillis = 900
+    const val ExitBaseDurationMillis = XvoxHandoffExitMs
+    const val EnterBaseDurationMillis = XvoxHandoffEnterMs
+    const val MinimumDurationMillis = XvoxHandoffMinimumMs
+    const val MaximumDurationMillis = XvoxHandoffMaximumMs
 
-    /** The leaving surface accelerates toward the bottom boundary. */
-    val ExitEasing = CubicBezierEasing(0.4f, 0f, 1f, 1f)
-
-    /** The arriving surface decelerates cleanly into its settled position. */
-    val EnterEasing = CubicBezierEasing(0f, 0f, 0.2f, 1f)
+    val ExitEasing get() = XvoxHandoffExitEasing
+    val EnterEasing get() = XvoxHandoffEnterEasing
 
     /**
      * Scales a full-distance timing by the untravelled/traversed segment and applies the shared
@@ -47,24 +63,22 @@ object XvoxHandoffSpecs {
     fun exitSpec(
         distancePx: Float,
         fullDistancePx: Float
-    ): TweenSpec<Float> = tween(
-        durationMillis = distanceProportionalDuration(
+    ): TweenSpec<Float> = xvoxHandoffExitSpec(
+        distanceProportionalDuration(
             distancePx = distancePx,
             fullDistancePx = fullDistancePx,
             baseDurationMillis = ExitBaseDurationMillis
-        ),
-        easing = ExitEasing
+        )
     )
 
     fun enterSpec(
         distancePx: Float,
         fullDistancePx: Float
-    ): TweenSpec<Float> = tween(
-        durationMillis = distanceProportionalDuration(
+    ): TweenSpec<Float> = xvoxHandoffEnterSpec(
+        distanceProportionalDuration(
             distancePx = distancePx,
             fullDistancePx = fullDistancePx,
             baseDurationMillis = EnterBaseDurationMillis
-        ),
-        easing = EnterEasing
+        )
     )
 }
