@@ -5,7 +5,7 @@
 
 ### Your Music. Your Space. Your Sound.
 
-A modern, offline-first Android music player built with **Kotlin and Jetpack Compose**. XVOX focuses on a premium listening experience with a clean AMOLED-friendly interface, customisation, powerful playback controls, and local music library support.
+A modern, offline-first Android music player built with **Kotlin and Jetpack Compose**. XVOX combines a premium AMOLED-friendly interface with powerful playback controls, dynamic artwork, lyrics, and a personalised music experience.
 
 ![Android](https://img.shields.io/badge/Android-8.0%2B-3DDC84?style=flat-square&logo=android)
 ![Kotlin](https://img.shields.io/badge/Kotlin-7F52FF?style=flat-square&logo=kotlin)
@@ -19,78 +19,56 @@ A modern, offline-first Android music player built with **Kotlin and Jetpack Com
 ## Features
 
 - **Offline Playback** — Play music stored locally on your device.
-- **Music Library** — Browse songs, favourites, and playlists.
-- **Premium UI** — Minimal, AMOLED-friendly design with custom themes.
+- **Music Library** — Browse songs, artists, albums, and playlists.
+- **Search** — Quickly find music in your library.
+- **Favourites** — Keep your favourite tracks within reach.
+- **Premium Interface** — Minimal, AMOLED-friendly design with custom themes.
 - **Dynamic Artwork** — Album art with adaptive colour backgrounds.
 - **Lyrics Support** — View synced and unsynced lyrics.
 - **Audio Effects** — Equalizer, presets, and supported sound effects.
 - **Queue Management** — Manage upcoming tracks and playback.
-- **Smooth Player UI** — Mini-player, Now Playing screen, and artwork transitions.
+- **Mini Player** — Access playback controls without leaving your current screen.
+- **Now Playing** — Immersive playback with artwork and music controls.
 - **Customisation** — Personalise supported playback and appearance settings.
 
 ## Screenshots
 
-<!-- Add your screenshots to the screenshots/ folder -->
-
 <div align="center">
 
-| Home | Now Playing | Library |
+| Home | Artists | Playlists |
 |:---:|:---:|:---:|
-| ![Home](screenshots/home.png) | ![Now Playing](screenshots/now-playing.png) | ![Library](screenshots/library.png) |
+| ![Home](screenshots/home.png) | ![Artists](screenshots/artists.png) | ![Playlists](screenshots/playlists.png) |
+
+| Search | Mini Player | Now Playing |
+|:---:|:---:|:---:|
+| ![Search](screenshots/search.png) | ![Mini Player](screenshots/mini-player.png) | ![Now Playing](screenshots/now-playing.png) |
+
+| Album View | Lyrics | Equalizer |
+|:---:|:---:|:---:|
+| ![Album View](screenshots/albums.png) | ![Lyrics](screenshots/lyrics.png) | ![Equalizer](screenshots/equalizer.png) |
 
 </div>
 
 ## Tech Stack
 
 - **Language:** Kotlin
-- **UI:** Jetpack Compose
-- **Playback:** AndroidX Media3 / ExoPlayer
+- **UI Framework:** Jetpack Compose
+- **Audio Playback:** AndroidX Media3 / ExoPlayer
 - **Background Playback:** MediaSessionService
 - **Preferences:** DataStore
 - **Artwork Loading:** Coil 3
-- **Metadata:** Jaudiotagger
+- **Audio Metadata:** Jaudiotagger
 - **Minimum Android:** 8.0 (API 26)
-
-## Getting Started
-
-### Build from Source
-
-```bash
-git clone https://github.com/YOUR_USERNAME/XVOX.git
-cd XVOX
-./gradlew assembleDebug
-```
-
-Install the generated APK from `app/build/outputs/apk/debug/`.
-
-**Requirements:** Android SDK and JDK 17 for building.
-
-## Project Status
-
-XVOX is currently under development. Features, design, and functionality may change between releases.
-
-## Roadmap
-
-- [ ] Further playback and library improvements
-- [ ] More customisation options
-- [ ] UI and performance refinements
-- [ ] Additional audio features
-
-## Permissions & Privacy
-
-XVOX is designed around local music playback. Android permissions may be required to access audio files and provide playback functionality. See the app source code for the exact permissions and behaviour.
 
 ## Licence
 
-No licence has been specified yet. Unless a licence is added to the repository, standard copyright restrictions apply and reuse or redistribution is not automatically permitted.
+No licence has been specified yet. Until a licence is added, standard copyright restrictions apply; reuse and redistribution are not automatically permitted.
 
 ## Contributing
 
-Suggestions, bug reports, and improvements are welcome. Open an issue or submit a pull request.
+Have a suggestion or found an issue? Feel free to get in touch.
 
-## Support
-
-If you enjoy XVOX, consider starring the repository.
+**Email:** [thaparavi382@gmail.com](mailto:thaparavi382@gmail.com)
 
 ---
 
