@@ -62,7 +62,7 @@ A modern, offline-first Android music player built with **Kotlin and Jetpack Com
 
 **Proprietary — All Rights Reserved.**
 
-Copyright (c) 2026 Ravi Thapa.
+Copyright (c) 2026 lxzrvi.
 
 This repository is publicly available for viewing and inspection only. No permission is granted to use, copy, modify, distribute, or incorporate any part of this project into other projects or products without prior written permission from the copyright holder.
 
