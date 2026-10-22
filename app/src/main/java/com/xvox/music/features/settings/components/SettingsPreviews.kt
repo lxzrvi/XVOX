@@ -37,6 +37,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
@@ -84,6 +86,53 @@ fun SettingsChoiceRow(
                     .xvoxPressScale { onSelect(key) }
                     .padding(horizontal = 14.dp, vertical = 10.dp)
             )
+        }
+    }
+}
+
+/**
+ * A non-scrolling, flex-style choice row: every option receives an equal share of the available
+ * width. It is intended for short fixed option sets such as Library's duration choices.
+ */
+@Composable
+fun SettingsFlexChoiceRow(
+    options: List<Pair<String, String>>,
+    selected: String,
+    modifier: Modifier = Modifier,
+    pillHeight: Dp = 42.dp,
+    onSelect: (String) -> Unit
+) {
+    val colors = XvoxTheme.colors
+    val shape = RoundedCornerShape(12.dp)
+    val labelSize = if (options.size >= 5) 10.5.sp else 12.sp
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        options.forEach { (key, label) ->
+            val active = selected == key
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(pillHeight)
+                    .clip(shape)
+                    .background(if (active) colors.primaryAccent else colors.cardElevated)
+                    .then(
+                        if (!active) Modifier.border(0.8.dp, colors.cardBorder, shape)
+                        else Modifier
+                    )
+                    .xvoxPressScale { onSelect(key) },
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = label,
+                    color = if (active) colors.background else colors.primaryText,
+                    fontSize = labelSize,
+                    fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
     }
 }

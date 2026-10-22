@@ -800,7 +800,7 @@ private fun LibrarySectionCard(
             )
 
             SettingsField("Minimum duration") {
-                SettingsChoiceRow(
+                SettingsFlexChoiceRow(
                     options = listOf("0" to "Off", "15" to "15s", "30" to "30s", "60" to "1m", "custom" to "Custom"),
                     selected = state.ignoreBelowSec.takeIf { it in setOf(0, 15, 30, 60) }?.toString() ?: "custom",
                     onSelect = { value ->

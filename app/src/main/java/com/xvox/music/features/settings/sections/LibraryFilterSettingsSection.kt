@@ -32,6 +32,7 @@ import com.xvox.music.features.home.HomeViewModel
 import com.xvox.music.features.settings.SettingsState
 import com.xvox.music.features.settings.SettingsViewModel
 import com.xvox.music.features.settings.components.SettingsChoiceRow
+import com.xvox.music.features.settings.components.SettingsFlexChoiceRow
 import com.xvox.music.features.settings.components.SettingsPreviewFrame
 import kotlin.math.roundToInt
 
@@ -43,7 +44,7 @@ fun LibraryFilterSettingsSection(state: SettingsState, viewModel: SettingsViewMo
     val library by homeViewModel.state.collectAsState()
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("Minimum length", color = colors.primaryText, fontWeight = FontWeight.SemiBold)
-        SettingsChoiceRow(listOf("0" to "Off", "15" to "15s", "30" to "30s", "60" to "1m", "custom" to "Custom"),
+        SettingsFlexChoiceRow(listOf("0" to "Off", "15" to "15s", "30" to "30s", "60" to "1m", "custom" to "Custom"),
             if (state.ignoreBelowSec in listOf(0, 15, 30, 60)) state.ignoreBelowSec.toString() else "custom") { value ->
             if (value == "custom") overlays.showBox("Custom minimum duration") {
                 CustomThresholdBox(state.ignoreBelowSec, false, onCancel = overlays::hideBox) { seconds ->
@@ -105,7 +106,7 @@ private fun CustomThresholdBox(initial: Int, size: Boolean, onCancel: () -> Unit
             supportingText = { Text(if (valid) "0 disables this filter" else if (size) "Enter 0–10 GB" else "Enter 0–24 hours") },
             modifier = Modifier.fillMaxWidth())
         val units = if (size) listOf("KB", "MB") else listOf("Seconds", "Minutes")
-        SettingsChoiceRow(units.map { it to it }, unit) { next ->
+        SettingsFlexChoiceRow(units.map { it to it }, unit) { next ->
             if (valid) input = (number / (if (next == "MB") 1024 else if (next == "Minutes") 60 else 1)).toString()
             unit = next
         }

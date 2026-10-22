@@ -87,6 +87,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 val XvoxBoxEasing = CubicBezierEasing(0.2f, 0f, 0f, 1f)
+const val XvoxSheetEnterMs = 280
+const val XvoxSheetExitMs = 240
 
 private fun Context.xvoxActivityOrNull(): Activity? {
     var current: Context = this
@@ -300,7 +302,10 @@ fun XvoxSheet(
     // This leaves the sheet as the only travelling layer while avoiding the Dialog's native dim.
     val scrimAlpha by animateFloatAsState(
         targetValue = if (closing) 0f else .40f,
-        animationSpec = tween(200),
+        animationSpec = tween(
+            durationMillis = if (closing) XvoxSheetExitMs else XvoxSheetEnterMs,
+            easing = XvoxBoxEasing
+        ),
         label = "sheetScrim"
     )
     val swallowInteraction = remember { MutableInteractionSource() }
@@ -310,9 +315,9 @@ fun XvoxSheet(
         closing = true
         visibility.targetState = false
         scope.launch {
-            // Keep the host mounted through the sheet's complete downward exit. The static scrim
-            // remains in place until this finishes, so it never appears to travel with the sheet.
-            delay(250)
+            // Keep the host mounted through the sheet's complete downward exit and its matching
+            // scrim fade, so the Dialog never unmounts before either motion completes.
+            delay(XvoxSheetExitMs + 20L)
             dismiss()
         }
     }
@@ -428,11 +433,11 @@ fun XvoxSheet(
                     // faded backdrop itself was sliding upward with the content.
                     enter = slideInVertically(
                         initialOffsetY = { it },
-                        animationSpec = tween(240, easing = XvoxBoxEasing)
+                        animationSpec = tween(XvoxSheetEnterMs, easing = XvoxBoxEasing)
                     ),
                     exit = slideOutVertically(
                         targetOffsetY = { it },
-                        animationSpec = tween(220, easing = XvoxBoxEasing)
+                        animationSpec = tween(XvoxSheetExitMs, easing = XvoxBoxEasing)
                     )
                 ) {
                     Column(
@@ -650,7 +655,10 @@ private fun XvoxCenteredBox(
     // Centered choices paint their dim layer immediately and fade it only while closing.
     val scrimAlpha by animateFloatAsState(
         targetValue = if (closing) 0f else .48f,
-        animationSpec = tween(200),
+        animationSpec = tween(
+            durationMillis = if (closing) XvoxSheetExitMs else XvoxSheetEnterMs,
+            easing = XvoxBoxEasing
+        ),
         label = "centeredScrim"
     )
     val swallowInteraction = remember { MutableInteractionSource() }
@@ -660,9 +668,9 @@ private fun XvoxCenteredBox(
         closing = true
         visibility.targetState = false
         scope.launch {
-            // Match the stable-scrim motion contract used by bottom sheets: the compact surface
-            // completes its downward travel before the overlay unmounts.
-            delay(250)
+            // Match the compact surface's downward travel and its synchronized scrim fade before
+            // unmounting the overlay.
+            delay(XvoxSheetExitMs + 20L)
             dismiss()
         }
     }
@@ -727,11 +735,11 @@ private fun XvoxCenteredBox(
                 // rises and falls independently; no background pixel participates in that motion.
                 enter = slideInVertically(
                     initialOffsetY = { it },
-                    animationSpec = tween(240, easing = XvoxBoxEasing)
+                    animationSpec = tween(XvoxSheetEnterMs, easing = XvoxBoxEasing)
                 ),
                 exit = slideOutVertically(
                     targetOffsetY = { it },
-                    animationSpec = tween(220, easing = XvoxBoxEasing)
+                    animationSpec = tween(XvoxSheetExitMs, easing = XvoxBoxEasing)
                 )
             ) {
                 Column(

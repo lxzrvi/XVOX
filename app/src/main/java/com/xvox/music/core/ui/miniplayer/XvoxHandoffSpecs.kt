@@ -1,6 +1,7 @@
 package com.xvox.music.core.ui.miniplayer
 
 import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.TweenSpec
 import androidx.compose.animation.core.tween
 import kotlin.math.roundToInt
@@ -15,6 +16,18 @@ const val XvoxHandoffExitMs = 160
 const val XvoxHandoffEnterMs = 260
 private const val XvoxHandoffMinimumMs = 120
 private const val XvoxHandoffMaximumMs = 900
+
+// Now Playing opens and closes with one shared curve and full-distance timing.
+val XvoxNowPlayingEasing = CubicBezierEasing(0.4f, 0f, 0.2f, 1f)
+const val XvoxNowPlayingMs = 340
+
+fun xvoxHandoffMs(baseMs: Int, travel: Float): Int =
+    (baseMs * travel.coerceIn(0f, 1f))
+        .roundToInt()
+        .coerceIn(XvoxHandoffMinimumMs, XvoxHandoffMaximumMs)
+
+fun xvoxNowPlayingSpec(ms: Int = XvoxNowPlayingMs): FiniteAnimationSpec<Float> =
+    tween(ms, easing = XvoxNowPlayingEasing)
 
 /** Fixed-duration compatibility specs used by callers that do not know their travel distance. */
 fun xvoxHandoffExitSpec(durationMillis: Int = XvoxHandoffExitMs): TweenSpec<Float> = tween(

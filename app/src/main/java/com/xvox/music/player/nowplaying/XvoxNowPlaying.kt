@@ -49,8 +49,10 @@ import com.xvox.music.core.design.theme.XvoxLogoFont
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.chrome.normalizedNowPlayingGrid
 import com.xvox.music.core.model.Song
-import com.xvox.music.core.ui.miniplayer.XvoxHandoffSpecs
+import com.xvox.music.core.ui.miniplayer.XvoxNowPlayingMs
 import com.xvox.music.core.ui.miniplayer.XvoxPlayerTransitionMotion
+import com.xvox.music.core.ui.miniplayer.xvoxHandoffMs
+import com.xvox.music.core.ui.miniplayer.xvoxNowPlayingSpec
 import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
 import com.xvox.music.core.ui.overlay.XvoxBox
 import com.xvox.music.core.ui.overlay.XvoxBoxPresentation
@@ -82,7 +84,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.PI
-import kotlin.math.abs
 import kotlin.math.sin
 
 private val XvoxSmoothEasing = CubicBezierEasing(0.2f, 0f, 0f, 1f)
@@ -345,27 +346,16 @@ fun XvoxNowPlaying(
     fun animateScreen(target: Float, finished: (() -> Unit)? = null) {
         motionJob?.cancel()
         val start = screenY
-        val distance = abs(target - start)
-        val fullHandoffDistance = belowBottomY.coerceAtLeast(1f)
-        // Moving upward is the incoming handoff and decelerates into place. Moving downward is
-        // the outgoing handoff and accelerates toward the bottom. Reversals use only their
-        // remaining segment, preserving the current physical frame instead of restarting time.
-        val handoffSpec = if (target < start) {
-            XvoxHandoffSpecs.enterSpec(
-                distancePx = distance,
-                fullDistancePx = fullHandoffDistance
-            )
-        } else {
-            XvoxHandoffSpecs.exitSpec(
-                distancePx = distance,
-                fullDistancePx = fullHandoffDistance
-            )
-        }
-        // The shell keeps its persistent navbar mounted beneath this full-player surface for the
-        // entire handoff. Only this surface moves; no navigation layer is promoted in front of it.
         motionJob = scope.launch {
             val animation = Animatable(start)
-            animation.animateTo(target, handoffSpec) {
+            // Both directions use the same Now Playing curve and full-distance duration. A
+            // reversal keeps the current physical frame, then scales time only to the remaining
+            // travel so the surface maintains the same visual speed.
+            val travel = kotlin.math.abs(target - start) / screenHeight.coerceAtLeast(1f)
+            animation.animateTo(
+                target,
+                xvoxNowPlayingSpec(xvoxHandoffMs(XvoxNowPlayingMs, travel))
+            ) {
                 screenY = value
             }
             screenY = target
