@@ -3,8 +3,6 @@
 
 # XVOX
 
-### Your Music. Your Space. Your Sound.
-
 A modern, offline-first Android music player built with **Kotlin and Jetpack Compose**. XVOX combines a premium AMOLED-friendly interface with powerful playback controls, dynamic artwork, lyrics, and a personalised music experience.
 
 ![Android](https://img.shields.io/badge/Android-8.0%2B-3DDC84?style=flat-square&logo=android)
@@ -68,7 +66,6 @@ Copyright (c) 2026 Ravi Thapa.
 
 This repository is publicly available for viewing and inspection only. No permission is granted to use, copy, modify, distribute, or incorporate any part of this project into other projects or products without prior written permission from the copyright holder.
 
-For permission requests, contact [thaparavi382@gmail.com](mailto:thaparavi382@gmail.com).
 
 See the [LICENSE](LICENSE) file for details.
 
