@@ -1,7 +1,7 @@
 
 <div align="center">
 
-# 🎵 XVOX
+# XVOX
 
 ### Your Music. Your Space. Your Sound.
 
