@@ -16,19 +16,19 @@ A modern, offline-first Android music player built with **Kotlin and Jetpack Com
 
 ---
 
-## ✨ Features
+## Features
 
-- 🎧 **Offline Playback** — Play music stored locally on your device.
-- 📚 **Music Library** — Browse songs, favourites, and playlists.
-- 🎨 **Premium UI** — Minimal, AMOLED-friendly design with custom themes.
-- 🖼️ **Dynamic Artwork** — Album art with adaptive colour backgrounds.
-- 🎤 **Lyrics Support** — View synced and unsynced lyrics.
-- 🎚️ **Audio Effects** — Equalizer, presets, and supported sound effects.
-- 🎵 **Queue Management** — Manage upcoming tracks and playback.
-- 🪄 **Smooth Player UI** — Mini-player, Now Playing screen, and artwork transitions.
-- ⚙️ **Customisation** — Personalise supported playback and appearance settings.
+- **Offline Playback** — Play music stored locally on your device.
+- **Music Library** — Browse songs, favourites, and playlists.
+- **Premium UI** — Minimal, AMOLED-friendly design with custom themes.
+- **Dynamic Artwork** — Album art with adaptive colour backgrounds.
+- **Lyrics Support** — View synced and unsynced lyrics.
+- **Audio Effects** — Equalizer, presets, and supported sound effects.
+- **Queue Management** — Manage upcoming tracks and playback.
+- **Smooth Player UI** — Mini-player, Now Playing screen, and artwork transitions.
+- **Customisation** — Personalise supported playback and appearance settings.
 
-## 📸 Screenshots
+## Screenshots
 
 <!-- Add your screenshots to the screenshots/ folder -->
 
@@ -40,9 +40,7 @@ A modern, offline-first Android music player built with **Kotlin and Jetpack Com
 
 </div>
 
-> Replace the example image paths with your actual screenshots.
-
-## 🛠️ Tech Stack
+## Tech Stack
 
 - **Language:** Kotlin
 - **UI:** Jetpack Compose
@@ -53,7 +51,7 @@ A modern, offline-first Android music player built with **Kotlin and Jetpack Com
 - **Metadata:** Jaudiotagger
 - **Minimum Android:** 8.0 (API 26)
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Build from Source
 
@@ -67,37 +65,37 @@ Install the generated APK from `app/build/outputs/apk/debug/`.
 
 **Requirements:** Android SDK and JDK 17 for building.
 
-## 📋 Project Status
+## Project Status
 
 XVOX is currently under development. Features, design, and functionality may change between releases.
 
-## 🗺️ Roadmap
+## Roadmap
 
 - [ ] Further playback and library improvements
 - [ ] More customisation options
 - [ ] UI and performance refinements
 - [ ] Additional audio features
 
-## 🔐 Permissions & Privacy
+## Permissions & Privacy
 
 XVOX is designed around local music playback. Android permissions may be required to access audio files and provide playback functionality. See the app source code for the exact permissions and behaviour.
 
-## 📄 Licence
+## Licence
 
 No licence has been specified yet. Unless a licence is added to the repository, standard copyright restrictions apply and reuse or redistribution is not automatically permitted.
 
-## 🤝 Contributing
+## Contributing
 
 Suggestions, bug reports, and improvements are welcome. Open an issue or submit a pull request.
 
-## 💖 Support
+## Support
 
-If you enjoy XVOX, consider starring the repository ⭐
+If you enjoy XVOX, consider starring the repository.
 
 ---
 
 <div align="center">
 
-**Made with ❤️ for music lovers.**
+**Made with care for music lovers.**
 
 </div>
