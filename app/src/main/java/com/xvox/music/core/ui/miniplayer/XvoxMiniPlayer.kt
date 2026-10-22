@@ -132,11 +132,14 @@ fun XvoxMiniPlayer(
             // A precomposed card is released only on the terminal Now Playing frame. Reset its
             // outgoing guard now so its next gesture can begin another sequential handoff.
             exiting = false
+            val startY = y.value.coerceIn(0f, exitDistance)
+            val travelledDistance = abs(startY)
+            y.snapTo(startY)
             y.animateTo(
                 0f,
-                XvoxMiniPlayerMotion.handoffSpec(
-                    XvoxPlayerTransitionMotion.HandoffDuration,
-                    .55f
+                XvoxHandoffSpecs.enterSpec(
+                    distancePx = travelledDistance,
+                    fullDistancePx = exitDistance
                 )
             )
         } else {
@@ -177,16 +180,24 @@ fun XvoxMiniPlayer(
         if (!stop) prepareNowPlaying()
 
         scope.launch {
-            // The full Mini Player completes its fixed downward travel first. Now Playing starts
-            // in this exact completion frame—zero additional dwell, and no surface overlap.
+            // The full Mini Player completes its physical downward travel first. Clear every
+            // gesture contribution before sampling the card's current position so a horizontal or
+            // vertical drag cannot survive into the handoff.
             dragX = 0f
-            y.snapTo(currentY.coerceIn(0f, exitDistance))
             dragY = 0f
+            rawX = 0f
+            rawY = 0f
+            axis = XvoxMiniAxis.NONE
+            moved = false
+
+            val clampedCurrentY = currentY.coerceIn(0f, exitDistance)
+            val remainingDownwardTravel = (exitDistance - clampedCurrentY).coerceAtLeast(0f)
+            y.snapTo(clampedCurrentY)
             y.animateTo(
                 exitDistance,
-                XvoxMiniPlayerMotion.handoffSpec(
-                    XvoxPlayerTransitionMotion.HandoffDuration,
-                    .55f
+                XvoxHandoffSpecs.exitSpec(
+                    distancePx = remainingDownwardTravel,
+                    fullDistancePx = exitDistance
                 )
             )
 

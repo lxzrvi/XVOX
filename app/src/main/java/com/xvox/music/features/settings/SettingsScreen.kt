@@ -59,6 +59,9 @@ import com.xvox.music.features.settings.components.*
 import com.xvox.music.features.settings.sections.*
 import kotlin.math.abs
 
+/** Shared substantial control height for every choice surface in Appearance. */
+private val XvoxAppearancePillHeight = 54.dp
+
 /**
  * The compact, single-column Settings landing page. It intentionally keeps just the everyday
  * controls here; detailed playback, lyrics, audio, and layout controls remain in their dedicated
@@ -398,7 +401,9 @@ private fun AppearanceSectionCard(
                 XvoxFontPickerButton(
                     selectedKey = state.fontFamily,
                     onClick = onOpenFontPicker,
-                    modifier = Modifier.fillMaxWidth()
+                    onSelect = viewModel::setFontFamily,
+                    modifier = Modifier.fillMaxWidth(),
+                    pillHeight = XvoxAppearancePillHeight
                 )
             }
 
@@ -408,8 +413,7 @@ private fun AppearanceSectionCard(
                     selectedKey = selectedScale,
                     onSelect = { key ->
                         scaleOptions.firstOrNull { it.first == key }?.let { viewModel.setFontSizeScale(it.third) }
-                    },
-                    compact = true
+                    }
                 )
             }
 
@@ -421,8 +425,7 @@ private fun AppearanceSectionCard(
                         "landscape" to "Landscape"
                     ),
                     selectedKey = state.appOrientation.lowercase(),
-                    onSelect = viewModel::setAppOrientation,
-                    compact = true
+                    onSelect = viewModel::setAppOrientation
                 )
             }
 
@@ -453,17 +456,12 @@ private fun XvoxSegmentedPill(
     options: List<Pair<String, String>>,
     selectedKey: String?,
     onSelect: (String) -> Unit,
-    modifier: Modifier = Modifier,
-    compact: Boolean = false
+    modifier: Modifier = Modifier
 ) {
     val colors = XvoxTheme.colors
-    val configuration = LocalConfiguration.current
-    val responsiveCompact = compact || configuration.screenHeightDp <= 500
-    val pillHeight = when {
-        configuration.screenHeightDp <= 430 -> 34.dp
-        responsiveCompact -> 37.dp
-        else -> 42.dp
-    }
+    // Appearance choices intentionally stay large and equal at every screen height. In cramped
+    // layouts the card scrolls instead of silently shrinking some controls below their peers.
+    val pillHeight = XvoxAppearancePillHeight
     val shape = RoundedCornerShape(pillHeight / 2f)
     val selectedTextColor = xvoxOnAccent(colors.primaryAccent)
     val selectedIndex = options.indexOfFirst { (key, _) -> key == selectedKey }
@@ -520,7 +518,7 @@ private fun XvoxSegmentedPill(
                     Text(
                         text = label,
                         color = if (isSelected) selectedTextColor else colors.mutedText,
-                        fontSize = if (configuration.screenHeightDp <= 430) 10.5.sp else if (responsiveCompact) 11.5.sp else 12.sp,
+                        fontSize = 12.sp,
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
                         maxLines = 1
                     )

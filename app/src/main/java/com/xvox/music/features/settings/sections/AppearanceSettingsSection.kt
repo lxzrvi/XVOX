@@ -34,8 +34,10 @@ import com.xvox.music.features.settings.SettingsState
 import com.xvox.music.features.settings.SettingsViewModel
 import com.xvox.music.features.settings.components.ColorPickerRow
 import com.xvox.music.features.settings.components.SettingsAccordionItem
-import com.xvox.music.features.settings.components.SettingsChoiceRow
 import com.xvox.music.features.settings.components.SettingsControlsEditor
+
+/** Matches the substantial full-width Appearance controls on the Settings landing screen. */
+private val AppearanceChoicePillHeight = 54.dp
 
 @Composable
 fun AppearanceSettingsSection(
@@ -82,7 +84,7 @@ fun AppearanceSettingsSection(
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            .height(38.dp)
+                            .height(AppearanceChoicePillHeight)
                             .clip(RoundedCornerShape(10.dp))
                             .background(btnBg)
                             .then(
@@ -134,7 +136,7 @@ fun AppearanceSettingsSection(
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            .height(38.dp)
+                            .height(AppearanceChoicePillHeight)
                             .clip(RoundedCornerShape(10.dp))
                             .background(if (isSelected && key != "custom") colors.primaryAccent else colors.cardElevated)
                             .then(
@@ -209,7 +211,7 @@ fun AppearanceSettingsSection(
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            .height(42.dp)
+                            .height(AppearanceChoicePillHeight)
                             .clip(RoundedCornerShape(10.dp))
                             .background(if (isSelected) colors.primaryAccent else colors.cardElevated)
                             .then(
@@ -237,11 +239,39 @@ fun AppearanceSettingsSection(
             expanded = expandedGroup == "Orientation",
             onToggle = { toggle("Orientation") }
         ) {
-            SettingsChoiceRow(
-                options = listOf("auto" to "Auto", "portrait" to "Portrait", "landscape" to "Landscape"),
-                selected = state.appOrientation.lowercase(),
-                onSelect = viewModel::setAppOrientation
+            val orientationOptions = listOf(
+                "auto" to "Auto",
+                "portrait" to "Portrait",
+                "landscape" to "Landscape"
             )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                orientationOptions.forEach { (key, label) ->
+                    val isSelected = state.appOrientation.equals(key, ignoreCase = true)
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(AppearanceChoicePillHeight)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(if (isSelected) colors.primaryAccent else colors.cardElevated)
+                            .then(
+                                if (!isSelected) Modifier.border(0.8.dp, colors.cardBorder, RoundedCornerShape(10.dp))
+                                else Modifier
+                            )
+                            .xvoxPressScale { viewModel.setAppOrientation(key) },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = label,
+                            color = if (isSelected) colors.background else colors.primaryText,
+                            fontSize = 12.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                        )
+                    }
+                }
+            }
         }
     })
 }
