@@ -43,9 +43,9 @@ A modern, offline-first Android music player built with **Kotlin and Jetpack Com
 |:---:|:---:|:---:|
 | ![Search](screenshots/search.png) | ![Mini Player](screenshots/mini-player.png) | ![Now Playing](screenshots/now-playing.png) |
 
-| Album View | Lyrics | Equalizer |
+| Albums | Lyrics | Equalizer |
 |:---:|:---:|:---:|
-| ![Album View](screenshots/albums.png) | ![Lyrics](screenshots/lyrics.png) | ![Equalizer](screenshots/equalizer.png) |
+| ![Albums](screenshots/albums.png) | ![Lyrics](screenshots/lyrics.png) | ![Equalizer](screenshots/equalizer.png) |
 
 </div>
 
@@ -62,11 +62,19 @@ A modern, offline-first Android music player built with **Kotlin and Jetpack Com
 
 ## Licence
 
-No licence has been specified yet. Until a licence is added, standard copyright restrictions apply; reuse and redistribution are not automatically permitted.
+**Proprietary — All Rights Reserved.**
 
-## Contributing
+Copyright (c) 2026 Ravi Thapa.
 
-Have a suggestion or found an issue? Feel free to get in touch.
+This repository is publicly available for viewing and inspection only. No permission is granted to use, copy, modify, distribute, or incorporate any part of this project into other projects or products without prior written permission from the copyright holder.
+
+For permission requests, contact [thaparavi382@gmail.com](mailto:thaparavi382@gmail.com).
+
+See the [LICENSE](LICENSE) file for details.
+
+## Contact
+
+For enquiries, suggestions, or permission requests:
 
 **Email:** [thaparavi382@gmail.com](mailto:thaparavi382@gmail.com)
 
