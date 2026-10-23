@@ -2,7 +2,10 @@ package com.xvox.music.core.ui.navigation
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitLongPressOrCancellation
+import androidx.compose.foundation.gestures.drag
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -15,7 +18,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -31,7 +36,7 @@ import com.xvox.music.core.design.theme.XvoxTheme
 fun XvoxBottomBar(
     selected: XvoxDestination,
     onSelected: (XvoxDestination) -> Unit,
-    /** Retained for call-site compatibility; Navbar long presses intentionally do nothing. */
+    /** Retained for call-site compatibility; the Bottom Bar owns long-hold drag selection. */
     @Suppress("UNUSED_PARAMETER") onLongPressSettings: () -> Unit = {},
     /** Navigation artwork comes only from Chrome's navigationImageUri, never the Header. */
     modifier: Modifier = Modifier
@@ -50,9 +55,12 @@ fun XvoxBottomBar(
     val selectedIndex = destinations.indexOf(selected)
 
     var position by remember { mutableFloatStateOf(selectedIndex.toFloat()) }
+    var dragging by remember { mutableStateOf(false) }
+    val latestSelect by rememberUpdatedState(onSelected)
+    val latestSelectedIndex by rememberUpdatedState(selectedIndex)
 
-    LaunchedEffect(selectedIndex) {
-        position = selectedIndex.toFloat()
+    LaunchedEffect(selectedIndex, dragging) {
+        if (!dragging) position = selectedIndex.toFloat()
     }
 
     val motion = rememberXvoxNavigationMotion(position = position)
@@ -167,23 +175,57 @@ fun XvoxBottomBar(
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .offset(y = topOffset)
-                .size(navBarWidth, navBarHeight),
+                .size(navBarWidth, navBarHeight)
+                .pointerInput(Unit) {
+                    awaitEachGesture {
+                        val down = awaitFirstDown()
+                        val slotPx = size.width / destinations.size.toFloat()
+                        fun indexAt(x: Float) = (x / slotPx).toInt().coerceIn(0, destinations.lastIndex)
+
+                        val longPress = awaitLongPressOrCancellation(down.id)
+                        if (longPress == null) {
+                            // No long press: a released finger is an ordinary tap.
+                            val change = currentEvent.changes.firstOrNull { it.id == down.id }
+                            if (change != null && !change.pressed) {
+                                val index = indexAt(down.position.x)
+                                position = index.toFloat()
+                                view.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
+                                latestSelect(destinations[index])
+                            }
+                            return@awaitEachGesture
+                        }
+
+                        // After a long press, selection follows the finger across the three slots.
+                        dragging = true
+                        try {
+                            view.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
+                            var lastIndex = latestSelectedIndex
+                            fun follow(x: Float) {
+                                position = (x / slotPx - 0.5f).coerceIn(0f, destinations.lastIndex.toFloat())
+                                val index = indexAt(x)
+                                if (index != lastIndex) {
+                                    lastIndex = index
+                                    view.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
+                                    latestSelect(destinations[index])
+                                }
+                            }
+                            follow(longPress.position.x)
+                            drag(down.id) { change ->
+                                change.consume()
+                                follow(change.position.x)
+                            }
+                        } finally {
+                            dragging = false
+                        }
+                    }
+                },
             verticalAlignment = Alignment.CenterVertically
         ) {
             destinations.forEachIndexed { index, destination ->
                 Box(
                     modifier = Modifier
                         .weight(1f)
-                        .fillMaxSize()
-                        .pointerInput(destination) {
-                            detectTapGestures(
-                                onTap = {
-                                    position = index.toFloat()
-                                    view.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
-                                    onSelected(destination)
-                                }
-                            )
-                        },
+                        .fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
                     // Active icon colour: pill icon setting wins, otherwise the accent.
@@ -192,7 +234,7 @@ fun XvoxBottomBar(
                     XvoxNavigationItem(
                         destination = destination,
                         proximity = navigationProximity(position = motion.position, index = index),
-                        dragging = false,
+                        dragging = dragging,
                         inactiveColor = colors.mutedText.copy(alpha = 0.76f),
                         activeColor = iconAccent,
                         modifier = Modifier.fillMaxSize()

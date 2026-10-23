@@ -7,8 +7,8 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
@@ -58,6 +58,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
@@ -766,7 +767,7 @@ fun XvoxMainShell(
             if (settledHeaderRoute == null) {
                 sharedHeaderTranslation.snapTo(targetHeaderTranslationY)
             } else {
-                sharedHeaderTranslation.animateTo(targetHeaderTranslationY, tween(260))
+                sharedHeaderTranslation.animateTo(targetHeaderTranslationY, tween(300))
             }
             settledHeaderRoute = destination
         }
@@ -817,14 +818,18 @@ fun XvoxMainShell(
             AnimatedContent(
                 targetState = destination,
                 transitionSpec = {
-                    // Forward routes always arrive from the right: Home → Search and either
-                    // Home/Search → Settings. Back travels through the exact opposite vector.
                     val forward = (initialState == XvoxDestination.HOME && targetState == XvoxDestination.SEARCH) ||
                         targetState == XvoxDestination.SETTINGS
-                    val direction = if (forward) 1 else -1
-                    ((slideInHorizontally(tween(420)) { fullWidth -> fullWidth * direction } + fadeIn(tween(180)))
-                        togetherWith (slideOutHorizontally(tween(420)) { fullWidth -> -fullWidth * direction } + fadeOut(tween(180))))
+                    val spec = tween<IntOffset>(300, easing = CubicBezierEasing(0.25f, 0.1f, 0.25f, 1f))
+                    // Forward brings the new page fully across the canvas while the old page only
+                    // recedes by 30%. Back reverses the relationship. With no fade, the opaque
+                    // tab surfaces never reveal a temporary blank gap between pages.
+                    val enterFrac = if (forward) 1f else -0.3f
+                    val exitFrac = if (forward) -0.3f else 1f
+                    (slideInHorizontally(spec) { (it * enterFrac).toInt() } togetherWith
+                        slideOutHorizontally(spec) { (it * exitFrac).toInt() })
                         .using(null)
+                        .apply { targetContentZIndex = if (forward) 1f else -1f }
                 },
                 label = "sharedHeaderRouteBodies",
                 modifier = Modifier.fillMaxSize()
@@ -1194,7 +1199,7 @@ private fun TabSurface(
     backgroundBrightness: Float,
     content: @Composable () -> Unit
 ) {
-    Box(Modifier.fillMaxSize()) {
+    Box(Modifier.fillMaxSize().background(XvoxTheme.colors.background)) {
         // A normal selected background image remains local to the active tab; no captured or
         // GPU-blurred app-wide backdrop is used by the default interface.
         if (backgroundImage.isNotBlank()) {

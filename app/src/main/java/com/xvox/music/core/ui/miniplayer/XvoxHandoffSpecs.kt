@@ -18,8 +18,8 @@ private const val XvoxHandoffMinimumMs = 120
 private const val XvoxHandoffMaximumMs = 900
 
 // Now Playing opens and closes with one shared curve and full-distance timing.
-val XvoxNowPlayingEasing = CubicBezierEasing(0.4f, 0f, 0.2f, 1f)
-const val XvoxNowPlayingMs = 340
+val XvoxNowPlayingEasing = CubicBezierEasing(0.33f, 0f, 0.2f, 1f)
+const val XvoxNowPlayingMs = 430
 
 fun xvoxHandoffMs(baseMs: Int, travel: Float): Int =
     (baseMs * travel.coerceIn(0f, 1f))
