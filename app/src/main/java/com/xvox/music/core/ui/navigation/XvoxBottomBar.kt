@@ -18,6 +18,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -33,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.xvox.music.core.design.theme.XvoxTheme
 import kotlinx.coroutines.launch
+import kotlin.math.abs
 
 @Composable
 fun XvoxBottomBar(
@@ -60,14 +63,40 @@ fun XvoxBottomBar(
     val latestSelect by rememberUpdatedState(onSelected)
     val latestSelectedIndex by rememberUpdatedState(selectedIndex)
 
-    // The selector has one shared position source. It glides critically damped to a tab for
-    // taps/back/external selection, and long-drag updates retarget that same animation.
     val pos = remember { Animatable(selectedIndex.toFloat()) }
     val grow = remember { Animatable(0f) }
+    // Only a gesture that crosses touch slop is a true swipe; tap travel stays visually neutral.
     var dragging by remember { mutableStateOf(false) }
+    var travelFrom by remember { mutableFloatStateOf(selectedIndex.toFloat()) }
+    var travelTo by remember { mutableIntStateOf(selectedIndex) }
+
+    fun slideTo(position: Float, stiffness: Float) {
+        scope.launch {
+            pos.animateTo(position, spring(dampingRatio = 1f, stiffness = stiffness))
+        }
+    }
+
+    // Retain the travel endpoints so icons between distant tabs never become active during a tap.
+    fun travelToTab(index: Int, stiffness: Float) {
+        if (travelTo != index) {
+            travelFrom = pos.value
+            travelTo = index
+        }
+        slideTo(index.toFloat(), stiffness)
+    }
+
+    fun iconProximity(index: Int): Float {
+        if (dragging) return navigationProximity(position = pos.value, index = index)
+        val low = minOf(travelFrom, travelTo.toFloat())
+        val high = maxOf(travelFrom, travelTo.toFloat())
+        val isMiddle = index > low + 0.001f && index < high - 0.001f
+        return if (isMiddle) 0f else navigationProximity(position = pos.value, index = index)
+    }
 
     LaunchedEffect(selectedIndex) {
-        if (!dragging) {
+        if (!dragging && travelTo != selectedIndex) {
+            travelFrom = pos.value
+            travelTo = selectedIndex
             pos.animateTo(
                 selectedIndex.toFloat(),
                 spring(dampingRatio = 1f, stiffness = 700f)
@@ -163,7 +192,7 @@ fun XvoxBottomBar(
                 )
                 .graphicsLayer {
                     translationX = ((slotWidth - selectorWidth) / 2f + slotWidth * pos.value).toPx()
-                    // Long drag adds a quiet, uniform 2dp emphasis instead of a wobble/stretch.
+                    // A true swipe adds a quiet, uniform 2dp emphasis instead of a wobble/stretch.
                     val extra = 2.dp.toPx() * grow.value
                     scaleX = 1f + extra / size.width
                     scaleY = 1f + extra / size.height
@@ -186,46 +215,58 @@ fun XvoxBottomBar(
                 .offset(y = topOffset)
                 .size(navBarWidth, navBarHeight)
                 .pointerInput(Unit) {
+                    val slop = viewConfiguration.touchSlop
                     awaitEachGesture {
                         val down = awaitFirstDown()
                         val slotPx = size.width / destinations.size.toFloat()
                         fun indexAt(x: Float) = (x / slotPx).toInt().coerceIn(0, destinations.lastIndex)
                         fun pillTarget(x: Float) =
                             (x / slotPx - 0.5f).coerceIn(0f, destinations.lastIndex.toFloat())
-                        fun slideTo(position: Float, stiffness: Float) {
-                            scope.launch {
-                                pos.animateTo(
-                                    position,
-                                    spring(dampingRatio = 1f, stiffness = stiffness)
-                                )
-                            }
-                        }
 
-                        // Begin previewing immediately: the pill heads toward the finger without a jump.
-                        dragging = true
-                        scope.launch {
-                            grow.animateTo(1f, spring(dampingRatio = 1f, stiffness = 900f))
-                        }
+                        var swiping = false
                         var lastX = down.position.x
-                        slideTo(pillTarget(lastX), 1400f)
+                        var hoverIndex = indexAt(lastX)
+
+                        // Start travelling toward the pressed tab without haptics; intermediate
+                        // icons stay neutral until a true swipe crosses touch slop.
+                        travelToTab(hoverIndex, 1400f)
 
                         var finished = false
                         try {
                             finished = drag(down.id) { change ->
                                 change.consume()
                                 lastX = change.position.x
-                                slideTo(pillTarget(lastX), 2200f)
+                                if (!swiping && abs(lastX - down.position.x) > slop) {
+                                    swiping = true
+                                    dragging = true
+                                    scope.launch {
+                                        grow.animateTo(1f, spring(dampingRatio = 1f, stiffness = 900f))
+                                    }
+                                }
+                                if (swiping) {
+                                    slideTo(pillTarget(lastX), 2200f)
+                                    val index = indexAt(lastX)
+                                    if (index != hoverIndex) {
+                                        hoverIndex = index
+                                        // Only a true swipe ticks as it crosses a new tab.
+                                        view.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
+                                    }
+                                }
                             }
                         } finally {
                             dragging = false
-                            scope.launch {
-                                grow.animateTo(0f, spring(dampingRatio = 1f, stiffness = 900f))
+                            if (swiping) {
+                                scope.launch {
+                                    grow.animateTo(0f, spring(dampingRatio = 1f, stiffness = 900f))
+                                }
                             }
                             val target = if (finished) indexAt(lastX) else latestSelectedIndex
-                            slideTo(target.toFloat(), 900f)
+                            travelToTab(target, 900f)
                             if (finished && target != latestSelectedIndex) {
-                                // There is no intermediate haptic; selection confirms once on release.
-                                view.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
+                                // Taps tick once on release; swipes have already ticked crossings.
+                                if (!swiping) {
+                                    view.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
+                                }
                                 latestSelect(destinations[target])
                             }
                         }
@@ -245,7 +286,7 @@ fun XvoxBottomBar(
                         ?: colors.primaryAccent
                     XvoxNavigationItem(
                         destination = destination,
-                        proximity = navigationProximity(position = pos.value, index = index),
+                        proximity = iconProximity(index),
                         dragging = dragging,
                         inactiveColor = colors.mutedText.copy(alpha = 0.76f),
                         activeColor = iconAccent,
