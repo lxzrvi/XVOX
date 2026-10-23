@@ -1,6 +1,5 @@
 package com.xvox.music.features.setup
 
-import android.view.HapticFeedbackConstants
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -26,7 +25,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
@@ -43,7 +41,6 @@ fun SetupNameField(
 ) {
     val colors = XvoxTheme.colors
     val focusManager = LocalFocusManager.current
-    val view = LocalView.current
 
     var showLimit by remember {
         mutableStateOf(false)

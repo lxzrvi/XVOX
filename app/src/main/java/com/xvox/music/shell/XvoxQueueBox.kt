@@ -50,11 +50,9 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.customActions
@@ -68,6 +66,7 @@ import androidx.compose.ui.zIndex
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
+import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 import com.xvox.music.core.ui.overlay.LocalXvoxSheetGrowthActive
 import com.xvox.music.core.ui.overlay.LocalXvoxSheetGrowthLimitReporter
 import com.xvox.music.core.ui.overlay.xvoxBoxScroll
@@ -174,7 +173,9 @@ fun XvoxQueueBoxContent(
 ) {
     val colors = XvoxTheme.colors
     val density = LocalDensity.current
-    val hapticFeedback = LocalHapticFeedback.current
+    // Queue drag feedback uses the same medium, user-configurable policy as every other app tap.
+    val haptics = LocalXvoxHaptics.current
+    val latestHaptics by rememberUpdatedState(haptics)
     val listState = rememberLazyListState()
     val move by rememberUpdatedState(onMoveItem)
     val remove by rememberUpdatedState(onRemoveIndex)
@@ -250,7 +251,7 @@ fun XvoxQueueBoxContent(
         mutable.add(destination, moved)
         dragList = mutable
         currentDragIndex = destination
-        hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+        latestHaptics.sliderTick()
     }
 
     // Keep one stable auto-scroll coroutine for the whole drag. Keying it to every pointer pixel
@@ -363,7 +364,7 @@ fun XvoxQueueBoxContent(
                                 } ?: true
 
                                 if (longPressTriggered) {
-                                    hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    latestHaptics.tap()
                                     val entry = displayEntries[hitIndex]
                                     draggingEntry = entry
                                     dragList = displayEntries.toList()

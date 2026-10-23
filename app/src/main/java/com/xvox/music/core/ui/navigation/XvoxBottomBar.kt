@@ -34,6 +34,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 
@@ -46,8 +47,8 @@ fun XvoxBottomBar(
     /** Navigation artwork comes only from Chrome's navigationImageUri, never the Header. */
     modifier: Modifier = Modifier
 ) {
-    val view = androidx.compose.ui.platform.LocalView.current
     val colors = XvoxTheme.colors
+    val haptics = LocalXvoxHaptics.current
     val chrome = com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle.current
     val navBarHeight = chrome.navigationBarHeight.coerceIn(52f, 88f).dp
     val availableWidth = (androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp.dp - 24.dp)
@@ -61,6 +62,7 @@ fun XvoxBottomBar(
 
     val scope = rememberCoroutineScope()
     val latestSelect by rememberUpdatedState(onSelected)
+    val latestHaptics by rememberUpdatedState(haptics)
     val latestSelectedIndex by rememberUpdatedState(selectedIndex)
 
     val pos = remember { Animatable(selectedIndex.toFloat()) }
@@ -248,8 +250,10 @@ fun XvoxBottomBar(
                                     val index = indexAt(lastX)
                                     if (index != hoverIndex) {
                                         hoverIndex = index
-                                        // Only a true swipe ticks as it crosses a new tab.
-                                        view.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
+                                        // Only a true swipe ticks as it crosses a new tab. Route it
+                                        // through the app haptic policy so every surface uses the
+                                        // same restrained medium feedback and respects its toggle.
+                                        latestHaptics.sliderTick()
                                     }
                                 }
                             }
@@ -262,10 +266,13 @@ fun XvoxBottomBar(
                             }
                             val target = if (finished) indexAt(lastX) else latestSelectedIndex
                             travelToTab(target, 900f)
-                            if (finished && target != latestSelectedIndex) {
-                                // Taps tick once on release; swipes have already ticked crossings.
+                            if (finished && (!swiping || target != latestSelectedIndex)) {
+                                // A completed tap always reaches the destination callback, even
+                                // when it is already selected. The shell uses that re-selection to
+                                // return Home/Search/Settings to their own root screen. A true
+                                // swipe that returns to its starting tab remains a no-op.
                                 if (!swiping) {
-                                    view.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
+                                    latestHaptics.tap()
                                 }
                                 latestSelect(destinations[target])
                             }

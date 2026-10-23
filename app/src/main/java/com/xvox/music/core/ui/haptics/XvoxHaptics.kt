@@ -24,19 +24,20 @@ class XvoxHaptics(
         runCatching {
             val level = strength.lowercase()
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                // The normal app response is deliberately a restrained medium pulse. It replaces
+                // the previous strong default so ordinary taps, toggles, and slider ticks remain
+                // clear without making the whole interface feel buzzy.
                 val (ms, amp) = when (level) {
-                    "very_low" -> 6L to 30 // Soft
-                    "low" -> 12L to 85 // Medium
-                    "high" -> 28L to 255 // Sharp
-                    else -> 18L to 160 // Strong (default)
+                    "very_low" -> 6L to 24
+                    "low" -> 10L to 64
+                    "high" -> 18L to 150
+                    else -> 14L to 110 // Medium default
                 }
                 if (vibrator?.hasAmplitudeControl() == true) {
                     vibrator?.vibrate(VibrationEffect.createOneShot(ms, amp))
                 } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                     val effect = when (level) {
-                        "very_low" -> VibrationEffect.EFFECT_TICK
-                        "low" -> VibrationEffect.EFFECT_CLICK
-                        "high" -> VibrationEffect.EFFECT_HEAVY_CLICK
+                        "very_low", "low" -> VibrationEffect.EFFECT_TICK
                         else -> VibrationEffect.EFFECT_CLICK
                     }
                     vibrator?.vibrate(VibrationEffect.createPredefined(effect))
@@ -48,9 +49,9 @@ class XvoxHaptics(
                 @Suppress("DEPRECATION")
                 val ms = when (level) {
                     "very_low" -> 5L
-                    "low" -> 10L
-                    "high" -> 25L
-                    else -> 15L
+                    "low" -> 8L
+                    "high" -> 16L
+                    else -> 12L // Medium default
                 }
                 vibrator?.vibrate(ms)
             }
@@ -69,31 +70,11 @@ class XvoxHaptics(
         tap()
     }
 
-    fun heavy() {
-        if (!enabled) return
-        runCatching {
-            val level = strength.lowercase()
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                val (ms, amp) = when (level) {
-                    "very_low" -> 16L to 60
-                    "low" -> 26L to 130
-                    "high" -> 50L to 255
-                    else -> 36L to 200
-                }
-                if (vibrator?.hasAmplitudeControl() == true) {
-                    vibrator?.vibrate(VibrationEffect.createOneShot(ms, amp))
-                } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    vibrator?.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_HEAVY_CLICK))
-                } else {
-                    @Suppress("DEPRECATION")
-                    vibrator?.vibrate(ms)
-                }
-            } else {
-                @Suppress("DEPRECATION")
-                vibrator?.vibrate(35L)
-            }
-        }
-    }
+    /**
+     * Keeps existing important-action call sites compatible without reintroducing the old heavy
+     * pulse. The app now uses one medium haptic policy everywhere it provides feedback.
+     */
+    fun heavy() = tap()
 
     fun success() {
         tap()

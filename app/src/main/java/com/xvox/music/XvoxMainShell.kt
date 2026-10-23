@@ -158,11 +158,11 @@ fun XvoxMainShell(
     // and reveal that retained list page, rather than toggling the pill all the way to All Songs.
     var homeDetailExitKey by rememberSaveable { mutableLongStateOf(0L) }
     var activeHomeDetailMode by remember { mutableStateOf<com.xvox.music.features.playlist.XvoxHomeLibraryMode?>(null) }
-    // A destination return deliberately preserves the chosen library page, but always lands that
-    // page at its own top rather than reviving an old deep Home scroll position.
+    // Every explicit navbar tap returns its destination to its own root. System Back remains a
+    // reverse route and therefore restores the retained page/position instead of acting as a tab tap.
     var homeScrollResetKey by rememberSaveable { mutableLongStateOf(0L) }
-    // Search and Settings reset only when they are newly selected, not when Settings Back
-    // restores Search as the reverse route.
+    // Search and Settings get a top reset for arrival and a base reset for an explicit tab tap;
+    // Settings Back restoring Search deliberately touches neither key.
     var searchTopResetKey by rememberSaveable { mutableLongStateOf(0L) }
     var searchBaseResetKey by rememberSaveable { mutableLongStateOf(0L) }
     var settingsTopResetKey by rememberSaveable { mutableLongStateOf(0L) }
@@ -566,52 +566,50 @@ fun XvoxMainShell(
         if (resetScroll) homeScrollResetKey++
     }
 
+    fun resetHomeNavigationRoot() {
+        // An explicit Home-tab tap is never a resume operation: clear every Home-owned detail and
+        // land on All Songs at the top, whether Home was already visible or retained off-screen.
+        hoistedSelectedPlaylistId = null
+        activeHomeDetailMode = null
+        homeDetailExitKey++
+        homeHeaderScrollPx = 0
+        homeViewModel.setLibraryMode(com.xvox.music.features.playlist.XvoxHomeLibraryMode.ALL_SONGS)
+        homeResetKey++
+        homeScrollResetKey++
+    }
+
+    fun resetSearchNavigationRoot() {
+        // Search-owned artist/playlist drill-down is local to Search. An explicit Search tab tap
+        // always returns its main Search screen rather than reviving a hidden detail page.
+        searchBaseResetKey++
+        searchTopResetKey++
+    }
+
+    fun resetSettingsNavigationRoot() {
+        // The Settings tab is a direct route to its landing page; close Widget Studio and any
+        // Settings-owned sheet whenever the user explicitly taps Settings in the navbar.
+        settingsBaseResetKey++
+        settingsTopResetKey++
+    }
+
     fun selectNavigationDestination(next: XvoxDestination) {
-        if (next == XvoxDestination.HOME) {
-            if (destination == XvoxDestination.HOME) {
-                // A second Home tap is the familiar home action: return to All Songs at its top.
-                hoistedSelectedPlaylistId = null
-                activeHomeDetailMode = null
-                homeDetailExitKey++
-                homeHeaderScrollPx = 0
-                homeViewModel.setLibraryMode(com.xvox.music.features.playlist.XvoxHomeLibraryMode.ALL_SONGS)
-                homeResetKey++
-                homeScrollResetKey++
-            } else {
-                // Returning by navbar preserves the selected Home pill/page but never an old
-                // deep scroll position.
-                returnToHome(resetScroll = true)
-            }
-            return
-        }
-
-        if (next == destination) {
-            when (next) {
-                XvoxDestination.SEARCH -> {
-                    // Search owns artist/playlist drill-down locally. Re-selecting its navbar
-                    // destination returns to that base page, never through Home.
-                    searchBaseResetKey++
-                    searchTopResetKey++
-                }
-                XvoxDestination.SETTINGS -> {
-                    // The same active-tab gesture exits Widget Studio and any Settings-local sheet.
-                    settingsBaseResetKey++
-                    settingsTopResetKey++
-                }
-                XvoxDestination.HOME -> Unit
-            }
-            return
-        }
-
         when (next) {
-            XvoxDestination.SEARCH -> searchTopResetKey++
-            XvoxDestination.SETTINGS -> {
-                settingsReturnDestination = destination
-                settingsTopResetKey++
+            XvoxDestination.HOME -> {
+                resetHomeNavigationRoot()
+                destination = XvoxDestination.HOME
             }
-            XvoxDestination.HOME -> Unit
+            XvoxDestination.SEARCH -> {
+                resetSearchNavigationRoot()
+                destination = XvoxDestination.SEARCH
+            }
+            XvoxDestination.SETTINGS -> {
+                if (destination != XvoxDestination.SETTINGS) {
+                    settingsReturnDestination = destination
+                }
+                resetSettingsNavigationRoot()
+                destination = XvoxDestination.SETTINGS
+            }
         }
-        destination = next
     }
 
     fun openHomeLibrary(mode: com.xvox.music.features.playlist.XvoxHomeLibraryMode) {
