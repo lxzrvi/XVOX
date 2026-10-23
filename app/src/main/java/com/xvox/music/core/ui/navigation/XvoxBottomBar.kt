@@ -1,5 +1,7 @@
 package com.xvox.music.core.ui.navigation
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -20,8 +22,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -31,6 +35,9 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.xvox.music.core.design.theme.XvoxTheme
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
+import kotlin.math.abs
 
 @Composable
 fun XvoxBottomBar(
@@ -54,16 +61,34 @@ fun XvoxBottomBar(
     val destinations = XvoxDestination.entries
     val selectedIndex = destinations.indexOf(selected)
 
-    var position by remember { mutableFloatStateOf(selectedIndex.toFloat()) }
-    var dragging by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
     val latestSelect by rememberUpdatedState(onSelected)
     val latestSelectedIndex by rememberUpdatedState(selectedIndex)
 
-    LaunchedEffect(selectedIndex, dragging) {
-        if (!dragging) position = selectedIndex.toFloat()
-    }
+    // Outside a drag, the selector settles to the active tab with a restrained bounce. During a
+    // drag, `dragPos` is written straight from the finger so the pill never lags behind it.
+    val restPos = remember { Animatable(selectedIndex.toFloat()) }
+    var dragging by remember { mutableStateOf(false) }
+    var dragPos by remember { mutableFloatStateOf(selectedIndex.toFloat()) }
+    val trail = remember { Animatable(selectedIndex.toFloat()) }
 
-    val motion = rememberXvoxNavigationMotion(position = position)
+    fun shown(): Float = if (dragging) dragPos else restPos.value
+
+    LaunchedEffect(selectedIndex) {
+        if (!dragging && abs(restPos.value - selectedIndex) > 0.001f) {
+            restPos.animateTo(
+                selectedIndex.toFloat(),
+                spring(dampingRatio = 0.62f, stiffness = 520f)
+            )
+        }
+    }
+    // The delayed trail adds a brief stretch while the selector is moving, then settles cleanly.
+    LaunchedEffect(Unit) {
+        snapshotFlow { shown() }.collectLatest { target ->
+            trail.animateTo(target, spring(dampingRatio = 0.45f, stiffness = 300f))
+        }
+    }
+    val shownPos = shown()
     val parentShape = RoundedCornerShape(navBarHeight / 2f)
     val selectorShape = RoundedCornerShape(selectorHeight / 2f)
 
@@ -152,12 +177,13 @@ fun XvoxBottomBar(
                     y = topOffset + navBarHeight / 2 - selectorHeight / 2
                 )
                 .graphicsLayer {
-                    // Derive directly from each equal slot's centre, rather than a nominal travel
-                    // constant. The selected icon and pill therefore share one exact centre for
-                    // Home, Search, and Settings at every allowed navbar width.
-                    translationX = (
-                        (slotWidth - selectorWidth) / 2f + slotWidth * motion.position
-                    ).toPx()
+                    val p = if (dragging) dragPos else restPos.value
+                    translationX = ((slotWidth - selectorWidth) / 2f + slotWidth * p).toPx()
+                    // Motion stretches the pill in travel direction while the delayed trail
+                    // catches up, then it returns to its normal rounded geometry at rest.
+                    val stretch = abs(p - trail.value).coerceAtMost(0.6f)
+                    scaleX = 1f + stretch * 0.45f
+                    scaleY = 1f - stretch * 0.22f
                     shape = selectorShape
                     clip = true
                 }
@@ -184,50 +210,52 @@ fun XvoxBottomBar(
 
                         val longPress = awaitLongPressOrCancellation(down.id)
                         if (longPress == null) {
-                            // No long press: a released finger is an ordinary tap.
+                            // A simple press/release still selects immediately.
                             val change = currentEvent.changes.firstOrNull { it.id == down.id }
                             if (change != null && !change.pressed) {
-                                val index = indexAt(down.position.x)
-                                position = index.toFloat()
                                 view.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
-                                latestSelect(destinations[index])
+                                latestSelect(destinations[indexAt(down.position.x)])
                             }
                             return@awaitEachGesture
                         }
 
-                        // A long hold only previews the destination. It commits after a normal
-                        // drag release, so routes do not change while the finger is travelling.
+                        // A long hold previews under the finger; the route commits only on release.
+                        dragPos = restPos.value
                         dragging = true
+                        var hoverIndex = latestSelectedIndex
+                        var finished = false
                         try {
                             view.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
-                            var hoverIndex = latestSelectedIndex
-
                             fun follow(x: Float) {
-                                // During the drag only the selector pill follows the finger.
-                                position = (x / slotPx - 0.5f).coerceIn(0f, destinations.lastIndex.toFloat())
+                                // Direct finger mapping deliberately bypasses the resting spring.
+                                dragPos = (x / slotPx - 0.5f).coerceIn(0f, destinations.lastIndex.toFloat())
                                 val index = indexAt(x)
                                 if (index != hoverIndex) {
                                     hoverIndex = index
                                     view.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
                                 }
                             }
-
                             follow(longPress.position.x)
-                            val finished = drag(down.id) { change ->
+                            finished = drag(down.id) { change ->
                                 change.consume()
                                 follow(change.position.x)
                             }
-
-                            // Commit only on an uncancelled finger release.
-                            if (finished) {
-                                position = hoverIndex.toFloat()
-                                if (hoverIndex != latestSelectedIndex) {
-                                    view.performHapticFeedback(android.view.HapticFeedbackConstants.CONFIRM)
-                                    latestSelect(destinations[hoverIndex])
-                                }
-                            }
                         } finally {
+                            val from = dragPos
                             dragging = false
+                            val target = if (finished) hoverIndex else latestSelectedIndex
+                            // Leave from the physical finger position, then bounce into the tab.
+                            scope.launch {
+                                restPos.snapTo(from)
+                                restPos.animateTo(
+                                    target.toFloat(),
+                                    spring(dampingRatio = 0.55f, stiffness = 480f)
+                                )
+                            }
+                            if (finished && target != latestSelectedIndex) {
+                                view.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
+                                latestSelect(destinations[target])
+                            }
                         }
                     }
                 },
@@ -245,7 +273,7 @@ fun XvoxBottomBar(
                         ?: colors.primaryAccent
                     XvoxNavigationItem(
                         destination = destination,
-                        proximity = navigationProximity(position = motion.position, index = index),
+                        proximity = navigationProximity(position = shownPos, index = index),
                         dragging = dragging,
                         inactiveColor = colors.mutedText.copy(alpha = 0.76f),
                         activeColor = iconAccent,
