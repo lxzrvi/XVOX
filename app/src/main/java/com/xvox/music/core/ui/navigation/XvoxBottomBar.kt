@@ -195,24 +195,36 @@ fun XvoxBottomBar(
                             return@awaitEachGesture
                         }
 
-                        // After a long press, selection follows the finger across the three slots.
+                        // A long hold only previews the destination. It commits after a normal
+                        // drag release, so routes do not change while the finger is travelling.
                         dragging = true
                         try {
                             view.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
-                            var lastIndex = latestSelectedIndex
+                            var hoverIndex = latestSelectedIndex
+
                             fun follow(x: Float) {
+                                // During the drag only the selector pill follows the finger.
                                 position = (x / slotPx - 0.5f).coerceIn(0f, destinations.lastIndex.toFloat())
                                 val index = indexAt(x)
-                                if (index != lastIndex) {
-                                    lastIndex = index
+                                if (index != hoverIndex) {
+                                    hoverIndex = index
                                     view.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
-                                    latestSelect(destinations[index])
                                 }
                             }
+
                             follow(longPress.position.x)
-                            drag(down.id) { change ->
+                            val finished = drag(down.id) { change ->
                                 change.consume()
                                 follow(change.position.x)
+                            }
+
+                            // Commit only on an uncancelled finger release.
+                            if (finished) {
+                                position = hoverIndex.toFloat()
+                                if (hoverIndex != latestSelectedIndex) {
+                                    view.performHapticFeedback(android.view.HapticFeedbackConstants.CONFIRM)
+                                    latestSelect(destinations[hoverIndex])
+                                }
                             }
                         } finally {
                             dragging = false

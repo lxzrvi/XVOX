@@ -820,16 +820,13 @@ fun XvoxMainShell(
                 transitionSpec = {
                     val forward = (initialState == XvoxDestination.HOME && targetState == XvoxDestination.SEARCH) ||
                         targetState == XvoxDestination.SETTINGS
+                    val dir = if (forward) 1 else -1
+                    // Both pages travel one full width on the same spec, so they push together
+                    // without exposing a gap between the opaque tab surfaces.
                     val spec = tween<IntOffset>(300, easing = CubicBezierEasing(0.25f, 0.1f, 0.25f, 1f))
-                    // Forward brings the new page fully across the canvas while the old page only
-                    // recedes by 30%. Back reverses the relationship. With no fade, the opaque
-                    // tab surfaces never reveal a temporary blank gap between pages.
-                    val enterFrac = if (forward) 1f else -0.3f
-                    val exitFrac = if (forward) -0.3f else 1f
-                    (slideInHorizontally(spec) { (it * enterFrac).toInt() } togetherWith
-                        slideOutHorizontally(spec) { (it * exitFrac).toInt() })
+                    (slideInHorizontally(spec) { fullWidth -> fullWidth * dir } togetherWith
+                        slideOutHorizontally(spec) { fullWidth -> -fullWidth * dir })
                         .using(null)
-                        .apply { targetContentZIndex = if (forward) 1f else -1f }
                 },
                 label = "sharedHeaderRouteBodies",
                 modifier = Modifier.fillMaxSize()
