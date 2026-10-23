@@ -14,8 +14,8 @@ android {
         minSdk = 33
         targetSdk = 37
 
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 10101
+        versionName = "1.01.01"
     }
 
     compileOptions {
@@ -72,7 +72,6 @@ composeCompiler {
 }
 
 dependencies {
-    testImplementation("junit:junit:4.13.2")
     val composeBom = platform("androidx.compose:compose-bom:2025.08.00")
     implementation(composeBom)
 
@@ -86,6 +85,5 @@ dependencies {
     implementation("io.coil-kt.coil3:coil-compose:3.3.0")
     implementation("io.coil-kt.coil3:coil-gif:3.3.0")
     implementation("androidx.core:core-splashscreen:1.0.1")
-    implementation("androidx.palette:palette-ktx:1.0.0")
     implementation("net.jthink:jaudiotagger:3.0.1")
 }
