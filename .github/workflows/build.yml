@@ -48,10 +48,73 @@ jobs:
             exit "$status"
           fi
 
-      - name: APK
+      - name: Sign release APK (v1-v4)
+        shell: bash
+        env:
+          XVOX_RELEASE_KEYSTORE_BASE64: ${{ secrets.XVOX_RELEASE_KEYSTORE_BASE64 }}
+          XVOX_RELEASE_STORE_PASSWORD: ${{ secrets.XVOX_RELEASE_STORE_PASSWORD }}
+          XVOX_RELEASE_KEY_ALIAS: ${{ secrets.XVOX_RELEASE_KEY_ALIAS }}
+          XVOX_RELEASE_KEY_PASSWORD: ${{ secrets.XVOX_RELEASE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          missing=0
+          for required in \
+            XVOX_RELEASE_KEYSTORE_BASE64 \
+            XVOX_RELEASE_STORE_PASSWORD \
+            XVOX_RELEASE_KEY_ALIAS \
+            XVOX_RELEASE_KEY_PASSWORD; do
+            if [[ -z "${!required:-}" ]]; then
+              echo "::error title=Missing signing secret::Configure ${required} as a repository Actions secret."
+              missing=1
+            fi
+          done
+          (( missing == 0 )) || exit 1
+
+          sdk_root="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          if [[ -z "$sdk_root" || ! -d "$sdk_root/build-tools" ]]; then
+            echo "::error title=Android SDK unavailable::Android build-tools could not be found."
+            exit 1
+          fi
+          build_tools_version=$(find "$sdk_root/build-tools" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort -V | tail -n 1)
+          apksigner="$sdk_root/build-tools/$build_tools_version/apksigner"
+          zipalign="$sdk_root/build-tools/$build_tools_version/zipalign"
+          if [[ ! -x "$apksigner" || ! -x "$zipalign" ]]; then
+            echo "::error title=Android signing tools unavailable::apksigner or zipalign is missing."
+            exit 1
+          fi
+
+          unsigned_apk="app/build/outputs/apk/release/app-release-unsigned.apk"
+          signed_apk="app/build/outputs/apk/release/app-release.apk"
+          keystore="$RUNNER_TEMP/xvox-release.jks"
+          aligned_apk="$RUNNER_TEMP/xvox-release-aligned.apk"
+          [[ -f "$unsigned_apk" ]] || { echo "::error title=Release APK missing::Expected ${unsigned_apk}."; exit 1; }
+          trap 'rm -f "$keystore" "$aligned_apk"' EXIT
+          printf '%s' "$XVOX_RELEASE_KEYSTORE_BASE64" | base64 --decode > "$keystore"
+
+          # Align before signing; any modification after signing would invalidate v1-v4 signatures.
+          "$zipalign" -f -p 4 "$unsigned_apk" "$aligned_apk"
+          rm -f "$signed_apk" "$signed_apk.idsig"
+          "$apksigner" sign \
+            --ks "$keystore" \
+            --ks-key-alias "$XVOX_RELEASE_KEY_ALIAS" \
+            --ks-pass env:XVOX_RELEASE_STORE_PASSWORD \
+            --key-pass env:XVOX_RELEASE_KEY_PASSWORD \
+            --v1-signing-enabled true \
+            --v2-signing-enabled true \
+            --v3-signing-enabled true \
+            --v4-signing-enabled true \
+            --out "$signed_apk" \
+            "$aligned_apk"
+          "$zipalign" -c -v 4 "$signed_apk"
+          "$apksigner" verify --verbose --print-certs "$signed_apk"
+          [[ -s "$signed_apk.idsig" ]] || { echo "::error title=V4 signature missing::Expected ${signed_apk}.idsig."; exit 1; }
+
+      - name: Signed APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: XVOX-release
-          path: app/build/outputs/apk/release/*.apk
+          path: |
+            app/build/outputs/apk/release/app-release.apk
+            app/build/outputs/apk/release/app-release.apk.idsig
           compression-level: 0
           retention-days: 7
