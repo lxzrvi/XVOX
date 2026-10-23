@@ -32,7 +32,7 @@ jobs:
           set +e
           # The protected android-res symlink placeholders are intentionally unavailable in this
           # checkout. Their lint-only release analysis cannot read `raw`; compile, R8, package, and
-          # the release APK remain fully verified while that unrelated analyzer task is skipped.
+          # the release APKs remain fully verified while that unrelated analyzer task is skipped.
           ./gradlew :app:assembleRelease -x :app:lintVitalAnalyzeRelease 2>&1 | tee gradle-build.log
           status=${PIPESTATUS[0]}
           if [ "$status" -ne 0 ]; then
@@ -48,7 +48,7 @@ jobs:
             exit "$status"
           fi
 
-      - name: Sign release APK (v1-v4)
+      - name: Sign ABI release APKs (v1-v4)
         shell: bash
         env:
           XVOX_RELEASE_KEYSTORE_BASE64: ${{ secrets.XVOX_RELEASE_KEYSTORE_BASE64 }}
@@ -83,38 +83,107 @@ jobs:
             exit 1
           fi
 
-          unsigned_apk="app/build/outputs/apk/release/app-release-unsigned.apk"
-          signed_apk="app/build/outputs/apk/release/app-release.apk"
+          release_dir="app/build/outputs/apk/release"
+          metadata="$release_dir/output-metadata.json"
+          signed_dir="$release_dir/xvox-release"
+          manifest="$RUNNER_TEMP/xvox-apk-manifest.tsv"
+          version_file="$RUNNER_TEMP/xvox-release-version.txt"
           keystore="$RUNNER_TEMP/xvox-release.jks"
-          aligned_apk="$RUNNER_TEMP/xvox-release-aligned.apk"
-          [[ -f "$unsigned_apk" ]] || { echo "::error title=Release APK missing::Expected ${unsigned_apk}."; exit 1; }
-          trap 'rm -f "$keystore" "$aligned_apk"' EXIT
+          [[ -f "$metadata" ]] || { echo "::error title=Release metadata missing::Expected ${metadata}."; exit 1; }
+          mkdir -p "$signed_dir"
+          rm -f "$signed_dir"/*
           printf '%s' "$XVOX_RELEASE_KEYSTORE_BASE64" | base64 --decode > "$keystore"
 
-          # Align before signing; any modification after signing would invalidate v1-v4 signatures.
-          "$zipalign" -f -p 4 "$unsigned_apk" "$aligned_apk"
-          rm -f "$signed_apk" "$signed_apk.idsig"
-          "$apksigner" sign \
-            --ks "$keystore" \
-            --ks-key-alias "$XVOX_RELEASE_KEY_ALIAS" \
-            --ks-pass env:XVOX_RELEASE_STORE_PASSWORD \
-            --key-pass env:XVOX_RELEASE_KEY_PASSWORD \
-            --v1-signing-enabled true \
-            --v2-signing-enabled true \
-            --v3-signing-enabled true \
-            --v4-signing-enabled true \
-            --out "$signed_apk" \
-            "$aligned_apk"
-          "$zipalign" -c -v 4 "$signed_apk"
-          "$apksigner" verify --verbose --print-certs "$signed_apk"
-          [[ -s "$signed_apk.idsig" ]] || { echo "::error title=V4 signature missing::Expected ${signed_apk}.idsig."; exit 1; }
+          export release_dir metadata signed_dir manifest version_file
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
 
-      - name: Signed APK artifact
+          release_dir = Path(os.environ["release_dir"])
+          metadata = Path(os.environ["metadata"])
+          signed_dir = Path(os.environ["signed_dir"])
+          manifest = Path(os.environ["manifest"])
+          version_file = Path(os.environ["version_file"])
+          expected = {"arm64-v8a", "armeabi-v7a", "x86_64", "universal"}
+
+          data = json.loads(metadata.read_text())
+          rows = []
+          names = set()
+          versions = set()
+          for element in data.get("elements", []):
+              filters = {item.get("filterType"): item.get("value") for item in element.get("filters", [])}
+              suffix = filters.get("ABI") or "universal"
+              if suffix not in expected:
+                  raise SystemExit(f"Unexpected ABI output in metadata: {suffix!r}")
+              source = release_dir / element["outputFile"]
+              if not source.is_file():
+                  raise SystemExit(f"APK output listed by metadata is missing: {source}")
+              version = str(element.get("versionName") or "")
+              if not version:
+                  raise SystemExit("Release metadata did not provide versionName.")
+              target = signed_dir / f"XVOX-v{version}-{suffix}.apk"
+              if suffix in names:
+                  raise SystemExit(f"Duplicate ABI output: {suffix}")
+              names.add(suffix)
+              versions.add(version)
+              rows.append((source, target))
+
+          if names != expected:
+              raise SystemExit(f"Expected ABI outputs {sorted(expected)}, found {sorted(names)}")
+          if len(versions) != 1:
+              raise SystemExit(f"Inconsistent version names in output metadata: {sorted(versions)}")
+          manifest.write_text("".join(f"{source}\t{target}\n" for source, target in rows))
+          version_file.write_text(next(iter(versions)))
+          PY
+
+          version_name="$(<"$version_file")"
+          aligned_files=()
+          cleanup() {
+            rm -f "$keystore" "${aligned_files[@]}"
+          }
+          trap cleanup EXIT
+
+          while IFS=$'\t' read -r unsigned_apk signed_apk; do
+            aligned_apk="$(mktemp "$RUNNER_TEMP/xvox-aligned-XXXXXX.apk")"
+            aligned_files+=("$aligned_apk")
+            # Align before signing; any modification after signing invalidates v1-v4 signatures.
+            "$zipalign" -f -p 4 "$unsigned_apk" "$aligned_apk"
+            rm -f "$signed_apk" "$signed_apk.idsig"
+            "$apksigner" sign \
+              --ks "$keystore" \
+              --ks-key-alias "$XVOX_RELEASE_KEY_ALIAS" \
+              --ks-pass env:XVOX_RELEASE_STORE_PASSWORD \
+              --key-pass env:XVOX_RELEASE_KEY_PASSWORD \
+              --v1-signing-enabled true \
+              --v2-signing-enabled true \
+              --v3-signing-enabled true \
+              --v4-signing-enabled true \
+              --out "$signed_apk" \
+              "$aligned_apk"
+            "$zipalign" -c -v 4 "$signed_apk"
+            "$apksigner" verify --verbose --print-certs "$signed_apk"
+            [[ -s "$signed_apk.idsig" ]] || { echo "::error title=V4 signature missing::Expected ${signed_apk}.idsig."; exit 1; }
+          done < "$manifest"
+
+          (
+            cd "$signed_dir"
+            sha256sum \
+              "XVOX-v${version_name}-arm64-v8a.apk" \
+              "XVOX-v${version_name}-armeabi-v7a.apk" \
+              "XVOX-v${version_name}-x86_64.apk" \
+              "XVOX-v${version_name}-universal.apk" \
+              "XVOX-v${version_name}-arm64-v8a.apk.idsig" \
+              "XVOX-v${version_name}-armeabi-v7a.apk.idsig" \
+              "XVOX-v${version_name}-x86_64.apk.idsig" \
+              "XVOX-v${version_name}-universal.apk.idsig" \
+              > SHA256SUMS.txt
+          )
+
+      - name: Signed ABI APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: XVOX-release
-          path: |
-            app/build/outputs/apk/release/app-release.apk
-            app/build/outputs/apk/release/app-release.apk.idsig
+          path: app/build/outputs/apk/release/xvox-release/*
           compression-level: 0
           retention-days: 7

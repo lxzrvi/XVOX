@@ -14,6 +14,7 @@ android {
         minSdk = 33
         targetSdk = 37
 
+        // Keep this release identity fixed until an explicit version-bump request.
         versionCode = 10101
         versionName = "1.01.01"
     }
@@ -23,11 +24,22 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    // Keep the universal APK download compact. minSdk 33 permits compressed legacy DEX inside
-    // the distributable APK without changing App Bundle delivery behaviour.
+    // Keep APK downloads compact. minSdk 33 permits compressed legacy DEX inside distributable
+    // APKs without changing App Bundle delivery behaviour.
     packaging {
         jniLibs.useLegacyPackaging = true
         dex.useLegacyPackaging = true
+    }
+
+    // Every release delivers the three requested device ABIs plus a universal fallback. The CI
+    // workflow reads output metadata rather than relying on AGP's generated source filenames.
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("arm64-v8a", "armeabi-v7a", "x86_64")
+            isUniversalApk = true
+        }
     }
 
     buildTypes {
