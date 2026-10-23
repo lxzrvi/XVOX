@@ -6,7 +6,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.awaitLongPressOrCancellation
 import androidx.compose.foundation.gestures.drag
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -34,13 +33,12 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.xvox.music.core.design.theme.XvoxTheme
 import kotlinx.coroutines.launch
-import kotlin.math.abs
 
 @Composable
 fun XvoxBottomBar(
     selected: XvoxDestination,
     onSelected: (XvoxDestination) -> Unit,
-    /** Retained for call-site compatibility; the Bottom Bar owns long-hold drag selection. */
+    /** Retained for call-site compatibility; the Bottom Bar owns press-and-drag selection. */
     @Suppress("UNUSED_PARAMETER") onLongPressSettings: () -> Unit = {},
     /** Navigation artwork comes only from Chrome's navigationImageUri, never the Header. */
     modifier: Modifier = Modifier
@@ -192,9 +190,9 @@ fun XvoxBottomBar(
                         val down = awaitFirstDown()
                         val slotPx = size.width / destinations.size.toFloat()
                         fun indexAt(x: Float) = (x / slotPx).toInt().coerceIn(0, destinations.lastIndex)
+                        fun pillTarget(x: Float) =
+                            (x / slotPx - 0.5f).coerceIn(0f, destinations.lastIndex.toFloat())
                         fun slideTo(position: Float, stiffness: Float) {
-                            // A new target cancels the older animation while preserving velocity,
-                            // which keeps the selector moving continuously instead of jumping.
                             scope.launch {
                                 pos.animateTo(
                                     position,
@@ -203,56 +201,30 @@ fun XvoxBottomBar(
                             }
                         }
 
-                        // A press previews its tab immediately; navigation remains deferred.
-                        slideTo(indexAt(down.position.x).toFloat(), 900f)
-
-                        val longPress = awaitLongPressOrCancellation(down.id)
-                        if (longPress == null) {
-                            val change = currentEvent.changes.firstOrNull { it.id == down.id }
-                            if (change != null && !change.pressed) {
-                                // A simple tap selects as soon as the finger is released.
-                                view.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
-                                latestSelect(destinations[indexAt(down.position.x)])
-                            } else {
-                                // A cancelled or unfinished gesture returns to the active tab.
-                                slideTo(latestSelectedIndex.toFloat(), 900f)
-                            }
-                            return@awaitEachGesture
-                        }
-
-                        // A long hold tracks the finger; the route still commits only on release.
+                        // Begin previewing immediately: the pill heads toward the finger without a jump.
                         dragging = true
                         scope.launch {
-                            grow.animateTo(1f, spring(dampingRatio = 1f, stiffness = 800f))
+                            grow.animateTo(1f, spring(dampingRatio = 1f, stiffness = 900f))
                         }
-                        var hoverIndex = indexAt(longPress.position.x)
+                        var lastX = down.position.x
+                        slideTo(pillTarget(lastX), 1400f)
+
                         var finished = false
                         try {
-                            view.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
-                            fun follow(x: Float) {
-                                slideTo(
-                                    (x / slotPx - 0.5f).coerceIn(0f, destinations.lastIndex.toFloat()),
-                                    1500f
-                                )
-                                val index = indexAt(x)
-                                if (index != hoverIndex) {
-                                    hoverIndex = index
-                                    view.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
-                                }
-                            }
-                            follow(longPress.position.x)
                             finished = drag(down.id) { change ->
                                 change.consume()
-                                follow(change.position.x)
+                                lastX = change.position.x
+                                slideTo(pillTarget(lastX), 2200f)
                             }
                         } finally {
                             dragging = false
                             scope.launch {
-                                grow.animateTo(0f, spring(dampingRatio = 1f, stiffness = 800f))
+                                grow.animateTo(0f, spring(dampingRatio = 1f, stiffness = 900f))
                             }
-                            val target = if (finished) hoverIndex else latestSelectedIndex
-                            slideTo(target.toFloat(), 800f)
+                            val target = if (finished) indexAt(lastX) else latestSelectedIndex
+                            slideTo(target.toFloat(), 900f)
                             if (finished && target != latestSelectedIndex) {
+                                // There is no intermediate haptic; selection confirms once on release.
                                 view.performHapticFeedback(android.view.HapticFeedbackConstants.CLOCK_TICK)
                                 latestSelect(destinations[target])
                             }
