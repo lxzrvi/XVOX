@@ -10,8 +10,9 @@ import kotlin.math.abs
 import kotlin.math.max
 
 /**
- * Two equal columns. Cards are distributed to keep column heights close, then any remaining
- * small difference is shared across the shorter column's cards so both columns finish aligned.
+ * Do barabar columns. Har card sirf EK baar measure hota hai (Compose me double measure crash karta hai).
+ * Cards ko aise baanta jata hai ki dono columns ki height lagbhag same ho, aur bacha hua chhota farak
+ * shorter column ke gaps me barabar baant diya jata hai, taaki dono columns ek hi line pe khatam hon.
  */
 @Composable
 fun BalancedTwoColumn(
@@ -22,78 +23,73 @@ fun BalancedTwoColumn(
     Layout(content = content, modifier = modifier) { measurables, constraints ->
         val gapPx = gap.roundToPx()
         val colW = ((constraints.maxWidth - gapPx) / 2).coerceAtLeast(0)
-        val n = measurables.size
+        val cardConstraints = Constraints(
+            minWidth = colW,
+            maxWidth = colW,
+            minHeight = 0,
+            maxHeight = Constraints.Infinity
+        )
 
-        // 1) Measure every card at its natural height.
-        val placeables = measurables
-            .map { it.measure(Constraints(minWidth = colW, maxWidth = colW)) }
-            .toMutableList()
-        val natural = IntArray(n) { placeables[it].height }
+        // Har card ek hi baar measure
+        val placeables = measurables.map { it.measure(cardConstraints) }
+        val n = placeables.size
+        val heights = IntArray(n) { placeables[it].height }
 
-        // 2) Find the split with the least difference while preserving each column's item order.
+        fun colHeight(idx: List<Int>) =
+            idx.sumOf { heights[it] } + gapPx * max(idx.size - 1, 0)
+
+        // Best split: dono columns ki height ka farak sabse kam
         var bestMask = 0
         var bestDiff = Int.MAX_VALUE
         if (n in 1..14) {
             for (mask in 0 until (1 shl n)) {
-                var a = 0
-                var b = 0
-                var ca = 0
-                var cb = 0
-                for (i in 0 until n) {
-                    if (((mask shr i) and 1) == 0) {
-                        a += natural[i]
-                        ca++
-                    } else {
-                        b += natural[i]
-                        cb++
-                    }
-                }
-                val ha = a + gapPx * max(ca - 1, 0)
-                val hb = b + gapPx * max(cb - 1, 0)
-                val diff = abs(ha - hb)
+                val l = (0 until n).filter { ((mask shr it) and 1) == 0 }
+                val r = (0 until n).filter { ((mask shr it) and 1) == 1 }
+                val diff = abs(colHeight(l) - colHeight(r))
                 if (diff < bestDiff) {
                     bestDiff = diff
                     bestMask = mask
                 }
             }
+        } else {
+            // Bahut zyada cards ho toh simple greedy
+            var hl = 0
+            var hr = 0
+            for (i in 0 until n) {
+                if (hl <= hr) {
+                    hl += heights[i]
+                } else {
+                    hr += heights[i]
+                    bestMask = bestMask or (1 shl i)
+                }
+            }
         }
         val left = (0 until n).filter { ((bestMask shr it) and 1) == 0 }
         val right = (0 until n).filter { ((bestMask shr it) and 1) == 1 }
+        val total = max(colHeight(left), colHeight(right))
 
-        fun columnHeight(indices: List<Int>) =
-            indices.sumOf { natural[it] } + gapPx * max(indices.size - 1, 0)
-
-        val total = max(columnHeight(left), columnHeight(right))
-
-        // 3) Share the remaining difference inside shorter-column cards, never by stretching gaps.
-        val finalH = IntArray(n) { natural[it] }
-        fun stretch(indices: List<Int>) {
-            if (indices.isEmpty()) return
-            val difference = total - columnHeight(indices)
-            if (difference <= 0) return
-            val each = difference / indices.size
-            indices.forEach { finalH[it] += each }
-            finalH[indices.last()] += difference - each * indices.size
-            indices.forEach { index ->
-                placeables[index] = measurables[index].measure(Constraints.fixed(colW, finalH[index]))
+        // Shorter column ka bacha farak uske gaps me barabar (cards stretch nahi hote)
+        fun place(
+            scope: androidx.compose.ui.layout.Placeable.PlacementScope,
+            idx: List<Int>,
+            x: Int
+        ) {
+            val extra = total - colHeight(idx)
+            val gaps = max(idx.size - 1, 0)
+            val base = if (gaps > 0 && extra > 0) extra / gaps else 0
+            val rem = if (gaps > 0 && extra > 0) extra % gaps else 0
+            var y = 0
+            idx.forEachIndexed { pos, i ->
+                with(scope) { placeables[i].placeRelative(x, y) }
+                y += heights[i] + gapPx + base + (if (pos < rem) 1 else 0)
             }
         }
-        stretch(left)
-        stretch(right)
 
         val width = constraints.maxWidth
         val height = total.coerceIn(constraints.minHeight, constraints.maxHeight)
         layout(width, height) {
-            var leftY = 0
-            left.forEach { index ->
-                placeables[index].placeRelative(0, leftY)
-                leftY += finalH[index] + gapPx
-            }
-            var rightY = 0
-            right.forEach { index ->
-                placeables[index].placeRelative(colW + gapPx, rightY)
-                rightY += finalH[index] + gapPx
-            }
+            place(this, left, 0)
+            place(this, right, colW + gapPx)
         }
     }
 }
