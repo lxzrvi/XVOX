@@ -33,6 +33,7 @@ fun showPlaylistActions(
 
     overlays.showBox("Playlist options", onSettings = ::showSettings) {
         val liveState by viewModel.state.collectAsState()
+        val likedPlaylistIds by viewModel.likedPlaylistIds.collectAsState()
         val current = liveState.playlists.firstOrNull { it.id == playlist.id } ?: playlist
 
         XvoxPlaylistActionsBox(
@@ -92,6 +93,8 @@ fun showPlaylistActions(
                     )
                 }
             },
+            liked = current.id in likedPlaylistIds,
+            onToggleLiked = { viewModel.toggleLikedPlaylist(current.id) },
             selectTitle = selectTitle,
             onSelect = onSelect?.let { select ->
                 {

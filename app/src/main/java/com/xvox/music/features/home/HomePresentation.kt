@@ -23,6 +23,8 @@ data class HomePresentation(
     /** "horizontal" = full-width cards on a sideways row; "vertical" = stacked cards. */
     val playlistCardOrientation: String = "vertical",
     val playlistRows: Int = 2,
+    /** Vertical playlist-card columns; horizontal layouts use [playlistRows] instead. */
+    val playlistColumns: Int = 1,
     val artistColumns: Int = 5,
     val artistGap: Int = 8,
     val artistRows: Int = 4,

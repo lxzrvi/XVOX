@@ -44,6 +44,7 @@ data class SettingsState(
     val playlistStyle: String = "long",
     val playlistLongHeight: Int = 0,
     val playlistRows: Int = 2,
+    val playlistColumns: Int = 1,
     /** Playlist cards on Home: full-width horizontally scrolling cards, or stacked vertically. */
     val playlistCardOrientation: String = "vertical",
     /** Appearance › "Hide preview" — the Settings top preview pane can be turned off. */

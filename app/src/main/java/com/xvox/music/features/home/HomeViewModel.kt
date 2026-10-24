@@ -1,6 +1,7 @@
 package com.xvox.music.features.home
 
 import android.app.Application
+import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -41,6 +42,18 @@ class HomeViewModel(
     private val libraryPreferences = XvoxLibraryPreferences(application)
     private val coverStorage = XvoxPlaylistCoverStorage(application)
     private val infoReader = SongInfoReader(application)
+    // Artist/playlist likes are lightweight collection preferences, independent from track likes
+    // stored by XvoxLibraryPreferences. Keeping copies in StateFlow makes ordering/badges update
+    // immediately while the small StringSet write persists in the background.
+    private val favoritesPrefs = application.getSharedPreferences("xvox_favorites", Context.MODE_PRIVATE)
+    private val _likedArtists = MutableStateFlow(
+        favoritesPrefs.getStringSet("artists", emptySet()).orEmpty().toSet()
+    )
+    val likedArtists: StateFlow<Set<String>> = _likedArtists.asStateFlow()
+    private val _likedPlaylistIds = MutableStateFlow(
+        favoritesPrefs.getStringSet("playlists", emptySet()).orEmpty().toSet()
+    )
+    val likedPlaylistIds: StateFlow<Set<String>> = _likedPlaylistIds.asStateFlow()
 
     private val _state = MutableStateFlow(HomeUiState())
     val state: StateFlow<HomeUiState> = _state.asStateFlow()
@@ -99,7 +112,11 @@ class HomeViewModel(
         viewModelScope.launch {
             preferencesRepository.recentSongIds.collect { ids ->
                 recentIds = ids
-                _state.update { current -> current.copy(recentlyPlayed = resolveRecent(current.songs, ids)) }
+                // Mapping recents can touch a large library after MediaStore reload. Resolve it
+                // off the main dispatcher, then publish one compact UI-state change.
+                val songs = _state.value.songs
+                val resolved = withContext(Dispatchers.Default) { resolveRecent(songs, ids) }
+                _state.update { current -> current.copy(recentlyPlayed = resolved) }
             }
         }
         viewModelScope.launch {
@@ -218,8 +235,15 @@ class HomeViewModel(
                 val sorted = HomeLibraryFilterHelper.filterAndSort(raw, hidden, config, randomSeed)
                 Triple(sorted, raw.filter { it.id in hidden }, resolveRecent(sorted, recent))
             }
-            _state.update { it.copy(songs = result.first, hiddenSongs = result.second, recentlyPlayed = result.third, loading = false) }
-            _state.update { it.copy(startupReady = true) }
+            _state.update {
+                it.copy(
+                    songs = result.first,
+                    hiddenSongs = result.second,
+                    recentlyPlayed = result.third,
+                    loading = false,
+                    startupReady = true
+                )
+            }
         }
     }
 
@@ -326,6 +350,22 @@ class HomeViewModel(
         viewModelScope.launch { libraryPreferences.setLiked(song.id, !liked) }
     }
 
+    fun toggleLikedArtist(name: String) {
+        val next = _likedArtists.value.let { current ->
+            if (name in current) current - name else current + name
+        }
+        _likedArtists.value = next
+        favoritesPrefs.edit().putStringSet("artists", HashSet(next)).apply()
+    }
+
+    fun toggleLikedPlaylist(id: String) {
+        val next = _likedPlaylistIds.value.let { current ->
+            if (id in current) current - id else current + id
+        }
+        _likedPlaylistIds.value = next
+        favoritesPrefs.edit().putStringSet("playlists", HashSet(next)).apply()
+    }
+
     fun addMultipleToLiked(songs: List<Song>) {
         viewModelScope.launch {
             val current = _state.value.likedSongIds.toMutableSet()
@@ -417,6 +457,7 @@ class HomeViewModel(
     fun deletePlaylist(playlistId: String, onDone: () -> Unit) = viewModelScope.launch {
         libraryPreferences.deletePlaylist(playlistId)
         coverStorage.delete(playlistId)
+        if (playlistId in _likedPlaylistIds.value) toggleLikedPlaylist(playlistId)
         onDone()
     }
 
@@ -481,6 +522,13 @@ class HomeViewModel(
 
     fun renameArtist(oldName: String, newName: String, mergeDuplicates: Boolean = false) = viewModelScope.launch {
         preferencesRepository.renameArtist(oldName, newName, mergeDuplicates)
+        if (oldName in _likedArtists.value) {
+            // Renaming into an already-liked artist must retain one liked entry rather than
+            // toggling the destination back off.
+            val updatedLikes = (_likedArtists.value - oldName) + newName
+            _likedArtists.value = updatedLikes
+            favoritesPrefs.edit().putStringSet("artists", HashSet(updatedLikes)).apply()
+        }
         val existingPhoto = state.value.customArtistImages[oldName]
         if (existingPhoto != null) {
             preferencesRepository.setArtistImage(newName, existingPhoto)

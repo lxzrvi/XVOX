@@ -144,12 +144,12 @@ private fun DrawScope.drawStartupUnroll(progress: Float, palette: StartupPalette
         )
     }
 
-    startupLine(startupPoints(100) { point(it) }, palette.dot)
+    startupLine(startupPoints(48) { point(it) }, palette.dot)
     // Keep a short accent lead alive all the way into the rail. Without this floor, the final
     // unroll frame and the first fill frame read as a completely empty gray bar for one beat.
     val terminalAccentLength = .055f
     val accentLength = terminalAccentLength + (.2f - terminalAccentLength) * (1f - startupEase(progress))
-    startupLine(startupPoints(24) { step -> point(step * accentLength) }, palette.accent)
+    startupLine(startupPoints(12) { step -> point(step * accentLength) }, palette.accent)
 }
 
 /** The rail fills with the active XVOX accent. */

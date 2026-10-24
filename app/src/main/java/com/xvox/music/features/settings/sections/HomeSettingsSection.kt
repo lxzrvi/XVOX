@@ -125,15 +125,32 @@ fun HomeSettingsSection(
                 viewModel::setPlaylistCardOrientation
             )
 
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(8.dp))
+            if (state.playlistCardOrientation == "vertical") {
+                Label("Columns")
+                SettingsChoiceRow(
+                    (1..3).map { it.toString() to it.toString() },
+                    state.playlistColumns.coerceIn(1, 3).toString()
+                ) { value ->
+                    viewModel.setPlaylistColumns(value.toInt())
+                }
+            } else {
+                Label("Rows")
+                SettingsChoiceRow(
+                    (1..3).map { it.toString() to it.toString() },
+                    state.playlistRows.coerceIn(1, 3).toString()
+                ) { value ->
+                    viewModel.setPlaylistRows(value.toInt())
+                }
+            }
 
+            Spacer(Modifier.height(10.dp))
             val currentHeight = if (state.playlistLongHeight == 0) 178 else state.playlistLongHeight
             Label("Height · $currentHeight dp")
             XvoxSlider(
                 value = currentHeight.toFloat(),
                 onValueChange = { viewModel.setPlaylistLongHeight(it.roundToInt()) },
-                valueRange = 100f..260f,
-                defaultValue = 178f,
+                valueRange = 100f..420f,
                 valueLabel = { height -> "${height.roundToInt()}dp" }
             )
         }

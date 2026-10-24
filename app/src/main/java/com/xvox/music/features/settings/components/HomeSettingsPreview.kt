@@ -52,7 +52,9 @@ fun HomeSettingsPreview(state: SettingsState) {
         playlistStyle = state.playlistStyle,
         hideSplit = state.splitHideCollection,
         playlistLongHeight = state.playlistLongHeight,
-        playlistCardOrientation = state.playlistCardOrientation
+        playlistCardOrientation = state.playlistCardOrientation,
+        playlistRows = state.playlistRows,
+        playlistColumns = state.playlistColumns
     )
     val sections = HomeSections.visible(config)
 
@@ -169,15 +171,40 @@ private fun PreviewSongRows(count: Int) {
 @Composable
 private fun PreviewPlaylists(state: SettingsState) {
     val colors = XvoxTheme.colors
-    val isHorizontal = state.playlistCardOrientation == "horizontal"
-    if (isHorizontal) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            Box(Modifier.fillMaxWidth().height(60.dp).clip(RoundedCornerShape(8.dp)).background(colors.card))
+    val height = ((if (state.playlistLongHeight == 0) 178 else state.playlistLongHeight) * .3f)
+        .coerceIn(28f, 120f)
+        .dp
+    if (state.playlistCardOrientation == "horizontal") {
+        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            repeat(state.playlistRows.coerceIn(1, 3)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    repeat(2) {
+                        Box(
+                            Modifier
+                                .weight(1f)
+                                .height(height)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(colors.card)
+                        )
+                    }
+                }
+            }
         }
     } else {
+        val columns = state.playlistColumns.coerceIn(1, 3)
         Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             repeat(2) {
-                Box(Modifier.fillMaxWidth().height(54.dp).clip(RoundedCornerShape(8.dp)).background(colors.card))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    repeat(columns) {
+                        Box(
+                            Modifier
+                                .weight(1f)
+                                .height(height)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(colors.card)
+                        )
+                    }
+                }
             }
         }
     }

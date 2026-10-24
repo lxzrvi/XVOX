@@ -32,10 +32,13 @@ class XvoxArtworkPreloader(context: Context) {
         // Full-player originals warm only the immediate three-cover window. Home prefetches only
         // its nearest visual runway so decoders never compete with a live fling; no path silently
         // substitutes a smaller requested decode for a visible cover.
+        // Startup now warms the first visible Home runway behind the completed loader. Keep
+        // high-resolution Recent cards bounded separately, while allowing the requested 36-card
+        // grid runway to populate before the shell fades in.
         val maxCount = when {
             originalQuality -> 3
-            exactSize >= 512 -> 8
-            else -> 16
+            exactSize >= 512 -> 12
+            else -> 36
         }
         val end = (start + count.coerceIn(0, maxCount)).coerceAtMost(songs.size)
         if (start >= end) return@withContext

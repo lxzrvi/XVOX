@@ -3,17 +3,17 @@ package com.xvox.music.features.playlist
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
@@ -23,9 +23,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
-import com.xvox.music.data.preferences.XvoxPlaylist
-
+import com.xvox.music.core.ui.components.XvoxLikedHeartBadge
 import com.xvox.music.core.ui.effects.xvoxSongPress
+import com.xvox.music.data.preferences.XvoxPlaylist
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -37,70 +37,71 @@ fun XvoxPlaylistCard(
     modifier: Modifier = Modifier,
     longCard: Boolean = false,
     /** Outer playlist selection is intentionally separate from song selection inside a playlist. */
-    selected: Boolean = false
+    selected: Boolean = false,
+    liked: Boolean = false
 ) {
     val colors = XvoxTheme.colors
-    // The cover is inset by the card's 3dp frame. Its radius is reduced by that gutter so the
-    // two outlines follow the same visible curvature rather than making the cover look rounder.
     val shape = RoundedCornerShape(16.dp)
     val coverShape = RoundedCornerShape(13.dp)
 
-    Column(
+    Box(
         modifier = modifier
-            .xvoxSongPress(onClick = onClick, onLongClick = onLongClick, pressedScale = 0.95f)
+            .xvoxSongPress(onClick = onClick, onLongClick = onLongClick, pressedScale = .95f)
             .clip(shape)
             .background(colors.background)
             .border(
-                width = if (selected) 2.dp else 0.7.dp,
+                width = if (selected) 2.dp else .7.dp,
                 color = if (selected) colors.primaryAccent else colors.cardBorder,
                 shape = shape
             )
             .padding(3.dp)
     ) {
-        XvoxPlaylistCover(
-            songs = songs,
-            coverSongIds = playlist.coverSongIds,
-            customCoverUri = playlist.customCoverUri,
-            requestSize = 192,
-            coverShape = coverShape,
-            modifier = Modifier
-                .fillMaxWidth()
-                .then(if (longCard) Modifier.weight(1f) else Modifier.aspectRatio(1f))
-                .clip(coverShape)
-        )
-
-        // Reserve the exact row-like metadata band instead of letting a smaller font scale
-        // donate height back to the weighted cover. That keeps title/count placement and left
-        // alignment identical across XS, S, M, and L while preserving the normal 13sp/10sp pair.
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(35.dp)
-                // Keep playlist text visibly inside the card radius rather than beginning at the
-                // 3dp outer frame edge.
-                .padding(start = 5.dp, end = 4.dp, top = 7.dp)
-        ) {
-            Text(
-                text = playlist.name,
-                color = colors.primaryText,
-                fontSize = 13.sp,
-                lineHeight = 16.sp,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Start,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.fillMaxWidth()
+        Column(if (longCard) Modifier.fillMaxSize() else Modifier.fillMaxWidth()) {
+            XvoxPlaylistCover(
+                songs = songs,
+                coverSongIds = playlist.coverSongIds,
+                customCoverUri = playlist.customCoverUri,
+                requestSize = 192,
+                coverShape = coverShape,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .then(if (longCard) Modifier.weight(1f) else Modifier.aspectRatio(1f))
+                    .clip(coverShape)
             )
-
-            Text(
-                text = "${songs.size} songs",
-                color = colors.secondaryText,
-                fontSize = 10.sp,
-                lineHeight = 12.sp,
-                textAlign = TextAlign.Start,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.fillMaxWidth()
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(35.dp)
+                    .padding(start = 5.dp, end = 4.dp, top = 7.dp)
+            ) {
+                Text(
+                    text = playlist.name,
+                    color = colors.primaryText,
+                    fontSize = 13.sp,
+                    lineHeight = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Start,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Text(
+                    text = "${songs.size} songs",
+                    color = colors.secondaryText,
+                    fontSize = 10.sp,
+                    lineHeight = 12.sp,
+                    textAlign = TextAlign.Start,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
+        if (liked) {
+            XvoxLikedHeartBadge(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(7.dp)
             )
         }
     }

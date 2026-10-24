@@ -15,10 +15,17 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.withFrameNanos
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -26,6 +33,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil3.compose.AsyncImage
+import com.xvox.music.artwork.XvoxArtworkPreloader
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.design.theme.XvoxThemeMode
 import com.xvox.music.core.ui.XvoxStartupLoadingScreen
@@ -35,6 +43,8 @@ import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
 import com.xvox.music.core.ui.overlay.XvoxOverlayController
 import com.xvox.music.core.ui.overlay.XvoxOverlayHost
 import com.xvox.music.data.preferences.UserPreferencesRepository
+import com.xvox.music.features.home.XvoxGridArtworkSize
+import com.xvox.music.features.home.XvoxRecentArtworkSize
 import com.xvox.music.features.setup.SetupScreen
 
 @Composable
@@ -79,6 +89,37 @@ fun XvoxAppRoot(
     val overlays = remember { XvoxOverlayController() }
     val context = LocalContext.current
     val prefs = remember { UserPreferencesRepository(context.applicationContext) }
+    val rootScope = rememberCoroutineScope()
+    var artworkWarmDone by remember { mutableStateOf(false) }
+    val artworkPreloader = remember(context) { XvoxArtworkPreloader(context) }
+    LaunchedEffect(homeStartupReady, homeVm) {
+        artworkWarmDone = false
+        val vm = homeVm
+        if (homeStartupReady && vm != null) {
+            val snapshot = vm.state.value
+            // Start warming the Home runway while the completed loader remains opaque. The
+            // handoff below waits only briefly, so slow/missing cover files never block Home.
+            coroutineScope {
+                launch {
+                    artworkPreloader.warm(
+                        songs = snapshot.songs,
+                        fromIndex = 0,
+                        count = 36,
+                        requestSize = XvoxGridArtworkSize
+                    )
+                }
+                launch {
+                    artworkPreloader.warm(
+                        songs = snapshot.recentlyPlayed,
+                        fromIndex = 0,
+                        count = 12,
+                        requestSize = XvoxRecentArtworkSize
+                    )
+                }
+            }
+            artworkWarmDone = true
+        }
+    }
     val themeStr by prefs.theme.collectAsState(initial = "System")
     val accentStr by prefs.accentColor.collectAsState(initial = "Red")
     val accentPreview = com.xvox.music.core.design.theme.XvoxAccentPreview.value
@@ -203,13 +244,21 @@ fun XvoxAppRoot(
                                     homeStartupReady
                                 ) {
                                     startupSequenceReleased = true
-                                    // Mount the already-ready shell underneath the opaque final
-                                    // loader frame first. Calling onHomeReady then starts only the
-                                    // existing loader fade, so its ring-to-bar timing stays intact
-                                    // while Home is revealed directly underneath it.
-                                    shellMounted = true
-                                    viewModel.report(1f, "Ready")
-                                    viewModel.onHomeReady()
+                                    rootScope.launch {
+                                        // Give the first Home runway a short opportunity to warm,
+                                        // but always reveal the application promptly when artwork
+                                        // is unavailable or the cache is cold.
+                                        withTimeoutOrNull(700) {
+                                            snapshotFlow { artworkWarmDone }.first { it }
+                                        }
+                                        // Mount Home while the loader is still a static opaque
+                                        // frame, then wait for a few compose frames before the
+                                        // normal loader fade begins.
+                                        shellMounted = true
+                                        repeat(3) { withFrameNanos { } }
+                                        viewModel.report(1f, "Ready")
+                                        viewModel.onHomeReady()
+                                    }
                                 }
                             }
                         )

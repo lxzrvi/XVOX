@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.sp
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
+import com.xvox.music.core.ui.components.XvoxLikedHeartBadge
 import com.xvox.music.core.ui.overlay.xvoxBoxScroll
 import com.xvox.music.data.preferences.XvoxPlaylist
 import kotlin.math.roundToInt
@@ -57,6 +58,8 @@ fun XvoxPlaylistActionsBox(
     onSaveCover: (List<Long>, Uri?, () -> Unit) -> Unit,
     onDelete: () -> Unit,
     onInfo: () -> Unit,
+    liked: Boolean = false,
+    onToggleLiked: () -> Unit = {},
     selectTitle: String = "Select songs",
     onSelect: (() -> Unit)? = null
 ) {
@@ -86,6 +89,8 @@ fun XvoxPlaylistActionsBox(
         onEditCover = { coverEditor = true },
         onDelete = onDelete,
         onInfo = onInfo,
+        liked = liked,
+        onToggleLiked = onToggleLiked,
         selectTitle = selectTitle,
         onSelect = onSelect
     )
@@ -101,6 +106,8 @@ private fun PlaylistActionsMain(
     onEditCover: () -> Unit,
     onDelete: () -> Unit,
     onInfo: () -> Unit,
+    liked: Boolean,
+    onToggleLiked: () -> Unit,
     selectTitle: String = "Select songs",
     onSelect: (() -> Unit)? = null
 ) {
@@ -245,6 +252,12 @@ private fun PlaylistActionsMain(
         }
 
         PlaylistAction(
+            title = if (liked) "Remove from liked" else "Like playlist",
+            leadingHeart = true,
+            onClick = onToggleLiked
+        )
+
+        PlaylistAction(
             title = "Playlist info",
             onClick = onInfo
         )
@@ -259,14 +272,12 @@ private fun PlaylistActionsMain(
 @Composable
 private fun PlaylistAction(
     title: String,
+    leadingHeart: Boolean = false,
     onClick: () -> Unit
 ) {
     val colors = XvoxTheme.colors
 
-    Text(
-        text = title,
-        color = colors.primaryText,
-        fontSize = 14.sp,
+    Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(
@@ -274,8 +285,19 @@ private fun PlaylistAction(
                 indication = null,
                 onClick = onClick
             )
-            .padding(vertical = 13.dp)
-    )
+            .padding(vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (leadingHeart) {
+            XvoxLikedHeartBadge(badgeSize = 20.dp)
+            Spacer(Modifier.size(10.dp))
+        }
+        Text(
+            text = title,
+            color = colors.primaryText,
+            fontSize = 14.sp
+        )
+    }
 }
 
 /**
@@ -289,7 +311,7 @@ fun PlaylistLayoutEditorBox(
 ) {
     val colors = XvoxTheme.colors
     val state by settingsViewModel.state.collectAsState()
-    val auto = state.playlistLongHeight <= 0
+    val displayedHeight = if (state.playlistLongHeight <= 0) 178 else state.playlistLongHeight
     val scrollState = rememberScrollState()
 
     Column(
@@ -325,14 +347,24 @@ fun PlaylistLayoutEditorBox(
             }
         }
 
+        Spacer(Modifier.height(12.dp))
         if (state.playlistCardOrientation == "horizontal") {
-            Spacer(Modifier.height(12.dp))
-            Text("Rows per Page", color = colors.secondaryText, fontSize = 11.sp)
+            Text("Rows", color = colors.secondaryText, fontSize = 11.sp)
             Spacer(Modifier.height(4.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                (1..5).forEach { r ->
-                    LayoutChoice("$r ${if (r == 1) "Row" else "Rows"}", state.playlistRows == r) {
-                        settingsViewModel.setPlaylistRows(r)
+                (1..3).forEach { row ->
+                    LayoutChoice("$row", state.playlistRows == row) {
+                        settingsViewModel.setPlaylistRows(row)
+                    }
+                }
+            }
+        } else {
+            Text("Columns", color = colors.secondaryText, fontSize = 11.sp)
+            Spacer(Modifier.height(4.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                (1..3).forEach { column ->
+                    LayoutChoice("$column", state.playlistColumns == column) {
+                        settingsViewModel.setPlaylistColumns(column)
                     }
                 }
             }
@@ -340,19 +372,17 @@ fun PlaylistLayoutEditorBox(
 
         Spacer(Modifier.height(14.dp))
         Text(
-            text = if (auto) "Card Height · Auto" else "Card Height · ${state.playlistLongHeight} dp",
+            text = "Card Height · $displayedHeight dp",
             color = colors.secondaryText,
             fontSize = 11.sp
         )
         com.xvox.music.features.settings.components.XvoxSlider(
-            value = state.playlistLongHeight.coerceAtLeast(60).toFloat(),
+            value = displayedHeight.toFloat(),
             onValueChange = { settingsViewModel.setPlaylistLongHeight(it.roundToInt()) },
-            valueRange = 60f..220f,
-            defaultValue = 120f,
+            valueRange = 100f..420f,
+            defaultValue = 178f,
             valueLabel = { height -> "${height.roundToInt()}dp" }
         )
-        Spacer(Modifier.height(8.dp))
-        LayoutChoice("Auto", auto) { settingsViewModel.setPlaylistLongHeight(0) }
 
         Spacer(Modifier.height(16.dp))
 

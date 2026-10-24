@@ -1,8 +1,5 @@
 package com.xvox.music.core.ui.overlay
 
-import android.app.Activity
-import android.content.Context
-import android.content.ContextWrapper
 import android.view.WindowManager
 
 import androidx.compose.animation.AnimatedVisibility
@@ -39,7 +36,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.animation.core.MutableTransitionState
@@ -80,6 +76,7 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.effects.xvoxPressScale
@@ -90,32 +87,17 @@ val XvoxBoxEasing = CubicBezierEasing(0.2f, 0f, 0f, 1f)
 const val XvoxSheetEnterMs = 280
 const val XvoxSheetExitMs = 240
 
-private fun Context.xvoxActivityOrNull(): Activity? {
-    var current: Context = this
-    repeat(12) {
-        when (current) {
-            is Activity -> return current
-            is ContextWrapper -> current = current.baseContext
-            else -> return null
-        }
-    }
-    return null
-}
-
 /** Keeps Dialog-owned sheets immersive when they were opened above landscape Now Playing. */
 @Composable
 private fun XvoxSheetImmersiveStatusBar(enabled: Boolean) {
     val view = LocalView.current
-    val activity = remember(view) { view.context.xvoxActivityOrNull() }
-    DisposableEffect(enabled, activity, view) {
-        if (enabled) {
-            activity?.window?.let { window ->
-                WindowCompat.getInsetsController(window, view)
-                    .hide(WindowInsetsCompat.Type.statusBars())
-            }
+    val dialogWindow = (view.parent as? DialogWindowProvider)?.window
+    SideEffect {
+        if (enabled && dialogWindow != null) {
+            val controller = WindowCompat.getInsetsController(dialogWindow, view)
+            controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            controller.hide(WindowInsetsCompat.Type.statusBars())
         }
-        // The enclosing Now Playing owns restoration. A sheet closing must not flash the bar.
-        onDispose { }
     }
 }
 
@@ -337,7 +319,9 @@ fun XvoxSheet(
             )
 
             BoxWithConstraints(
-                modifier = Modifier.matchParentSize(),
+                // Keep every bottom-sheet action above the keyboard instead of letting the IME
+                // cover its lower controls or the active text field.
+                modifier = Modifier.matchParentSize().imePadding(),
                 contentAlignment = Alignment.BottomCenter
             ) {
                 val statusTopPx = WindowInsets.statusBars.getTop(density)

@@ -96,6 +96,8 @@ fun HomeScreen(
 
     val prefs = remember { UserPreferencesRepository(context) }
     val config by viewModel.homePresentation.collectAsState()
+    val likedArtistNames by viewModel.likedArtists.collectAsState()
+    val likedPlaylistIds by viewModel.likedPlaylistIds.collectAsState()
 
     var showArtistInfo by remember { mutableStateOf<XvoxArtist?>(null) }
     var croppingArtistPhotoFor by remember { mutableStateOf<Pair<String, Uri>?>(null) }
@@ -180,6 +182,10 @@ fun HomeScreen(
         ArtistInfoDialog(
             artist = currentArtist,
             hideText = config.artistHideText,
+            liked = currentArtist.name in likedArtistNames,
+            onToggleLiked = { viewModel.toggleLikedArtist(currentArtist.name) },
+            columns = config.artistColumns,
+            onColumnsChange = { viewModel.setArtistColumns(it) },
             onHideTextChange = { viewModel.setArtistHideText(it) },
             onDismiss = { showArtistInfo = null },
             onPlayNext = {
@@ -557,10 +563,10 @@ fun HomeScreen(
         item(key = "artists_grid") {
             XvoxArtistGrid(
                 artists = artists,
-                columns = 4,
-                rows = 4,
-                direction = "vertical",
-                gap = 12,
+                columns = config.artistColumns,
+                rows = config.artistRows,
+                direction = config.artistDirection,
+                gap = config.artistGap,
                 hideText = config.artistHideText,
                 onArtistClick = { artist ->
                     if (isArtistSelectionMode) {
@@ -592,6 +598,7 @@ fun HomeScreen(
                     }
                 },
                 selectedArtistNames = selectedArtistNames,
+                likedArtistNames = likedArtistNames,
                 modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
             )
         }
@@ -617,10 +624,11 @@ fun HomeScreen(
             { playlistContents[it.id].orEmpty() },
             layoutStyle = config.playlistStyle,
             longCardHeight = config.playlistLongHeight,
-            orientation = if (standalone) "vertical" else config.playlistCardOrientation,
+            orientation = config.playlistCardOrientation,
             rows = config.playlistRows,
-            columns = if (isLandscape) 2 else 1,
+            columns = config.playlistColumns,
             selectedPlaylistIds = selectedPlaylistIds,
+            likedPlaylistIds = likedPlaylistIds,
             onTogglePlaylistSelection = { playlist ->
                 selectedSongIds = emptySet()
                 selectedArtistNames = emptySet()

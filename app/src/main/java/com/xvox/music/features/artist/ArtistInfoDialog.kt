@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.ui.components.XvoxLikedHeartBadge
 import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 import com.xvox.music.core.ui.overlay.XvoxBox
@@ -46,6 +47,10 @@ import com.xvox.music.features.home.XvoxSongArtwork
 fun ArtistInfoDialog(
     artist: XvoxArtist,
     hideText: Boolean = false,
+    liked: Boolean = false,
+    onToggleLiked: () -> Unit = {},
+    columns: Int = 4,
+    onColumnsChange: (Int) -> Unit = {},
     onHideTextChange: (Boolean) -> Unit = {},
     onDismiss: () -> Unit,
     onPlayNext: () -> Unit,
@@ -269,7 +274,38 @@ fun ArtistInfoDialog(
                     }
                 }
 
-                // 4. Artist Layout Settings Card (Only Hide artist names toggle)
+                // Pin liked artists above the rest of the collection and expose the same marker
+                // used on the artist artwork itself.
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(colors.card)
+                        .xvoxPressScale {
+                            haptics.tap()
+                            onToggleLiked()
+                        }
+                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    XvoxLikedHeartBadge(badgeSize = 24.dp)
+                    Spacer(Modifier.width(14.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            if (liked) "Remove from liked" else "Like artist",
+                            color = colors.primaryText,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            if (liked) "Artist is pinned at the top" else "Pin this artist at the top with a red heart",
+                            color = colors.secondaryText,
+                            fontSize = 11.sp
+                        )
+                    }
+                }
+
+                // 4. Artist Layout Settings Card
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -282,6 +318,32 @@ fun ArtistInfoDialog(
                     Column(modifier = Modifier.weight(1f)) {
                         Text("Hide artist names", color = colors.primaryText, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold)
                         Text("Show only circular artwork in grid", color = colors.secondaryText, fontSize = 11.sp)
+                        Spacer(Modifier.height(9.dp))
+                        Text("Columns", color = colors.secondaryText, fontSize = 11.sp)
+                        Spacer(Modifier.height(5.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            (2..7).forEach { option ->
+                                val selected = columns.coerceIn(2, 7) == option
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(7.dp))
+                                        .background(if (selected) colors.primaryAccent else colors.cardElevated)
+                                        .xvoxPressScale {
+                                            haptics.tap()
+                                            onColumnsChange(option)
+                                        }
+                                        .padding(horizontal = 7.dp, vertical = 5.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        option.toString(),
+                                        color = if (selected) colors.background else colors.primaryText,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
                     }
                     Switch(
                         checked = hideText,

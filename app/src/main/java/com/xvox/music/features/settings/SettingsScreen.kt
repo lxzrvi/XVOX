@@ -160,7 +160,7 @@ fun SettingsScreen(
     val bottomInset = LocalXvoxBottomInset.current
     // The shell Header slides away before Settings settles. Settings therefore owns only a
     // status-bar-safe starting line and never reserves/recreates a duplicate Header.
-    val bottomPadding = bottomInset + if (isLandscape) 16.dp else 30.dp
+    val bottomPadding = bottomInset + if (isLandscape) 10.dp else 30.dp
     val scrollState = rememberLazyGridState()
     var showingWidgetStudio by rememberSaveable { mutableStateOf(false) }
 
@@ -231,8 +231,8 @@ fun SettingsScreen(
         contentAlignment = Alignment.TopCenter
     ) {
         LazyVerticalGrid(
-            // Landscape returns to two equal columns. A regular grid (rather than a staggered
-            // masonry layout) keeps each row aligned, with equal outer and inter-section gaps.
+            // Landscape uses two compact, independently-sized card lanes that remain entirely
+            // scrollable; portrait keeps the familiar readable single column.
             columns = GridCells.Fixed(if (isLandscape) 2 else 1),
             state = scrollState,
             modifier = Modifier
@@ -240,13 +240,13 @@ fun SettingsScreen(
                 .fillMaxWidth()
                 .fillMaxHeight(),
             contentPadding = PaddingValues(
-                start = if (isLandscape) 10.dp else 6.dp,
-                top = statusTop + 6.dp,
-                end = if (isLandscape) 10.dp else 6.dp,
+                start = if (isLandscape) 8.dp else 6.dp,
+                top = statusTop + if (isLandscape) 4.dp else 6.dp,
+                end = if (isLandscape) 8.dp else 6.dp,
                 bottom = bottomPadding
             ),
-            verticalArrangement = Arrangement.spacedBy(if (isLandscape) 10.dp else 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(if (isLandscape) 10.dp else 12.dp)
+            verticalArrangement = Arrangement.spacedBy(if (isLandscape) 8.dp else 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(if (isLandscape) 8.dp else 12.dp)
         ) {
             item(
                 key = "settings_title",
@@ -255,93 +255,37 @@ fun SettingsScreen(
                 Text(
                     text = "Settings",
                     color = colors.primaryAccent,
-                    fontSize = 24.sp,
-                    lineHeight = 28.sp,
+                    fontSize = if (isLandscape) 20.sp else 24.sp,
+                    lineHeight = if (isLandscape) 24.sp else 28.sp,
                     fontWeight = FontWeight.ExtraBold,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = if (isLandscape) 2.dp else 4.dp)
                 )
             }
 
-            if (isLandscape) {
-                // Preserve the portrait sequence left-to-right, then top-to-bottom: Appearance →
-                // Background Playback → Recycle Bin → Widgets → Backup & Restore → Support → About.
-                // Equal-height pairs retain the landscape grid's balanced physical rows.
-                item(key = "settings_pair_appearance_background_playback", span = { GridItemSpan(maxLineSpan) }) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Max),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        AppearanceSectionCard(
-                            state, settingsViewModel, ::openCustomColorPicker, ::openFontPicker,
-                            modifier = Modifier.weight(1f).fillMaxHeight()
-                        )
-                        BackgroundPlaybackSectionCard(
-                            state = state,
-                            viewModel = settingsViewModel,
-                            modifier = Modifier.weight(1f).fillMaxHeight()
-                        )
-                    }
-                }
-                // Library filters intentionally sit directly beneath Background Playback in every layout.
-                item(key = "settings_library", span = { GridItemSpan(maxLineSpan) }) {
-                    LibrarySectionCard(
-                        state = state,
-                        settingsViewModel = settingsViewModel,
-                        homeViewModel = homeViewModel,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-                item(key = "settings_pair_recycle_widgets", span = { GridItemSpan(maxLineSpan) }) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Max),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        DeletedItemsSectionCard(
-                            onOpen = ::openDeletedItems,
-                            modifier = Modifier.weight(1f).fillMaxHeight()
-                        )
-                        WidgetSectionCard(
-                            onOpenStudio = { showingWidgetStudio = true },
-                            modifier = Modifier.weight(1f).fillMaxHeight()
-                        )
-                    }
-                }
-                item(key = "settings_backup", span = { GridItemSpan(maxLineSpan) }) {
-                    BackupSectionCard(homeViewModel, Modifier.fillMaxWidth())
-                }
-                // Support's tier buttons and the comprehensive About guide both need their
-                // natural width/height. Keeping each full-width avoids stretching Support into
-                // About's longer guide lane while retaining the same reading order.
-                item(key = "settings_support", span = { GridItemSpan(maxLineSpan) }) {
-                    SupportDeveloperCard(Modifier.fillMaxWidth())
-                }
-                item(key = "settings_about", span = { GridItemSpan(maxLineSpan) }) {
-                    AboutSectionCard(Modifier.fillMaxWidth())
-                }
-                // Source-mode experiments intentionally stay out of the everyday Settings page.
-            } else {
-                item(key = "section_appearance") {
-                    AppearanceSectionCard(state, settingsViewModel, ::openCustomColorPicker, ::openFontPicker)
-                }
-                // Keep Library controls immediately below Background Playback.
-                item(key = "section_background_playback") {
-                    BackgroundPlaybackSectionCard(state, settingsViewModel)
-                }
-                item(key = "section_library") {
-                    LibrarySectionCard(
-                        state = state,
-                        settingsViewModel = settingsViewModel,
-                        homeViewModel = homeViewModel
-                    )
-                }
-                item(key = "section_deleted_items") { DeletedItemsSectionCard(onOpen = ::openDeletedItems) }
-                item(key = "section_widget") {
-                    WidgetSectionCard(onOpenStudio = { showingWidgetStudio = true })
-                }
-                item(key = "section_backup") { BackupSectionCard(homeViewModel) }
-                item(key = "section_support_dev") { SupportDeveloperCard() }
-                item(key = "section_about") { AboutSectionCard() }
+            // In landscape the surrounding LazyVerticalGrid is a true, scrollable two-column
+            // layout. Every card is an ordinary grid cell: no paired nested rows, forced equal
+            // heights, or blank fill lanes are needed.
+            item(key = "section_appearance") {
+                AppearanceSectionCard(state, settingsViewModel, ::openCustomColorPicker, ::openFontPicker)
             }
+            item(key = "section_background_playback") {
+                BackgroundPlaybackSectionCard(state, settingsViewModel)
+            }
+            item(key = "section_library") {
+                LibrarySectionCard(
+                    state = state,
+                    settingsViewModel = settingsViewModel,
+                    homeViewModel = homeViewModel
+                )
+            }
+            item(key = "section_deleted_items") { DeletedItemsSectionCard(onOpen = ::openDeletedItems) }
+            item(key = "section_widget") {
+                WidgetSectionCard(onOpenStudio = { showingWidgetStudio = true })
+            }
+            item(key = "section_backup") { BackupSectionCard(homeViewModel) }
+            item(key = "section_support_dev") { SupportDeveloperCard() }
+            item(key = "section_about") { AboutSectionCard() }
+            // Source-mode experiments intentionally stay out of the everyday Settings page.
         }
     }
 }
@@ -377,8 +321,9 @@ private fun AppearanceSectionCard(
     )
     val selectedScale = scaleOptions.minByOrNull { abs(state.fontSizeScale - it.third) }?.first
 
+    val compact = LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
     SettingsCardFrame(title = "Appearance", modifier = modifier) {
-        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(if (compact) 9.dp else 14.dp)) {
             SettingsField("Theme Mode") {
                 XvoxSegmentedPill(
                     options = themeOptions,
@@ -437,7 +382,8 @@ private fun SettingsField(
     label: String,
     content: @Composable () -> Unit
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    val compact = LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+    Column(verticalArrangement = Arrangement.spacedBy(if (compact) 5.dp else 8.dp)) {
         Text(
             text = label,
             color = XvoxTheme.colors.mutedText,
@@ -458,9 +404,10 @@ private fun XvoxSegmentedPill(
     modifier: Modifier = Modifier
 ) {
     val colors = XvoxTheme.colors
-    // Appearance choices intentionally stay large and equal at every screen height. In cramped
-    // layouts the card scrolls instead of silently shrinking some controls below their peers.
-    val pillHeight = XvoxAppearancePillHeight
+    val compact = LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+    // Landscape keeps the same pill language but trims its physical lane so two columns retain
+    // comfortable scroll density rather than requiring oversized equal-height cards.
+    val pillHeight = if (compact) 36.dp else XvoxAppearancePillHeight
     val shape = RoundedCornerShape(pillHeight / 2f)
     val selectedTextColor = xvoxOnAccent(colors.primaryAccent)
     val selectedIndex = options.indexOfFirst { (key, _) -> key == selectedKey }
@@ -474,8 +421,8 @@ private fun XvoxSegmentedPill(
             .background(colors.cardElevated)
             .border(0.8.dp, colors.cardBorder.copy(alpha = 0.7f), shape)
     ) {
-        val horizontalInset = 3.dp
-        val verticalInset = 3.dp
+        val horizontalInset = if (compact) 2.dp else 3.dp
+        val verticalInset = if (compact) 2.dp else 3.dp
         val usableWidth = (maxWidth - (horizontalInset * 2)).coerceAtLeast(0.dp)
         val segmentWidth = if (options.isEmpty()) 0.dp else usableWidth / options.size.toFloat()
         val targetOffset = horizontalInset + (segmentWidth * selectedIndex.coerceAtLeast(0).toFloat())
@@ -533,14 +480,8 @@ private fun WidgetSectionCard(
     modifier: Modifier = Modifier
 ) {
     val colors = XvoxTheme.colors
-    val isLandscape = LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
     SettingsCardFrame(title = "Widgets", modifier = modifier) {
-        // Landscape cards share a bottom with Appearance. Fill that shared lane deliberately
-        // rather than leaving a single centred row floating in an oversized empty card.
-        Column(
-            modifier = if (isLandscape) Modifier.fillMaxHeight() else Modifier.fillMaxWidth(),
-            verticalArrangement = if (isLandscape) Arrangement.SpaceBetween else Arrangement.Top
-        ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -564,15 +505,6 @@ private fun WidgetSectionCard(
                     contentDescription = "Open Widget Studio",
                     tint = colors.mutedText,
                     modifier = Modifier.size(16.dp)
-                )
-            }
-            if (isLandscape) {
-                Text(
-                    text = "Open Studio to place and style your live widget.",
-                    color = colors.mutedText,
-                    fontSize = 10.5.sp,
-                    lineHeight = 14.sp,
-                    modifier = Modifier.padding(horizontal = 4.dp)
                 )
             }
         }
@@ -970,7 +902,10 @@ private fun SettingsCardFrame(
             .clip(shape)
             .background(colors.card)
             .border(1.dp, colors.cardBorder.copy(alpha = if (colors.isLight) 0.8f else 0.72f), shape)
-            .padding(horizontal = 14.dp, vertical = 16.dp)
+            .padding(
+                horizontal = if (isLandscape) 10.dp else 14.dp,
+                vertical = if (isLandscape) 11.dp else 16.dp
+            )
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -985,21 +920,10 @@ private fun SettingsCardFrame(
             )
             titleAction?.invoke()
         }
-        if (isLandscape) {
-            // Paired cards intentionally share a physical bottom. Center each card's own content
-            // in the remaining lane instead of leaving an arbitrary blank tail below short cards.
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f, fill = true),
-                contentAlignment = Alignment.Center
-            ) {
-                content()
-            }
-        } else {
-            Spacer(Modifier.height(14.dp))
-            content()
-        }
+        Spacer(Modifier.height(if (isLandscape) 8.dp else 14.dp))
+        // Cards now keep their natural compact height in the two-column landscape grid; this
+        // avoids the forced blank lane created by the previous paired-card implementation.
+        content()
     }
 }
 

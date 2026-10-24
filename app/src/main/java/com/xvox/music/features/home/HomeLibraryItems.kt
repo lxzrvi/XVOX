@@ -183,20 +183,24 @@ fun LazyListScope.playlistCollectionItems(
     columns: Int = 1,
     /** Playlist cards have their own outer selection surface; track selection stays in details. */
     selectedPlaylistIds: Set<String> = emptySet(),
+    likedPlaylistIds: Set<String> = emptySet(),
     onTogglePlaylistSelection: ((XvoxPlaylist) -> Unit)? = null
 ) {
+    // A liked collection remains in its original relative order, but all liked collections are
+    // pinned ahead of normal playlists in every supported presentation mode.
+    val ordered = playlists.sortedByDescending { it.id in likedPlaylistIds }
     item(key = "playlists_header") { HomeCollectionHeader("Playlists", playlists.size, onCreate) }
     if (playlists.isEmpty()) item(key = "playlists_empty") {
         Text("Create your first playlist", color = XvoxTheme.colors.mutedText, fontSize = 12.sp,
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 16.dp))
     }
     if (orientation == "horizontal") {
-        val rowCount = rows.coerceIn(1, 8)
+        val rowCount = rows.coerceIn(1, 3)
         item(key = "playlist_horizontal_row") {
             BoxWithConstraints(Modifier.fillMaxWidth()) {
                 val fullCardWidth = (maxWidth - 12.dp).coerceAtLeast(200.dp)
                 val cardH = cardHeight(null, longCardHeight)
-                val chunked = playlists.chunked(rowCount)
+                val chunked = ordered.chunked(rowCount)
                 LazyRow(
                     modifier = Modifier.fillMaxWidth(),
                     contentPadding = PaddingValues(horizontal = 6.dp),
@@ -220,6 +224,7 @@ fun LazyListScope.playlistCollectionItems(
                                     },
                                     onLongClick = { onOptions(playlist) },
                                     selected = playlist.id in selectedPlaylistIds,
+                                    liked = playlist.id in likedPlaylistIds,
                                     modifier = Modifier.fillMaxWidth().height(cardH),
                                     longCard = true
                                 )
@@ -230,7 +235,7 @@ fun LazyListScope.playlistCollectionItems(
             }
         }
     } else if (columns > 1) {
-        val chunked = playlists.chunked(columns)
+        val chunked = ordered.chunked(columns)
         items(chunked, key = { "pl_chunk_${it.firstOrNull()?.id}" }) { colPlaylists ->
             Row(
                 modifier = Modifier
@@ -253,6 +258,7 @@ fun LazyListScope.playlistCollectionItems(
                             },
                             onLongClick = { onOptions(playlist) },
                             selected = playlist.id in selectedPlaylistIds,
+                            liked = playlist.id in likedPlaylistIds,
                             modifier = Modifier.fillMaxWidth().height(cardH),
                             longCard = true
                         )
@@ -266,7 +272,7 @@ fun LazyListScope.playlistCollectionItems(
             }
         }
     } else {
-        items(playlists, key = { "playlist_long_${it.id}" }, contentType = { "playlist_long" }) { playlist ->
+        items(ordered, key = { "playlist_long_${it.id}" }, contentType = { "playlist_long" }) { playlist ->
             BoxWithConstraints(Modifier.fillMaxWidth().padding(start = 6.dp, end = 6.dp, bottom = 6.dp)) {
                 val oldCardHeight = if (longCardHeight > 0) longCardHeight.dp else (maxWidth - 6.dp) / 2 + 35.dp
                 XvoxPlaylistCard(
@@ -281,6 +287,7 @@ fun LazyListScope.playlistCollectionItems(
                     },
                     onLongClick = { onOptions(playlist) },
                     selected = playlist.id in selectedPlaylistIds,
+                    liked = playlist.id in likedPlaylistIds,
                     modifier = Modifier.fillMaxWidth().height(oldCardHeight),
                     longCard = true
                 )

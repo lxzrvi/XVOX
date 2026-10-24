@@ -9,27 +9,29 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.ui.components.XvoxLikedHeartBadge
 import com.xvox.music.core.ui.effects.xvoxSongPress
 import com.xvox.music.features.home.XvoxSongArtwork
 
@@ -45,16 +47,21 @@ fun XvoxArtistGrid(
     onArtistLongClick: (XvoxArtist) -> Unit,
     /** Outer artist-selection state is distinct from song selection inside an artist page. */
     selectedArtistNames: Set<String> = emptySet(),
+    likedArtistNames: Set<String> = emptySet(),
     onMergeClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    val isLandscape = LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
-    val effectiveColumns = if (isLandscape) 8 else columns.coerceIn(2, 8)
+    // The artist picker explicitly supports two through seven columns in either orientation.
+    // The artwork item uses a square, width-bound surface so seven columns remain genuinely round.
+    val effectiveColumns = columns.coerceIn(2, 7)
     val effectiveRows = rows.coerceIn(1, 8)
+    val ordered = remember(artists, likedArtistNames) {
+        artists.sortedByDescending { it.name in likedArtistNames }
+    }
 
     if (direction == "horizontal") {
         val totalPerColumn = effectiveRows
-        val chunkedCols = artists.chunked(totalPerColumn)
+        val chunkedCols = ordered.chunked(totalPerColumn)
 
         LazyRow(
             modifier = modifier
@@ -64,9 +71,7 @@ fun XvoxArtistGrid(
             horizontalArrangement = Arrangement.spacedBy(gap.dp)
         ) {
             items(chunkedCols) { colArtists ->
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
-                ) {
+                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                     colArtists.forEach { artist ->
                         ArtistCircleItem(
                             artist = artist,
@@ -74,6 +79,7 @@ fun XvoxArtistGrid(
                             onClick = { onArtistClick(artist) },
                             onLongClick = { onArtistLongClick(artist) },
                             selected = artist.name in selectedArtistNames,
+                            liked = artist.name in likedArtistNames,
                             modifier = Modifier.width(68.dp)
                         )
                     }
@@ -81,7 +87,7 @@ fun XvoxArtistGrid(
             }
         }
     } else {
-        val chunked = artists.chunked(effectiveColumns)
+        val chunked = ordered.chunked(effectiveColumns)
         Column(
             modifier = modifier
                 .fillMaxWidth()
@@ -100,6 +106,7 @@ fun XvoxArtistGrid(
                             onClick = { onArtistClick(artist) },
                             onLongClick = { onArtistLongClick(artist) },
                             selected = artist.name in selectedArtistNames,
+                            liked = artist.name in likedArtistNames,
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -121,40 +128,47 @@ fun ArtistCircleItem(
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     selected: Boolean = false,
+    liked: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val colors = XvoxTheme.colors
 
     Column(
-        modifier = modifier
-            .xvoxSongPress(
-                onClick = onClick,
-                onLongClick = onLongClick
-            ),
+        modifier = modifier.xvoxSongPress(onClick = onClick, onLongClick = onLongClick),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Box(
             modifier = Modifier
-                .size(76.dp)
-                .clip(CircleShape)
-                .background(colors.background)
-                .then(
-                    if (selected) Modifier.border(2.dp, colors.primaryAccent, CircleShape)
-                    else Modifier
-                ),
+                .widthIn(max = 76.dp)
+                .fillMaxWidth()
+                .aspectRatio(1f),
             contentAlignment = Alignment.Center
         ) {
-            // Artist imagery follows the same missing/failed-art rule as every cover surface.
-            XvoxSongArtwork(
-                artwork = artist.customImageUri
-                    ?.takeIf { it.isNotBlank() }
-                    ?.let(Uri::parse)
-                    ?: artist.coverSong?.artworkUri,
-                fallbackSeed = artist.coverSong?.id?.hashCode() ?: artist.name.hashCode(),
-                requestSize = 256,
-                modifier = Modifier.fillMaxSize()
-            )
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .clip(CircleShape)
+                    .background(colors.background)
+                    .then(
+                        if (selected) Modifier.border(2.dp, colors.primaryAccent, CircleShape)
+                        else Modifier
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                XvoxSongArtwork(
+                    artwork = artist.customImageUri
+                        ?.takeIf { it.isNotBlank() }
+                        ?.let(Uri::parse)
+                        ?: artist.coverSong?.artworkUri,
+                    fallbackSeed = artist.coverSong?.id?.hashCode() ?: artist.name.hashCode(),
+                    requestSize = 256,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+            if (liked) {
+                XvoxLikedHeartBadge(Modifier.align(Alignment.TopEnd), badgeSize = 18.dp)
+            }
         }
 
         if (!hideText) {
