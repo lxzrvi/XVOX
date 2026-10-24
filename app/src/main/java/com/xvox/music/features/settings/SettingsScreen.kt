@@ -262,29 +262,67 @@ fun SettingsScreen(
                 )
             }
 
-            // In landscape the surrounding LazyVerticalGrid is a true, scrollable two-column
-            // layout. Every card is an ordinary grid cell: no paired nested rows, forced equal
-            // heights, or blank fill lanes are needed.
-            item(key = "section_appearance") {
-                AppearanceSectionCard(state, settingsViewModel, ::openCustomColorPicker, ::openFontPicker)
+            if (isLandscape) {
+                // The grid remains the scroll host, while this one full-width item balances the
+                // cards inside two equal lanes and lets the shorter lane finish flush.
+                item(
+                    key = "settings_balanced_two_columns",
+                    span = { GridItemSpan(maxLineSpan) }
+                ) {
+                    BalancedTwoColumn(modifier = Modifier.fillMaxWidth(), gap = 10.dp) {
+                        AppearanceSectionCard(
+                            state = state,
+                            viewModel = settingsViewModel,
+                            onOpenColorWheel = ::openCustomColorPicker,
+                            onOpenFontPicker = ::openFontPicker,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        BackgroundPlaybackSectionCard(
+                            state = state,
+                            viewModel = settingsViewModel,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        LibrarySectionCard(
+                            state = state,
+                            settingsViewModel = settingsViewModel,
+                            homeViewModel = homeViewModel,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        DeletedItemsSectionCard(
+                            onOpen = ::openDeletedItems,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        WidgetSectionCard(
+                            onOpenStudio = { showingWidgetStudio = true },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        BackupSectionCard(homeViewModel, Modifier.fillMaxWidth())
+                        SupportDeveloperCard(Modifier.fillMaxWidth())
+                        AboutSectionCard(Modifier.fillMaxWidth())
+                    }
+                }
+            } else {
+                item(key = "section_appearance") {
+                    AppearanceSectionCard(state, settingsViewModel, ::openCustomColorPicker, ::openFontPicker)
+                }
+                item(key = "section_background_playback") {
+                    BackgroundPlaybackSectionCard(state, settingsViewModel)
+                }
+                item(key = "section_library") {
+                    LibrarySectionCard(
+                        state = state,
+                        settingsViewModel = settingsViewModel,
+                        homeViewModel = homeViewModel
+                    )
+                }
+                item(key = "section_deleted_items") { DeletedItemsSectionCard(onOpen = ::openDeletedItems) }
+                item(key = "section_widget") {
+                    WidgetSectionCard(onOpenStudio = { showingWidgetStudio = true })
+                }
+                item(key = "section_backup") { BackupSectionCard(homeViewModel) }
+                item(key = "section_support_dev") { SupportDeveloperCard() }
+                item(key = "section_about") { AboutSectionCard() }
             }
-            item(key = "section_background_playback") {
-                BackgroundPlaybackSectionCard(state, settingsViewModel)
-            }
-            item(key = "section_library") {
-                LibrarySectionCard(
-                    state = state,
-                    settingsViewModel = settingsViewModel,
-                    homeViewModel = homeViewModel
-                )
-            }
-            item(key = "section_deleted_items") { DeletedItemsSectionCard(onOpen = ::openDeletedItems) }
-            item(key = "section_widget") {
-                WidgetSectionCard(onOpenStudio = { showingWidgetStudio = true })
-            }
-            item(key = "section_backup") { BackupSectionCard(homeViewModel) }
-            item(key = "section_support_dev") { SupportDeveloperCard() }
-            item(key = "section_about") { AboutSectionCard() }
             // Source-mode experiments intentionally stay out of the everyday Settings page.
         }
     }

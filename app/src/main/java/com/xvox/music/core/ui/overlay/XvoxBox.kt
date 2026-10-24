@@ -1,7 +1,6 @@
 package com.xvox.music.core.ui.overlay
 
-import android.view.WindowManager
-
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.animateFloatAsState
@@ -47,7 +46,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -62,7 +60,6 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
@@ -71,12 +68,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
-import androidx.compose.ui.window.DialogWindowProvider
-import androidx.core.view.WindowCompat
-import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.WindowInsetsControllerCompat
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.effects.xvoxPressScale
@@ -86,33 +77,6 @@ import kotlinx.coroutines.launch
 val XvoxBoxEasing = CubicBezierEasing(0.2f, 0f, 0f, 1f)
 const val XvoxSheetEnterMs = 280
 const val XvoxSheetExitMs = 240
-
-/** Keeps Dialog-owned sheets immersive when they were opened above landscape Now Playing. */
-@Composable
-private fun XvoxSheetImmersiveStatusBar(enabled: Boolean) {
-    val view = LocalView.current
-    val dialogWindow = (view.parent as? DialogWindowProvider)?.window
-    SideEffect {
-        if (enabled && dialogWindow != null) {
-            val controller = WindowCompat.getInsetsController(dialogWindow, view)
-            controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-            controller.hide(WindowInsetsCompat.Type.statusBars())
-        }
-    }
-}
-
-/** Dialog window ki native dim aur window animation band: sirf hamara scrim aur sheet chalenge. */
-@Composable
-private fun XvoxSheetWindowSetup() {
-    val window = (LocalView.current.parent as? DialogWindowProvider)?.window
-    SideEffect {
-        window?.apply {
-            setWindowAnimations(-1)
-            setDimAmount(0f)
-            clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
-        }
-    }
-}
 
 /**
  * A bridge installed around scrollable sheet content.  It gives vertical space back to the sheet
@@ -268,7 +232,6 @@ fun XvoxSheet(
 
     val colors = XvoxTheme.colors
     val chrome = com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle.current
-    val overlayController = LocalXvoxOverlayController.current
     val optionSurface = colors.card.copy(alpha = colors.card.alpha * chrome.optionBoxBgAlpha.coerceIn(0f, 1f))
     // Bottom sheets are edge-attached materials: retain rounded top corners only, never a
     // floating side/bottom outline that makes the sheet look detached from the screen.
@@ -281,7 +244,7 @@ fun XvoxSheet(
     val visibility = remember { MutableTransitionState(false).apply { targetState = true } }
     var closing by remember { mutableStateOf(false) }
     // The scrim is immediately opaque on open, then fades independently as the sheet closes.
-    // This leaves the sheet as the only travelling layer while avoiding the Dialog's native dim.
+    // This leaves the sheet as the only travelling layer while the host owns one dim layer.
     val scrimAlpha by animateFloatAsState(
         targetValue = if (closing) 0f else .40f,
         animationSpec = tween(
@@ -298,307 +261,292 @@ fun XvoxSheet(
         visibility.targetState = false
         scope.launch {
             // Keep the host mounted through the sheet's complete downward exit and its matching
-            // scrim fade, so the Dialog never unmounts before either motion completes.
+            // scrim fade, so the host never unmounts before either motion completes.
             delay(XvoxSheetExitMs + 20L)
             dismiss()
         }
     }
 
-    Dialog(
-        onDismissRequest = ::close,
-        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
-    ) {
-        XvoxSheetImmersiveStatusBar(overlayController.immersiveNowPlayingSheets)
-        XvoxSheetWindowSetup()
-        Box(modifier = modifier.fillMaxSize()) {
-            Box(
-                modifier = Modifier
-                    .matchParentSize()
-                    .drawBehind { drawRect(scrimColor, alpha = scrimAlpha) }
-                    .clickable(remember { MutableInteractionSource() }, indication = null) { close() }
-            )
+    BackHandler(onBack = ::close)
+    Box(modifier = modifier.fillMaxSize()) {
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .drawBehind { drawRect(scrimColor, alpha = scrimAlpha) }
+                .clickable(remember { MutableInteractionSource() }, indication = null) { close() }
+        )
 
-            BoxWithConstraints(
-                // Keep every bottom-sheet action above the keyboard instead of letting the IME
-                // cover its lower controls or the active text field.
-                modifier = Modifier.matchParentSize().imePadding(),
-                contentAlignment = Alignment.BottomCenter
-            ) {
-                val statusTopPx = WindowInsets.statusBars.getTop(density)
-                val maxSheetHeight = with(density) {
-                    (constraints.maxHeight - statusTopPx).coerceAtLeast(1).toDp()
-                }
-                val maxSheetHeightPx = with(density) { maxSheetHeight.toPx() }
-                val songOptionsPresentation = presentation == XvoxBoxPresentation.SONG_OPTIONS
+        BoxWithConstraints(
+            // Keep every bottom-sheet action above the keyboard instead of letting the IME
+            // cover its lower controls or the active text field.
+            modifier = Modifier.matchParentSize().imePadding(),
+            contentAlignment = Alignment.BottomCenter
+        ) {
+            val statusTopPx = WindowInsets.statusBars.getTop(density)
+            val maxSheetHeight = with(density) {
+                (constraints.maxHeight - statusTopPx).coerceAtLeast(1).toDp()
+            }
+            val maxSheetHeightPx = with(density) { maxSheetHeight.toPx() }
+            val songOptionsPresentation = presentation == XvoxBoxPresentation.SONG_OPTIONS
 
-                // A sheet now always opens at its measured content height.  No presentation is
-                // allowed to claim a speculative half screen: the max bound is only reached when
-                // its real body cannot physically fit above the status bar.
-                val contentContractFloorPx = maxSheetHeightPx * .20f
-                val pillCloseHeightPx = maxSheetHeightPx * .40f
-                var requestedHeightPx by remember(presentation) { mutableFloatStateOf(0f) }
-                var measuredHeightPx by remember { mutableIntStateOf(0) }
-                // Equalizer begins at exactly its real content height—never an empty oversized
-                // panel. Once that compact height is measured, enabling Bands grows the *body*
-                // beneath the fixed sheet chrome; the listener can scroll upward to expand the
-                // sheet deliberately, then scroll the remaining content inside it.
-                var equalizerBaseHeightPx by remember(presentation, maxSheetHeightPx) { mutableFloatStateOf(0f) }
-                var bodyViewportHeightPx by remember { mutableFloatStateOf(0f) }
-                // Default to no content cap. Scroll bodies such as Queue report their real
-                // natural list height so bottom-anchored growth ends on the last row, not blank.
-                val reportedBodyGrowthLimitPx = remember { mutableFloatStateOf(Float.POSITIVE_INFINITY) }
-                val reportBodyGrowthLimit = remember {
-                    { naturalBodyHeightPx: Float ->
-                        reportedBodyGrowthLimitPx.floatValue = naturalBodyHeightPx.coerceAtLeast(0f)
-                    }
-                }
-                var dragStartHeightPx by remember { mutableFloatStateOf(0f) }
-                var dragDeltaPx by remember { mutableFloatStateOf(0f) }
-
-                fun contentBoundedMaxHeightPx(): Float {
-                    val naturalBodyLimit = reportedBodyGrowthLimitPx.floatValue
-                    val contentBound = if (
-                        naturalBodyLimit.isFinite() && measuredHeightPx > 0 && bodyViewportHeightPx > 0f
-                    ) {
-                        // Header/chrome stays fixed while the body grows upward from the screen
-                        // bottom. Cap precisely at the final real body row and its inset.
-                        measuredHeightPx.toFloat() - bodyViewportHeightPx + naturalBodyLimit
-                    } else {
-                        maxSheetHeightPx
-                    }
-                    return minOf(maxSheetHeightPx, contentBound).coerceAtLeast(1f)
-                }
-
-                LaunchedEffect(
-                    maxSheetHeightPx,
-                    reportedBodyGrowthLimitPx.floatValue,
-                    bodyViewportHeightPx,
-                    measuredHeightPx
-                ) {
-                    val cap = contentBoundedMaxHeightPx()
-                    if (requestedHeightPx > cap) requestedHeightPx = cap
-                }
-                val contentScrollBridge = remember(maxSheetHeightPx, density) {
-                    XvoxSheetScrollBridge(
-                        sheetHeight = { requestedHeightPx },
-                        measuredHeight = { measuredHeightPx.toFloat() },
-                        maxHeight = { contentBoundedMaxHeightPx() },
-                        setSheetHeight = { next ->
-                            requestedHeightPx = next.coerceIn(1f, contentBoundedMaxHeightPx())
-                        },
-                        dismiss = ::close,
-                        dismissDistancePx = with(density) { 52.dp.toPx() }
-                    )
-                }
-                // Body scrolling is intentionally delegated to xvoxBoxScroll. It knows whether
-                // a ScrollState/Lazy list really has overflow and is at its top; a universal
-                // parent interceptor cannot know that and used to steal ordinary body scrolls.
-
-                val requestedHeight: Dp? = requestedHeightPx
-                    .takeIf { it > 0f }
-                    ?.let { with(density) { it.coerceIn(1f, contentBoundedMaxHeightPx()).toDp() } }
-                val sheetShape = RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp)
-                val lockedEqualizerHeight = equalizerBaseHeightPx
-                    .takeIf { presentation == XvoxBoxPresentation.EQUALIZER && requestedHeight == null && it > 0f }
-                    ?.let { with(density) { it.toDp() } }
-                val sheetSizing = when {
-                    requestedHeight != null -> Modifier.height(requestedHeight)
-                    // Preserve the naturally measured compact EQ frame when rows are toggled on.
-                    // It never creates blank space at open, and only expands in response to a
-                    // real upward scroll gesture from the body/drag handle.
-                    lockedEqualizerHeight != null -> Modifier.height(lockedEqualizerHeight)
-                    else -> Modifier.heightIn(max = maxSheetHeight)
-                }
-
-                AnimatedVisibility(
-                    visibleState = visibility,
-                    // The dim canvas is already full-screen and stationary. Only this material
-                    // sheet travels from the bottom, which eliminates the old illusion that the
-                    // faded backdrop itself was sliding upward with the content.
-                    enter = slideInVertically(
-                        initialOffsetY = { it },
-                        animationSpec = tween(XvoxSheetEnterMs, easing = XvoxBoxEasing)
-                    ),
-                    exit = slideOutVertically(
-                        targetOffsetY = { it },
-                        animationSpec = tween(XvoxSheetExitMs, easing = XvoxBoxEasing)
-                    )
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .then(sheetSizing)
-                            .clip(sheetShape)
-                            .background(optionSurface)
-                            .clickable(swallowInteraction, indication = null) { }
-                            .onGloballyPositioned { layout ->
-                                measuredHeightPx = layout.size.height
-                                if (
-                                    presentation == XvoxBoxPresentation.EQUALIZER &&
-                                    equalizerBaseHeightPx <= 0f && layout.size.height > 0
-                                ) {
-                                    equalizerBaseHeightPx = layout.size.height.toFloat()
-                                }
-                            }
-                            .semantics { paneTitle = title }
-                    ) {
-                        // This is a real drag pill, not a decorative handle. Downward release
-                        // closes from wherever the sheet is currently expanded; upward movement
-                        // grows the sheet and leaves the bounded body to scroll at its maximum.
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(28.dp)
-                                // Never key this gesture detector to the measured/requested
-                                // height: those values change while dragging and used to restart
-                                // the handler beneath the user's finger.
-                                .pointerInput(maxSheetHeightPx, presentation) {
-                                    detectVerticalDragGestures(
-                                        onDragStart = {
-                                            dragDeltaPx = 0f
-                                            dragStartHeightPx = maxOf(
-                                                measuredHeightPx.toFloat(),
-                                                requestedHeightPx
-                                            )
-                                        },
-                                        onVerticalDrag = { change, amount ->
-                                            change.consume()
-                                            dragDeltaPx += amount
-                                            if (dragDeltaPx < 0f) {
-                                                // A short/intrinsic sheet has already measured all
-                                                // of its content. Do not turn a pill pull into
-                                                // empty extra viewport; only an overflowing (or
-                                                // previously contracted) sheet may grow.
-                                                val canGrow = requestedHeightPx > 0f ||
-                                                    measuredHeightPx >= maxSheetHeightPx - 2f
-                                                if (canGrow) {
-                                                    requestedHeightPx = (dragStartHeightPx - dragDeltaPx)
-                                                        .coerceIn(1f, contentBoundedMaxHeightPx())
-                                                }
-                                            } else if (dragStartHeightPx > contentContractFloorPx) {
-                                                // A pill drag can compact continuously; it only
-                                                // closes after the sheet has crossed 40% height.
-                                                requestedHeightPx = (dragStartHeightPx - dragDeltaPx)
-                                                    .coerceAtLeast(contentContractFloorPx)
-                                            }
-                                        },
-                                        onDragEnd = {
-                                            val dismissThreshold = with(density) { 52.dp.toPx() }
-                                            val currentHeight = requestedHeightPx.takeIf { it > 0f }
-                                                ?: measuredHeightPx.toFloat()
-                                            // A direct pill drag only dismisses after crossing
-                                            // the requested ~40% visible-height point.
-                                            if (dragDeltaPx > dismissThreshold && currentHeight <= pillCloseHeightPx + 2f) {
-                                                close()
-                                            } else if (dragDeltaPx < 0f) {
-                                                requestedHeightPx = requestedHeightPx.coerceAtMost(contentBoundedMaxHeightPx())
-                                            }
-                                            dragDeltaPx = 0f
-                                        },
-                                        onDragCancel = { dragDeltaPx = 0f }
-                                    )
-                                },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .width(36.dp)
-                                    .height(4.dp)
-                                    .clip(CircleShape)
-                                    .background(colors.secondaryText.copy(alpha = .42f))
-                            )
-                        }
-
-                        XvoxSheetHeader(
-                            title = title,
-                            songOptionsPresentation = songOptionsPresentation,
-                            onBack = onBack,
-                            onAddClick = onAddClick,
-                            onSettingsClick = onSettingsClick,
-                            onUndoClick = onUndoClick,
-                            onEditClick = onEditClick,
-                            isEditing = isEditing,
-                            headerLeadingContent = headerLeadingContent,
-                            headerTitleContent = headerTitleContent,
-                            onClose = ::close
-                        )
-
-                        // All sheets are deliberately line-free beneath the Header. The clipped
-                        // body begins directly after Header's own touch-safe lower inset.
-                        val bodyHorizontal = when {
-                            // Profile supplies 16dp inner padding to ordinary form fields itself;
-                            // the shared viewport stays edge-to-edge for the avatar carousel.
-                            presentation == XvoxBoxPresentation.PROFILE -> 0.dp
-                            songOptionsPresentation -> 12.dp
-                            presentation == XvoxBoxPresentation.EQUALIZER -> 16.dp
-                            else -> 16.dp
-                        }
-                        // Only fixed (overflowing) sheets fill their bounded viewport. Compact
-                        // content keeps its intrinsic height instead of gaining blank space.
-                        val bodyViewport = if (
-                            requestedHeight != null ||
-                            (presentation == XvoxBoxPresentation.EQUALIZER && equalizerBaseHeightPx > 0f)
-                        ) Modifier.weight(1f) else Modifier
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .then(bodyViewport)
-                                .heightIn(min = 0.dp)
-                                .onGloballyPositioned { bodyViewportHeightPx = it.size.height.toFloat() }
-                                // The viewport stays clipped beneath Header/footer. Keep a small
-                                // content-safe inset, but deliberately draw no separator line.
-                                .clipToBounds()
-                                .padding(
-                                    start = bodyHorizontal,
-                                    top = 6.dp,
-                                    end = bodyHorizontal,
-                                    // Profile's final Brightness slider belongs visually close to
-                                    // its fixed transaction footer; other sheet bodies retain the
-                                    // normal breathing room.
-                                    bottom = if (presentation == XvoxBoxPresentation.PROFILE) 2.dp else 10.dp
-                                )
-                        ) {
-                            CompositionLocalProvider(
-                                LocalXvoxSheetScrollBridge provides contentScrollBridge,
-                                LocalXvoxSheetGrowthActive provides (requestedHeight != null),
-                                LocalXvoxSheetGrowthLimitReporter provides reportBodyGrowthLimit
-                            ) {
-                                content()
-                            }
-                        }
-
-                        bottomAction?.let { footer ->
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    // Nested IME insets are consumed by the outer sheet when it
-                                    // already moved; otherwise this is the final guarantee that
-                                    // Okay / Cancel / Reset stay above an opened keyboard.
-                                    .imePadding()
-                                    // Keep transactional buttons close to the body while still
-                                    // lifting the whole footer above the keyboard.
-                                    .padding(
-                                        horizontal = 16.dp,
-                                        // Keep Profile's three fixed-size actions near its body,
-                                        // while imePadding above moves the entire footer rather
-                                        // than compressing individual buttons.
-                                        vertical = if (presentation == XvoxBoxPresentation.PROFILE) 4.dp else 7.dp
-                                    )
-                            ) {
-                                footer()
-                            }
-                        }
-                    }
+            // A sheet now always opens at its measured content height.  No presentation is
+            // allowed to claim a speculative half screen: the max bound is only reached when
+            // its real body cannot physically fit above the status bar.
+            val contentContractFloorPx = maxSheetHeightPx * .20f
+            val pillCloseHeightPx = maxSheetHeightPx * .40f
+            var requestedHeightPx by remember(presentation) { mutableFloatStateOf(0f) }
+            var measuredHeightPx by remember { mutableIntStateOf(0) }
+            // Equalizer begins at exactly its real content height—never an empty oversized
+            // panel. Once that compact height is measured, enabling Bands grows the *body*
+            // beneath the fixed sheet chrome; the listener can scroll upward to expand the
+            // sheet deliberately, then scroll the remaining content inside it.
+            var equalizerBaseHeightPx by remember(presentation, maxSheetHeightPx) { mutableFloatStateOf(0f) }
+            var bodyViewportHeightPx by remember { mutableFloatStateOf(0f) }
+            // Default to no content cap. Scroll bodies such as Queue report their real
+            // natural list height so bottom-anchored growth ends on the last row, not blank.
+            val reportedBodyGrowthLimitPx = remember { mutableFloatStateOf(Float.POSITIVE_INFINITY) }
+            val reportBodyGrowthLimit = remember {
+                { naturalBodyHeightPx: Float ->
+                    reportedBodyGrowthLimitPx.floatValue = naturalBodyHeightPx.coerceAtLeast(0f)
                 }
             }
-            // Render the action-name pill in this Dialog after the sheet, so it remains above
-            // every option surface rather than dimming behind it.
-            overlayController.popup?.let { message ->
-                XvoxP(
-                    message = message,
-                    onFinished = { overlayController.clearPopup(message.id) },
-                    modifier = Modifier.align(Alignment.TopCenter)
+            var dragStartHeightPx by remember { mutableFloatStateOf(0f) }
+            var dragDeltaPx by remember { mutableFloatStateOf(0f) }
+
+            fun contentBoundedMaxHeightPx(): Float {
+                val naturalBodyLimit = reportedBodyGrowthLimitPx.floatValue
+                val contentBound = if (
+                    naturalBodyLimit.isFinite() && measuredHeightPx > 0 && bodyViewportHeightPx > 0f
+                ) {
+                    // Header/chrome stays fixed while the body grows upward from the screen
+                    // bottom. Cap precisely at the final real body row and its inset.
+                    measuredHeightPx.toFloat() - bodyViewportHeightPx + naturalBodyLimit
+                } else {
+                    maxSheetHeightPx
+                }
+                return minOf(maxSheetHeightPx, contentBound).coerceAtLeast(1f)
+            }
+
+            LaunchedEffect(
+                maxSheetHeightPx,
+                reportedBodyGrowthLimitPx.floatValue,
+                bodyViewportHeightPx,
+                measuredHeightPx
+            ) {
+                val cap = contentBoundedMaxHeightPx()
+                if (requestedHeightPx > cap) requestedHeightPx = cap
+            }
+            val contentScrollBridge = remember(maxSheetHeightPx, density) {
+                XvoxSheetScrollBridge(
+                    sheetHeight = { requestedHeightPx },
+                    measuredHeight = { measuredHeightPx.toFloat() },
+                    maxHeight = { contentBoundedMaxHeightPx() },
+                    setSheetHeight = { next ->
+                        requestedHeightPx = next.coerceIn(1f, contentBoundedMaxHeightPx())
+                    },
+                    dismiss = ::close,
+                    dismissDistancePx = with(density) { 52.dp.toPx() }
                 )
+            }
+            // Body scrolling is intentionally delegated to xvoxBoxScroll. It knows whether
+            // a ScrollState/Lazy list really has overflow and is at its top; a universal
+            // parent interceptor cannot know that and used to steal ordinary body scrolls.
+
+            val requestedHeight: Dp? = requestedHeightPx
+                .takeIf { it > 0f }
+                ?.let { with(density) { it.coerceIn(1f, contentBoundedMaxHeightPx()).toDp() } }
+            val sheetShape = RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp)
+            val lockedEqualizerHeight = equalizerBaseHeightPx
+                .takeIf { presentation == XvoxBoxPresentation.EQUALIZER && requestedHeight == null && it > 0f }
+                ?.let { with(density) { it.toDp() } }
+            val sheetSizing = when {
+                requestedHeight != null -> Modifier.height(requestedHeight)
+                // Preserve the naturally measured compact EQ frame when rows are toggled on.
+                // It never creates blank space at open, and only expands in response to a
+                // real upward scroll gesture from the body/drag handle.
+                lockedEqualizerHeight != null -> Modifier.height(lockedEqualizerHeight)
+                else -> Modifier.heightIn(max = maxSheetHeight)
+            }
+
+            AnimatedVisibility(
+                visibleState = visibility,
+                // The dim canvas is already full-screen and stationary. Only this material
+                // sheet travels from the bottom, which eliminates the old illusion that the
+                // faded backdrop itself was sliding upward with the content.
+                enter = slideInVertically(
+                    initialOffsetY = { it },
+                    animationSpec = tween(XvoxSheetEnterMs, easing = XvoxBoxEasing)
+                ),
+                exit = slideOutVertically(
+                    targetOffsetY = { it },
+                    animationSpec = tween(XvoxSheetExitMs, easing = XvoxBoxEasing)
+                )
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .then(sheetSizing)
+                        .clip(sheetShape)
+                        .background(optionSurface)
+                        .clickable(swallowInteraction, indication = null) { }
+                        .onGloballyPositioned { layout ->
+                            measuredHeightPx = layout.size.height
+                            if (
+                                presentation == XvoxBoxPresentation.EQUALIZER &&
+                                equalizerBaseHeightPx <= 0f && layout.size.height > 0
+                            ) {
+                                equalizerBaseHeightPx = layout.size.height.toFloat()
+                            }
+                        }
+                        .semantics { paneTitle = title }
+                ) {
+                    // This is a real drag pill, not a decorative handle. Downward release
+                    // closes from wherever the sheet is currently expanded; upward movement
+                    // grows the sheet and leaves the bounded body to scroll at its maximum.
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(28.dp)
+                            // Never key this gesture detector to the measured/requested
+                            // height: those values change while dragging and used to restart
+                            // the handler beneath the user's finger.
+                            .pointerInput(maxSheetHeightPx, presentation) {
+                                detectVerticalDragGestures(
+                                    onDragStart = {
+                                        dragDeltaPx = 0f
+                                        dragStartHeightPx = maxOf(
+                                            measuredHeightPx.toFloat(),
+                                            requestedHeightPx
+                                        )
+                                    },
+                                    onVerticalDrag = { change, amount ->
+                                        change.consume()
+                                        dragDeltaPx += amount
+                                        if (dragDeltaPx < 0f) {
+                                            // A short/intrinsic sheet has already measured all
+                                            // of its content. Do not turn a pill pull into
+                                            // empty extra viewport; only an overflowing (or
+                                            // previously contracted) sheet may grow.
+                                            val canGrow = requestedHeightPx > 0f ||
+                                                measuredHeightPx >= maxSheetHeightPx - 2f
+                                            if (canGrow) {
+                                                requestedHeightPx = (dragStartHeightPx - dragDeltaPx)
+                                                    .coerceIn(1f, contentBoundedMaxHeightPx())
+                                            }
+                                        } else if (dragStartHeightPx > contentContractFloorPx) {
+                                            // A pill drag can compact continuously; it only
+                                            // closes after the sheet has crossed 40% height.
+                                            requestedHeightPx = (dragStartHeightPx - dragDeltaPx)
+                                                .coerceAtLeast(contentContractFloorPx)
+                                        }
+                                    },
+                                    onDragEnd = {
+                                        val dismissThreshold = with(density) { 52.dp.toPx() }
+                                        val currentHeight = requestedHeightPx.takeIf { it > 0f }
+                                            ?: measuredHeightPx.toFloat()
+                                        // A direct pill drag only dismisses after crossing
+                                        // the requested ~40% visible-height point.
+                                        if (dragDeltaPx > dismissThreshold && currentHeight <= pillCloseHeightPx + 2f) {
+                                            close()
+                                        } else if (dragDeltaPx < 0f) {
+                                            requestedHeightPx = requestedHeightPx.coerceAtMost(contentBoundedMaxHeightPx())
+                                        }
+                                        dragDeltaPx = 0f
+                                    },
+                                    onDragCancel = { dragDeltaPx = 0f }
+                                )
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .width(36.dp)
+                                .height(4.dp)
+                                .clip(CircleShape)
+                                .background(colors.secondaryText.copy(alpha = .42f))
+                        )
+                    }
+
+                    XvoxSheetHeader(
+                        title = title,
+                        songOptionsPresentation = songOptionsPresentation,
+                        onBack = onBack,
+                        onAddClick = onAddClick,
+                        onSettingsClick = onSettingsClick,
+                        onUndoClick = onUndoClick,
+                        onEditClick = onEditClick,
+                        isEditing = isEditing,
+                        headerLeadingContent = headerLeadingContent,
+                        headerTitleContent = headerTitleContent,
+                        onClose = ::close
+                    )
+
+                    // All sheets are deliberately line-free beneath the Header. The clipped
+                    // body begins directly after Header's own touch-safe lower inset.
+                    val bodyHorizontal = when {
+                        // Profile supplies 16dp inner padding to ordinary form fields itself;
+                        // the shared viewport stays edge-to-edge for the avatar carousel.
+                        presentation == XvoxBoxPresentation.PROFILE -> 0.dp
+                        songOptionsPresentation -> 12.dp
+                        presentation == XvoxBoxPresentation.EQUALIZER -> 16.dp
+                        else -> 16.dp
+                    }
+                    // Only fixed (overflowing) sheets fill their bounded viewport. Compact
+                    // content keeps its intrinsic height instead of gaining blank space.
+                    val bodyViewport = if (
+                        requestedHeight != null ||
+                        (presentation == XvoxBoxPresentation.EQUALIZER && equalizerBaseHeightPx > 0f)
+                    ) Modifier.weight(1f) else Modifier
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .then(bodyViewport)
+                            .heightIn(min = 0.dp)
+                            .onGloballyPositioned { bodyViewportHeightPx = it.size.height.toFloat() }
+                            // The viewport stays clipped beneath Header/footer. Keep a small
+                            // content-safe inset, but deliberately draw no separator line.
+                            .clipToBounds()
+                            .padding(
+                                start = bodyHorizontal,
+                                top = 6.dp,
+                                end = bodyHorizontal,
+                                // Profile's final Brightness slider belongs visually close to
+                                // its fixed transaction footer; other sheet bodies retain the
+                                // normal breathing room.
+                                bottom = if (presentation == XvoxBoxPresentation.PROFILE) 2.dp else 10.dp
+                            )
+                    ) {
+                        CompositionLocalProvider(
+                            LocalXvoxSheetScrollBridge provides contentScrollBridge,
+                            LocalXvoxSheetGrowthActive provides (requestedHeight != null),
+                            LocalXvoxSheetGrowthLimitReporter provides reportBodyGrowthLimit
+                        ) {
+                            content()
+                        }
+                    }
+
+                    bottomAction?.let { footer ->
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                // Nested IME insets are consumed by the outer sheet when it
+                                // already moved; otherwise this is the final guarantee that
+                                // Okay / Cancel / Reset stay above an opened keyboard.
+                                .imePadding()
+                                // Keep transactional buttons close to the body while still
+                                // lifting the whole footer above the keyboard.
+                                .padding(
+                                    horizontal = 16.dp,
+                                    // Keep Profile's three fixed-size actions near its body,
+                                    // while imePadding above moves the entire footer rather
+                                    // than compressing individual buttons.
+                                    vertical = if (presentation == XvoxBoxPresentation.PROFILE) 4.dp else 7.dp
+                                )
+                        ) {
+                            footer()
+                        }
+                    }
+                }
             }
         }
     }
@@ -624,7 +572,6 @@ private fun XvoxCenteredBox(
 ) {
     val colors = XvoxTheme.colors
     val chrome = com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle.current
-    val overlayController = LocalXvoxOverlayController.current
     val optionSurface = colors.card.copy(alpha = colors.card.alpha * chrome.optionBoxBgAlpha.coerceIn(0f, 1f))
     val optionEdgeBase = com.xvox.music.core.ui.chrome.parseHexColor(chrome.optionBoxBorder) ?: colors.cardBorder
     val optionEdge = optionEdgeBase.copy(alpha = optionEdgeBase.alpha * chrome.optionBoxBorderAlpha.coerceIn(0f, 1f))
@@ -659,129 +606,116 @@ private fun XvoxCenteredBox(
         }
     }
 
-    Dialog(
-        onDismissRequest = ::close,
-        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
+    BackHandler(onBack = ::close)
+    BoxWithConstraints(
+        modifier = modifier
+            .fillMaxSize()
+            // Centered secondary sheets need the same keyboard-safe viewport contract as
+            // bottom sheets; this shifts their footer controls above the IME as it opens.
+            .imePadding(),
+        contentAlignment = Alignment.Center
     ) {
-        XvoxSheetImmersiveStatusBar(overlayController.immersiveNowPlayingSheets)
-        XvoxSheetWindowSetup()
-        BoxWithConstraints(
-            modifier = modifier
-                .fillMaxSize()
-                // Centered secondary sheets need the same keyboard-safe viewport contract as
-                // bottom sheets; this shifts their footer controls above the IME as it opens.
-                .imePadding(),
-            contentAlignment = Alignment.Center
-        ) {
-            // Centered secondary sheets share the same content-led height contract as bottom
-            // sheets. They remain compact for short choices and can grow to the status-bar limit
-            // when an attached body scroll reports real overflow.
-            val density = LocalDensity.current
-            val statusTopPx = WindowInsets.statusBars.getTop(density)
-            val maxCenteredHeight = with(density) {
-                (constraints.maxHeight - statusTopPx).coerceAtLeast(1).toDp()
-            }
-            val maxCenteredHeightPx = with(density) { maxCenteredHeight.toPx() }
-            var requestedHeightPx by remember { mutableFloatStateOf(0f) }
-            var measuredHeightPx by remember { mutableIntStateOf(0) }
-            LaunchedEffect(maxCenteredHeightPx) {
-                if (requestedHeightPx > maxCenteredHeightPx) requestedHeightPx = maxCenteredHeightPx
-            }
-            val contentScrollBridge = remember(maxCenteredHeightPx, density) {
-                XvoxSheetScrollBridge(
-                    sheetHeight = { requestedHeightPx },
-                    measuredHeight = { measuredHeightPx.toFloat() },
-                    maxHeight = { maxCenteredHeightPx },
-                    setSheetHeight = { next -> requestedHeightPx = next.coerceIn(1f, maxCenteredHeightPx) },
-                    dismiss = ::close,
-                    dismissDistancePx = with(density) { 52.dp.toPx() }
-                )
-            }
-            val requestedHeight: Dp? = requestedHeightPx
-                .takeIf { it > 0f }
-                ?.let { with(density) { it.coerceIn(1f, maxCenteredHeightPx).toDp() } }
-            val centeredShape = RoundedCornerShape(24.dp)
-            val centeredSizing = if (requestedHeight != null) {
-                Modifier.height(requestedHeight)
-            } else {
-                Modifier.heightIn(max = maxCenteredHeight)
-            }
-
-            Box(
-                Modifier
-                    .matchParentSize()
-                    .drawBehind { drawRect(scrimColor, alpha = scrimAlpha) }
-                    .clickable(remember { MutableInteractionSource() }, indication = null) { close() }
+        // Centered secondary sheets share the same content-led height contract as bottom
+        // sheets. They remain compact for short choices and can grow to the status-bar limit
+        // when an attached body scroll reports real overflow.
+        val density = LocalDensity.current
+        val statusTopPx = WindowInsets.statusBars.getTop(density)
+        val maxCenteredHeight = with(density) {
+            (constraints.maxHeight - statusTopPx).coerceAtLeast(1).toDp()
+        }
+        val maxCenteredHeightPx = with(density) { maxCenteredHeight.toPx() }
+        var requestedHeightPx by remember { mutableFloatStateOf(0f) }
+        var measuredHeightPx by remember { mutableIntStateOf(0) }
+        LaunchedEffect(maxCenteredHeightPx) {
+            if (requestedHeightPx > maxCenteredHeightPx) requestedHeightPx = maxCenteredHeightPx
+        }
+        val contentScrollBridge = remember(maxCenteredHeightPx, density) {
+            XvoxSheetScrollBridge(
+                sheetHeight = { requestedHeightPx },
+                measuredHeight = { measuredHeightPx.toFloat() },
+                maxHeight = { maxCenteredHeightPx },
+                setSheetHeight = { next -> requestedHeightPx = next.coerceIn(1f, maxCenteredHeightPx) },
+                dismiss = ::close,
+                dismissDistancePx = with(density) { 52.dp.toPx() }
             )
-            AnimatedVisibility(
-                visibleState = visibility,
-                // Preserve one stationary dim layer for compact pickers too. The picker itself
-                // rises and falls independently; no background pixel participates in that motion.
-                enter = slideInVertically(
-                    initialOffsetY = { it },
-                    animationSpec = tween(XvoxSheetEnterMs, easing = XvoxBoxEasing)
-                ),
-                exit = slideOutVertically(
-                    targetOffsetY = { it },
-                    animationSpec = tween(XvoxSheetExitMs, easing = XvoxBoxEasing)
-                )
+        }
+        val requestedHeight: Dp? = requestedHeightPx
+            .takeIf { it > 0f }
+            ?.let { with(density) { it.coerceIn(1f, maxCenteredHeightPx).toDp() } }
+        val centeredShape = RoundedCornerShape(24.dp)
+        val centeredSizing = if (requestedHeight != null) {
+            Modifier.height(requestedHeight)
+        } else {
+            Modifier.heightIn(max = maxCenteredHeight)
+        }
+
+        Box(
+            Modifier
+                .matchParentSize()
+                .drawBehind { drawRect(scrimColor, alpha = scrimAlpha) }
+                .clickable(remember { MutableInteractionSource() }, indication = null) { close() }
+        )
+        AnimatedVisibility(
+            visibleState = visibility,
+            // Preserve one stationary dim layer for compact pickers too. The picker itself
+            // rises and falls independently; no background pixel participates in that motion.
+            enter = slideInVertically(
+                initialOffsetY = { it },
+                animationSpec = tween(XvoxSheetEnterMs, easing = XvoxBoxEasing)
+            ),
+            exit = slideOutVertically(
+                targetOffsetY = { it },
+                animationSpec = tween(XvoxSheetExitMs, easing = XvoxBoxEasing)
+            )
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth(.90f)
+                    .then(centeredSizing)
+                    .clip(centeredShape)
+                    .background(optionSurface)
+                    .then(if (showOptionBorder) Modifier.border(.7.dp, optionEdge, centeredShape) else Modifier)
+                    .clickable(swallowInteraction, indication = null) { }
+                    .onGloballyPositioned { measuredHeightPx = it.size.height }
+                    .semantics { paneTitle = title }
             ) {
-                Column(
+                XvoxSheetHeader(
+                    title = title,
+                    songOptionsPresentation = false,
+                    onBack = onBack,
+                    onAddClick = onAddClick,
+                    onSettingsClick = onSettingsClick,
+                    onUndoClick = onUndoClick,
+                    onEditClick = onEditClick,
+                    isEditing = isEditing,
+                    headerLeadingContent = headerLeadingContent,
+                    headerTitleContent = headerTitleContent,
+                    onClose = ::close
+                )
+                val bodyViewport = if (requestedHeight != null) Modifier.weight(1f) else Modifier.weight(1f, fill = false)
+                Box(
                     modifier = Modifier
-                        .fillMaxWidth(.90f)
-                        .then(centeredSizing)
-                        .clip(centeredShape)
-                        .background(optionSurface)
-                        .then(if (showOptionBorder) Modifier.border(.7.dp, optionEdge, centeredShape) else Modifier)
-                        .clickable(swallowInteraction, indication = null) { }
-                        .onGloballyPositioned { measuredHeightPx = it.size.height }
-                        .semantics { paneTitle = title }
+                        .fillMaxWidth()
+                        .then(bodyViewport)
+                        .heightIn(min = 0.dp)
+                        .clipToBounds()
+                        .padding(horizontal = 16.dp, vertical = 10.dp)
                 ) {
-                    XvoxSheetHeader(
-                        title = title,
-                        songOptionsPresentation = false,
-                        onBack = onBack,
-                        onAddClick = onAddClick,
-                        onSettingsClick = onSettingsClick,
-                        onUndoClick = onUndoClick,
-                        onEditClick = onEditClick,
-                        isEditing = isEditing,
-                        headerLeadingContent = headerLeadingContent,
-                        headerTitleContent = headerTitleContent,
-                        onClose = ::close
-                    )
-                    val bodyViewport = if (requestedHeight != null) Modifier.weight(1f) else Modifier.weight(1f, fill = false)
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .then(bodyViewport)
-                            .heightIn(min = 0.dp)
-                            .clipToBounds()
-                            .padding(horizontal = 16.dp, vertical = 10.dp)
+                    CompositionLocalProvider(
+                        LocalXvoxSheetScrollBridge provides contentScrollBridge,
+                        LocalXvoxSheetGrowthActive provides (requestedHeight != null)
                     ) {
-                        CompositionLocalProvider(
-                            LocalXvoxSheetScrollBridge provides contentScrollBridge,
-                            LocalXvoxSheetGrowthActive provides (requestedHeight != null)
-                        ) {
-                            content()
-                        }
-                    }
-                    bottomAction?.let { footer ->
-                        Box(
-                            Modifier
-                                .fillMaxWidth()
-                                .imePadding()
-                                .padding(horizontal = 16.dp, vertical = 10.dp)
-                        ) { footer() }
+                        content()
                     }
                 }
-            }
-            overlayController.popup?.let { message ->
-                XvoxP(
-                    message = message,
-                    onFinished = { overlayController.clearPopup(message.id) },
-                    modifier = Modifier.align(Alignment.TopCenter)
-                )
+                bottomAction?.let { footer ->
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .imePadding()
+                            .padding(horizontal = 16.dp, vertical = 10.dp)
+                    ) { footer() }
+                }
             }
         }
     }
