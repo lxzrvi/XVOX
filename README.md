@@ -9,7 +9,7 @@ A premium offline music player for Android.
 [![Android](https://img.shields.io/badge/Android-13%2B-3DDC84?style=flat-square&logo=android&logoColor=white)](https://developer.android.com/)
 [![Kotlin](https://img.shields.io/badge/Kotlin-7F52FF?style=flat-square&logo=kotlin&logoColor=white)](https://kotlinlang.org/)
 [![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-4285F4?style=flat-square&logo=jetpackcompose&logoColor=white)](https://developer.android.com/jetpack/compose)
-[![Release](https://img.shields.io/badge/Release-v1.01.01-black?style=flat-square)](../../releases/tag/v1.01.01)
+[![Release](https://img.shields.io/badge/Release-v1.02-black?style=flat-square)](../../releases/tag/v1.02)
 
 </div>
 

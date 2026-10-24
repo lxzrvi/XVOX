@@ -12,6 +12,17 @@ data class HomeUiState(
     val loading: Boolean = true,
     val startupReady: Boolean = false,
     val refreshing: Boolean = false,
+    /**
+     * Count from the last successful, physical-file-verified MediaStore scan. This intentionally
+     * differs from [songs], which can be narrowed by the user's hidden/folder/duration filters.
+     */
+    val verifiedDeviceSongCount: Int = 0,
+    /** MediaStore rows rejected during the last successful scan because they were not playable. */
+    val unavailableMediaStoreRows: Int = 0,
+    /** Duplicate MediaStore rows for one physical audio file rejected during the last scan. */
+    val duplicateMediaStoreRows: Int = 0,
+    /** A failed refresh keeps the previous verified library instead of pretending it is empty. */
+    val lastLibraryScanFailed: Boolean = false,
     /** Online is provider-gated and never falls back to device songs. */
     val sourceMode: XvoxSourceMode = XvoxSourceMode.OFFLINE,
     val songs: List<Song> =

@@ -14,9 +14,9 @@ android {
         minSdk = 33
         targetSdk = 37
 
-        // Keep this release identity fixed until an explicit version-bump request.
-        versionCode = 10101
-        versionName = "1.01.01"
+        // v1.02: verified MediaStore refresh and playback-reliability release.
+        versionCode = 10200
+        versionName = "1.02"
     }
 
     compileOptions {

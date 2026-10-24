@@ -2,12 +2,6 @@ package com.xvox.music.features.home
 
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -33,7 +27,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -51,18 +44,7 @@ fun LibraryRefreshBox(
     onCancel: () -> Unit
 ) {
     val colors = XvoxTheme.colors
-    val scrollState = androidx.compose.foundation.rememberScrollState()
-
-    val infiniteTransition = rememberInfiniteTransition(label = "refresh_spin")
-    val spinRotation by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(800, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "spin_angle"
-    )
+    val scrollState = rememberScrollState()
 
     Column(
         modifier = Modifier
@@ -98,7 +80,7 @@ fun LibraryRefreshBox(
                     Spacer(Modifier.height(14.dp))
 
                     Text(
-                        text = "Scanning device storage...",
+                        text = "Scanning Android MediaStore...",
                         color = colors.primaryText,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.SemiBold
@@ -107,7 +89,7 @@ fun LibraryRefreshBox(
                     Spacer(Modifier.height(4.dp))
 
                     Text(
-                        text = "Checking audio files & updated metadata",
+                        text = "Verifying completed, readable audio files and duplicate rows",
                         color = colors.secondaryText,
                         fontSize = 12.sp
                     )
@@ -115,6 +97,7 @@ fun LibraryRefreshBox(
             }
 
             result != null -> {
+                val successful = !result.scanFailed
                 Column(
                     modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
@@ -127,8 +110,10 @@ fun LibraryRefreshBox(
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            painter = painterResource(R.drawable.ic_xvox_check),
-                            contentDescription = "Success",
+                            painter = painterResource(
+                                if (successful) R.drawable.ic_xvox_check else R.drawable.ic_xvox_info
+                            ),
+                            contentDescription = if (successful) "Verified scan complete" else "Scan failed",
                             tint = colors.primaryAccent,
                             modifier = Modifier.size(24.dp)
                         )
@@ -137,7 +122,7 @@ fun LibraryRefreshBox(
                     Spacer(Modifier.height(12.dp))
 
                     Text(
-                        text = "Scan Completed",
+                        text = if (successful) "Verified Scan Complete" else "Scan Could Not Finish",
                         color = colors.primaryText,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold
@@ -146,12 +131,16 @@ fun LibraryRefreshBox(
                     Spacer(Modifier.height(4.dp))
 
                     Text(
-                        text = "Total ${result.totalSongs} songs available in library",
+                        text = if (successful) {
+                            "${result.totalSongs} verified playable songs on this device"
+                        } else {
+                            "The previous ${result.totalSongs} verified songs were kept unchanged"
+                        },
                         color = colors.secondaryText,
                         fontSize = 13.sp
                     )
 
-                    if (result.addedSongs > 0 || result.removedSongs > 0) {
+                    if (successful && (result.addedSongs > 0 || result.removedSongs > 0)) {
                         Spacer(Modifier.height(8.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             if (result.addedSongs > 0) {
@@ -161,6 +150,28 @@ fun LibraryRefreshBox(
                                 ResultPill(text = "-${result.removedSongs} removed")
                             }
                         }
+                    }
+
+                    if (successful && (result.unavailableRowsSkipped > 0 || result.duplicateRowsSkipped > 0)) {
+                        Spacer(Modifier.height(10.dp))
+                        Text(
+                            text = buildString {
+                                if (result.unavailableRowsSkipped > 0) {
+                                    append("Ignored ${result.unavailableRowsSkipped} incomplete or unreadable row")
+                                    if (result.unavailableRowsSkipped != 1) append('s')
+                                }
+                                if (result.unavailableRowsSkipped > 0 && result.duplicateRowsSkipped > 0) {
+                                    append(" • ")
+                                }
+                                if (result.duplicateRowsSkipped > 0) {
+                                    append("Ignored ${result.duplicateRowsSkipped} duplicate row")
+                                    if (result.duplicateRowsSkipped != 1) append('s')
+                                }
+                            },
+                            color = colors.secondaryText,
+                            fontSize = 11.sp,
+                            lineHeight = 15.sp
+                        )
                     }
 
                     Spacer(Modifier.height(20.dp))
@@ -180,7 +191,7 @@ fun LibraryRefreshBox(
                     horizontalAlignment = Alignment.Start
                 ) {
                     Text(
-                        text = "Total $currentTotal songs currently loaded.",
+                        text = "$currentTotal verified playable songs currently indexed.",
                         color = colors.primaryText,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.SemiBold
@@ -189,7 +200,7 @@ fun LibraryRefreshBox(
                     Spacer(Modifier.height(6.dp))
 
                     Text(
-                        text = "Scan your device to sync new music downloads, deleted tracks, or album art changes.",
+                        text = "Scan Android MediaStore now to verify new downloads, deletions, unreadable files, and duplicate rows.",
                         color = colors.secondaryText,
                         fontSize = 12.sp,
                         lineHeight = 17.sp

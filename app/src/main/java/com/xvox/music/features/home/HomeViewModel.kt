@@ -15,6 +15,7 @@ import com.xvox.music.features.playlist.XvoxHomeLibraryMode
 import com.xvox.music.features.sourcemode.XvoxSourceMode
 import com.xvox.music.features.playlist.XvoxPlaylistCoverStorage
 import com.xvox.music.media.MediaStoreSongRepository
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -249,10 +250,25 @@ class HomeViewModel(
 
     private fun loadLibrary() {
         viewModelScope.launch {
-            val loaded = withContext(Dispatchers.IO) { runCatching { songRepository.loadSongs() }.getOrDefault(emptyList()) }
+            val scan = try {
+                withContext(Dispatchers.IO) { songRepository.scanSongs() }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                null
+            }
+            val loaded = scan?.songs.orEmpty()
             allRawSongs = loaded
             rawReady = true
             _folders.value = withContext(Dispatchers.Default) { HomeLibraryFilterHelper.groupFolders(loaded) }
+            _state.update {
+                it.copy(
+                    verifiedDeviceSongCount = loaded.size,
+                    unavailableMediaStoreRows = scan?.unavailableRowsSkipped ?: 0,
+                    duplicateMediaStoreRows = scan?.duplicateRowsSkipped ?: 0,
+                    lastLibraryScanFailed = scan == null
+                )
+            }
             publishFilteredSongs()
         }
     }
@@ -260,21 +276,54 @@ class HomeViewModel(
     fun refresh(onDone: (LibraryRefreshResult) -> Unit = {}) {
         if (_state.value.refreshing) return
         viewModelScope.launch {
-            _state.update { it.copy(refreshing = true) }
-            val before = allRawSongs.asSequence().map { it.id }.toSet()
-            val refreshed = withContext(Dispatchers.IO) { songRepository.loadSongs() }
-            val after = refreshed.asSequence().map { it.id }.toSet()
+            _state.update { it.copy(refreshing = true, lastLibraryScanFailed = false) }
+            val before = allRawSongs.asSequence().map { it.contentUri.toString() }.toSet()
+            val scan = try {
+                withContext(Dispatchers.IO) { songRepository.scanSongs() }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                null
+            }
+
+            if (scan == null) {
+                // Never replace a known-good library with an invented empty result when the provider
+                // is unavailable, permission was revoked, or its query failed mid-refresh.
+                _state.update { it.copy(refreshing = false, loading = false, lastLibraryScanFailed = true) }
+                onDone(
+                    LibraryRefreshResult(
+                        totalSongs = allRawSongs.size,
+                        addedSongs = 0,
+                        removedSongs = 0,
+                        scanFailed = true
+                    )
+                )
+                return@launch
+            }
+
+            val refreshed = scan.songs
+            val after = refreshed.asSequence().map { it.contentUri.toString() }.toSet()
             val result = LibraryRefreshResult(
                 totalSongs = refreshed.size,
                 addedSongs = (after - before).size,
-                removedSongs = (before - after).size
+                removedSongs = (before - after).size,
+                unavailableRowsSkipped = scan.unavailableRowsSkipped,
+                duplicateRowsSkipped = scan.duplicateRowsSkipped
             )
 
             allRawSongs = refreshed
             _folders.value = withContext(Dispatchers.Default) { HomeLibraryFilterHelper.groupFolders(refreshed) }
+            _state.update {
+                it.copy(
+                    refreshing = false,
+                    loading = false,
+                    verifiedDeviceSongCount = refreshed.size,
+                    unavailableMediaStoreRows = scan.unavailableRowsSkipped,
+                    duplicateMediaStoreRows = scan.duplicateRowsSkipped,
+                    lastLibraryScanFailed = false
+                )
+            }
             publishFilteredSongs()
-
-            _state.update { it.copy(refreshing = false, loading = false) }
             onDone(result)
         }
     }

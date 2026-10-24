@@ -9,6 +9,7 @@ import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.Player
 import androidx.media3.common.PlaybackParameters
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Timeline
 import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.DefaultRenderersFactory
@@ -33,6 +34,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.yield
 
 /**
  * Service-owned dual-deck playback. The prepared next deck is promoted without seeking/rebuilding it;
@@ -70,6 +72,9 @@ class XvoxCrossfadeEngine(
     private var parameters = AudioDspSettings()
     private var prepared: Prepared? = null
     private var failedForId: String? = null
+    // A bad/stale URI must not repeatedly crash through a repeat-all queue. IDs are cleared when
+    // the playlist is replaced, allowing a later verified MediaStore refresh to retry it.
+    private val failedMediaIds = HashSet<String>()
     private var overlap: Overlap? = null
     /** Live level-match factor; eased back to 1 after a blend so the trim is never permanent. */
     private var incomingTrim = 1f
@@ -144,12 +149,14 @@ class XvoxCrossfadeEngine(
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                 if (!released && exo === player) {
                     failedForId = null; finishOverlap(); discardPrepared()
+                    mediaItem?.mediaId?.let(failedMediaIds::remove)
                     XvoxBlendMonitor.newTrack(exo.currentMediaItem?.xvoxOriginalSongId())
                 }
             }
             override fun onTimelineChanged(timeline: Timeline, reason: Int) {
                 if (!released && exo === player && reason == Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED) {
                     playlistChangedAt = SystemClock.elapsedRealtime()
+                    failedMediaIds.clear()
                     finishOverlap(); discardPrepared()
                 }
             }
@@ -159,6 +166,20 @@ class XvoxCrossfadeEngine(
             override fun onPlaybackStateChanged(playbackState: Int) {
                 if (!released && exo === player && (playbackState == Player.STATE_IDLE || playbackState == Player.STATE_ENDED)) {
                     finishOverlap(); discardPrepared(); abandonFocus()
+                }
+            }
+            override fun onPlayerError(error: PlaybackException) {
+                if (released || exo !== player) return
+                val shouldResume = exo.playWhenReady
+                exo.currentMediaItem?.mediaId?.takeIf { it.isNotBlank() }?.let(failedMediaIds::add)
+                // A MediaStore row can disappear after a queue was built (for example, after a
+                // download is deleted). Recover on the service-owned player rather than allowing
+                // a stale URI to leave the transport in an error state or take down the UI.
+                scope.launch {
+                    // Let Media3 finish dispatching this error before changing its timeline.
+                    yield()
+                    // Honour a pause that arrived while the error callback was being dispatched.
+                    recoverFromActivePlayerError(exo, shouldResume && exo.playWhenReady)
                 }
             }
             override fun onEvents(player: Player, events: Player.Events) {
@@ -237,6 +258,55 @@ class XvoxCrossfadeEngine(
             if (it.processor.engine.settings != settings) it.processor.engine.settings = settings
             applyOutputVolume(it)
         }
+    }
+
+    /** Finds the next queue entry that has not already failed in this installed playlist. */
+    private fun nextRecoverableIndex(exo: ExoPlayer): Int {
+        val itemCount = exo.mediaItemCount
+        val current = exo.currentMediaItemIndex
+        if (itemCount <= 1 || current !in 0 until itemCount) return C.INDEX_UNSET
+        for (offset in 1..itemCount) {
+            val unwrapped = current + offset
+            val candidate = when {
+                unwrapped < itemCount -> unwrapped
+                exo.repeatMode == Player.REPEAT_MODE_ALL -> unwrapped % itemCount
+                else -> break
+            }
+            if (exo.getMediaItemAt(candidate).mediaId !in failedMediaIds) return candidate
+        }
+        return C.INDEX_UNSET
+    }
+
+    /**
+     * An error is usually a MediaStore URI whose file vanished between scan and playback. Advance
+     * only to another unfailed queue item; this avoids error/repeat loops and leaves the transport
+     * truthfully paused when no verified candidate remains.
+     */
+    private fun recoverFromActivePlayerError(exo: ExoPlayer, shouldResume: Boolean) {
+        if (released || exo !== player) return
+        val nextIndex = nextRecoverableIndex(exo)
+        finishOverlap()
+        discardPrepared()
+        if (nextIndex == C.INDEX_UNSET) {
+            exo.pause()
+            abandonFocus()
+            onStateChanged(exo)
+            return
+        }
+        runCatching {
+            exo.seekTo(nextIndex, 0L)
+            exo.prepare()
+            if (shouldResume && requestFocus()) {
+                exo.play()
+            } else {
+                exo.pause()
+                abandonFocus()
+            }
+        }.onFailure {
+            exo.pause()
+            abandonFocus()
+        }
+        onStateChanged(exo)
     }
 
     private fun tick() {
