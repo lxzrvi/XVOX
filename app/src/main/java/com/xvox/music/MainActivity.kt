@@ -1,6 +1,7 @@
 package com.xvox.music
 
 import android.content.pm.ActivityInfo
+import android.content.res.Configuration
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
@@ -8,6 +9,8 @@ import androidx.activity.compose.setContent
 import androidx.compose.runtime.LaunchedEffect
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.data.preferences.UserPreferencesRepository
 import kotlinx.coroutines.flow.collect
@@ -37,20 +40,34 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /** Reassert immersive landscape whenever focus returns from a system or app surface. */
+    private fun keepLandscapeStatusBarHidden() {
+        if (resources.configuration.orientation != Configuration.ORIENTATION_LANDSCAPE) return
+        WindowCompat.getInsetsController(window, window.decorView).apply {
+            systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            hide(WindowInsetsCompat.Type.statusBars())
+        }
+    }
+
     override fun onStart() {
         super.onStart()
         requestHighRefreshPresentation()
+        keepLandscapeStatusBarHidden()
         isAppInForeground = true
     }
 
     override fun onResume() {
         super.onResume()
         requestHighRefreshPresentation()
+        keepLandscapeStatusBarHidden()
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
-        if (hasFocus) requestHighRefreshPresentation()
+        if (hasFocus) {
+            requestHighRefreshPresentation()
+            keepLandscapeStatusBarHidden()
+        }
     }
 
     override fun onStop() {

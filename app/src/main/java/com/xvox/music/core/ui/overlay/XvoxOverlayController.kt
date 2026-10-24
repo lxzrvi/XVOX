@@ -57,12 +57,6 @@ class XvoxOverlayController {
 
     val isBoxVisible: Boolean get() = listContent != null
 
-    /**
-     * Set by an active landscape Now Playing surface. Sheets rendered by the global host consult
-     * this flag and keep the status bar hidden in their own Dialog window as well.
-     */
-    var immersiveNowPlayingSheets by mutableStateOf(false)
-
     /** A compact bottom-anchored PIP-style popup instead of the centred box. */
     internal var boxMini by mutableStateOf(false)
         private set

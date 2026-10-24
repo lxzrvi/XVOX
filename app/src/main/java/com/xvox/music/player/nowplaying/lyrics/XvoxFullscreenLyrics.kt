@@ -44,6 +44,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
@@ -103,6 +104,7 @@ fun XvoxFullscreenLyrics(
     val gradientAnim = lyricsSettings.gradientAnimation
 
     val view = LocalView.current
+    val isLandscape = LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
     val statusBarPx = remember(view) {
         val window = (view.context as? android.app.Activity)?.window
         if (window == null) 0
@@ -124,7 +126,7 @@ fun XvoxFullscreenLyrics(
         label = "fullscreenBarsPad"
     )
 
-    DisposableEffect(Unit) {
+    DisposableEffect(view, isLandscape) {
         val window = (view.context as? android.app.Activity)?.window
         val insetsController = window?.let { WindowCompat.getInsetsController(it, view) }
         insetsController?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
@@ -136,7 +138,14 @@ fun XvoxFullscreenLyrics(
         onDispose {
             view.removeCallbacks(hideRunnable)
             barsVisible = true
-            insetsController?.show(WindowInsetsCompat.Type.systemBars())
+            if (isLandscape) {
+                // The root owns the landscape status-bar rule. Restore only navigation after a
+                // fullscreen-lyrics surface closes so status chrome cannot flash back in.
+                insetsController?.show(WindowInsetsCompat.Type.navigationBars())
+                insetsController?.hide(WindowInsetsCompat.Type.statusBars())
+            } else {
+                insetsController?.show(WindowInsetsCompat.Type.systemBars())
+            }
         }
     }
 

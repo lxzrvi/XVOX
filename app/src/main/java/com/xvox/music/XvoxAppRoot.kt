@@ -28,8 +28,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.Density
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil3.compose.AsyncImage
@@ -142,11 +144,23 @@ fun XvoxAppRoot(
     val hapticFeedbackEnabled by prefs.hapticFeedbackEnabled.collectAsState(initial = true)
     val hapticIntensity by prefs.hapticIntensity.collectAsState(initial = "medium")
 
-    val view = androidx.compose.ui.platform.LocalView.current
-    androidx.compose.runtime.DisposableEffect(Unit) {
+    // One root-level chrome policy owns the status bar. Landscape is immersive everywhere—not
+    // only in Now Playing—so navigation, sheets, Settings, and all nested surfaces cannot leave
+    // a persistent status bar behind when the device rotates or an overlay closes.
+    val isLandscape = LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+    val view = LocalView.current
+    androidx.compose.runtime.DisposableEffect(view, isLandscape) {
         val window = (view.context as? android.app.Activity)?.window
         val insetsController = window?.let { androidx.core.view.WindowCompat.getInsetsController(it, view) }
-        insetsController?.show(androidx.core.view.WindowInsetsCompat.Type.statusBars())
+        insetsController?.systemBarsBehavior =
+            androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        if (isLandscape) {
+            insetsController?.hide(androidx.core.view.WindowInsetsCompat.Type.statusBars())
+        } else {
+            insetsController?.show(androidx.core.view.WindowInsetsCompat.Type.statusBars())
+        }
+        // A succeeding orientation composition, or MainActivity on focus return, owns any
+        // restoration. Deliberately do not show a bar during landscape disposal.
         onDispose { }
     }
 

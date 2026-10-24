@@ -600,39 +600,34 @@ fun XvoxNowPlaying(
     val currentPadTop = lerp(headerHeightDp + 4.dp, 0.dp, fullscreenProgress)
     val currentPadBottom = lerp(bottomHeightDp + 8.dp, 0.dp, fullscreenProgress)
 
-    // System chrome is owned by the player, rather than by an individual lyrics surface. This
-    // makes the policy deterministic while the same lyric card is morphing: portrait hides only
-    // for fullscreen lyrics; landscape stays status-bar-free in every Now Playing state.
+    // The app root owns landscape status chrome. The player retains only the portrait fullscreen
+    // lyrics exception, so a lyric-card morph cannot override the global immersive policy.
     val playerView = LocalView.current
     val playerWindow = (playerView.context as? android.app.Activity)?.window
     val playerInsetsController = remember(playerWindow, playerView) {
         playerWindow?.let { WindowCompat.getInsetsController(it, playerView) }
     }
-    // Global queue/info sheets live in a sibling overlay host. Mark them immersive while this
-    // landscape player is mounted so opening any sheet cannot make a status bar reappear.
-    DisposableEffect(overlays, isLandscape, entranceEnabled) {
-        val immersiveSheets = entranceEnabled && isLandscape
-        overlays.immersiveNowPlayingSheets = immersiveSheets
-        onDispose {
-            if (overlays.immersiveNowPlayingSheets == immersiveSheets) {
-                overlays.immersiveNowPlayingSheets = false
-            }
-        }
-    }
-    DisposableEffect(playerInsetsController) {
+    // XvoxAppRoot owns the app-wide landscape policy. The player only owns the exceptional
+    // portrait fullscreen-lyrics state, which prevents a player disposal from re-showing the
+    // status bar while the rest of the app remains in landscape.
+    DisposableEffect(playerInsetsController, isLandscape) {
         playerInsetsController?.systemBarsBehavior =
             WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         onDispose {
-            // The app root normally presents status bars. Restore that baseline only after the
-            // whole player leaves composition, never during a fullscreen reverse morph.
-            playerInsetsController?.show(WindowInsetsCompat.Type.statusBars())
+            if (!isLandscape) {
+                playerInsetsController?.show(WindowInsetsCompat.Type.statusBars())
+            }
         }
     }
     LaunchedEffect(isLandscape, isFullscreen, entranceEnabled, playerInsetsController) {
-        if (entranceEnabled && (isLandscape || isFullscreen)) {
-            playerInsetsController?.hide(WindowInsetsCompat.Type.statusBars())
-        } else {
-            playerInsetsController?.show(WindowInsetsCompat.Type.statusBars())
+        when {
+            entranceEnabled && isFullscreen -> {
+                playerInsetsController?.hide(WindowInsetsCompat.Type.statusBars())
+            }
+            !isLandscape -> {
+                playerInsetsController?.show(WindowInsetsCompat.Type.statusBars())
+            }
+            // Landscape is intentionally a no-op here: the root policy keeps it hidden.
         }
     }
 
