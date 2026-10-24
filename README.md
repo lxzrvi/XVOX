@@ -43,23 +43,6 @@ XVOX is an offline music player built around immersive artwork, smooth playback,
 
 And more.
 
-## Release
-
-**Latest Version:** `v1.01.01`
-
-[Download XVOX](../../releases/tag/v1.01.01)
-
-Choose the APK that fits your device:
-
-| File | Recommended for |
-|---|---|
-| `XVOX-v1.01.01-arm64-v8a.apk` | Most current Android phones and tablets |
-| `XVOX-v1.01.01-armeabi-v7a.apk` | Older 32-bit ARM devices |
-| `XVOX-v1.01.01-x86_64.apk` | x86_64 emulators and compatible ChromeOS devices |
-| `XVOX-v1.01.01-universal.apk` | Any supported device when the ABI is unknown |
-
-Each APK has a same-named `.idsig` sidecar for APK Signature Scheme v4, plus `SHA256SUMS.txt` for integrity checks. If you are unsure which ABI your phone uses, download the **universal** APK.
-
 ## License
 
 **All Rights Reserved**
