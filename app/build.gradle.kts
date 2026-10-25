@@ -14,9 +14,9 @@ android {
         minSdk = 33
         targetSdk = 37
 
-        // v1.02: verified MediaStore refresh and playback-reliability release.
-        versionCode = 10200
-        versionName = "1.02"
+        // v1.02.1: real file metadata/cover editing and Repeat All gesture reliability.
+        versionCode = 10201
+        versionName = "1.02.1"
     }
 
     compileOptions {
