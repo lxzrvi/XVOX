@@ -113,6 +113,7 @@ fun XvoxNowPlayingArtworkPager(
 ) {
     if (queue.isEmpty()) return
     val initialIdx = currentIndex.coerceIn(0, queue.lastIndex)
+    val repeatAll = repeatMode == RepeatMode.ALL && queue.size > 1
     val occurrenceKeyLedger = remember { ArtworkOccurrenceKeyLedger() }
     val hasOccurrenceIds = occurrenceIds.size == queue.size && occurrenceIds.toSet().size == queue.size
     // Media3 occurrence IDs survive a drag of identical/same-reference songs. The legacy ledger
@@ -120,10 +121,29 @@ fun XvoxNowPlayingArtworkPager(
     val occurrenceKeys = remember(queue, occurrenceIds) {
         if (hasOccurrenceIds) occurrenceIds else occurrenceKeyLedger.resolve(queue)
     }
-    // Page indices intentionally identify queue occurrences. Do not key/recreate the whole pager
-    // on a reorder: restarting it briefly paints a neighbouring/repeated cover even though audio
-    // never changed. The effect below moves the retained pager directly to the active occurrence.
-    val pager = rememberPagerState(initialPage = initialIdx, pageCount = { queue.size })
+    // Repeat All adds one virtual copy at each edge: [last, real queue…, first]. It lets the real
+    // Compose pager settle beyond an edge before snapping to the canonical page, rather than
+    // faking a wrap with a discontinuous artwork jump.
+    val pagerPageCount = if (repeatAll) queue.size + 2 else queue.size
+    fun pageForIndex(index: Int): Int = if (repeatAll) index + 1 else index
+    fun indexForPage(page: Int): Int = when {
+        !repeatAll -> page.coerceIn(0, queue.lastIndex)
+        page <= 0 -> queue.lastIndex
+        page >= pagerPageCount - 1 -> 0
+        else -> (page - 1).coerceIn(0, queue.lastIndex)
+    }
+    fun occurrenceKeyForPage(page: Int): String {
+        val index = indexForPage(page)
+        val base = occurrenceKeys.getOrElse(index) { "artwork_missing_$index" }
+        return when {
+            repeatAll && page == 0 -> "artwork_wrap_before_$base"
+            repeatAll && page == pagerPageCount - 1 -> "artwork_wrap_after_$base"
+            else -> base
+        }
+    }
+    // Page indices identify queue occurrences, except for the two explicit Repeat All edge pages.
+    // Do not recreate the deck on a reorder: it briefly paints a neighbouring cover.
+    val pager = rememberPagerState(initialPage = pageForIndex(initialIdx), pageCount = { pagerPageCount })
     val context = LocalContext.current
     val artworkPreloader = remember(context) { XvoxArtworkPreloader(context) }
     // Button and held-navigation previews move before audio commits. Warm around that visual
@@ -153,10 +173,19 @@ fun XvoxNowPlayingArtworkPager(
     // A current index can change for two very different reasons: playback advanced to another
     // occurrence (animate like Next), or the same audible occurrence moved after a reorder
     // (snap to avoid inventing a false cover transition). Keep the prior token to tell them apart.
-    fun occurrenceAt(index: Int): String? = occurrenceIds.getOrNull(index)
+    fun occurrenceAtIndex(index: Int): String? = occurrenceIds.getOrNull(index)
         ?: queue.getOrNull(index)?.xvoxArtworkPaletteKey()
     var previousAudibleOccurrence by remember {
-        mutableStateOf(occurrenceAt(initialIdx))
+        mutableStateOf(occurrenceAtIndex(initialIdx))
+    }
+    var priorRepeatAll by remember { mutableStateOf(repeatAll) }
+    LaunchedEffect(repeatAll) {
+        if (priorRepeatAll != repeatAll) {
+            // Repeat was toggled while the player was open. Preserve the audible real occurrence
+            // and map it into/out of the virtual edge layout without an accidental page change.
+            pager.scrollToPage(pageForIndex(initialIdx))
+            priorRepeatAll = repeatAll
+        }
     }
 
     LaunchedEffect(queue, occurrenceIds) {
@@ -171,25 +200,27 @@ fun XvoxNowPlayingArtworkPager(
         }
     }
 
-    // The visible deck follows the preview occurrence. A numerical index is deliberately used
-    // here because a repeated Song.id cannot tell the second copy from the first.
-    val targetPreviewPage = if (forceCurrentIndex) initialIdx
+    // The visible deck follows the preview occurrence. A numerical real index is deliberately
+    // used because a repeated Song.id cannot tell the second queue occurrence from the first.
+    val targetPreviewIndex = if (forceCurrentIndex) initialIdx
     else previewIndex.takeIf { it in queue.indices } ?: initialIdx
-    LaunchedEffect(targetPreviewPage, queue, occurrenceIds, forceCurrentIndex, currentIndex) {
+    val targetPreviewPage = pageForIndex(targetPreviewIndex)
+    LaunchedEffect(targetPreviewPage, targetPreviewIndex, queue, occurrenceIds, forceCurrentIndex, currentIndex, repeatAll) {
         userSwiped = false
         val targetPage = targetPreviewPage
-        if (targetPage in queue.indices && targetPage != pager.currentPage) {
-            val targetOccurrence = occurrenceAt(targetPage)
+        if (targetPage in 0 until pagerPageCount && targetPage != pager.currentPage) {
+            val targetOccurrence = occurrenceAtIndex(targetPreviewIndex)
             val isSameAudibleOccurrenceRemap =
-                targetPage == currentIndex && targetOccurrence != null &&
+                targetPreviewIndex == currentIndex && targetOccurrence != null &&
                     targetOccurrence == previousAudibleOccurrence && !isUserDragging
-            if (forceCurrentIndex || isSameAudibleOccurrenceRemap) {
-                // A queue drag/shuffle remaps the same audible occurrence. Snap the retained
-                // pager so a reindex cannot invent a false neighbouring-cover transition.
+            val isVirtualWrapPage = repeatAll && pager.currentPage in setOf(0, pagerPageCount - 1)
+            if (forceCurrentIndex || isSameAudibleOccurrenceRemap || isVirtualWrapPage) {
+                // A queue drag/shuffle remaps the same occurrence. A Repeat All edge has already
+                // shown its wrap animation, so canonicalize it without reversing the gesture.
                 pager.scrollToPage(targetPage)
             } else {
-                // Button navigation, a swipe preview, and a natural completion all move between
-                // distinct occurrences, so they share one deliberate cover/background motion.
+                // Button navigation, a swipe preview, and natural completion share one cover
+                // motion between canonical queue occurrences.
                 pager.animateScrollToPage(
                     page = targetPage,
                     animationSpec = tween(
@@ -202,16 +233,16 @@ fun XvoxNowPlayingArtworkPager(
         // Preview state can lag one composition behind a playback index. Advance the remembered
         // audible token only once this pager target has caught up, otherwise natural completion
         // would be mistaken for a same-occurrence remap on the next frame.
-        if (targetPage == currentIndex) {
-            previousAudibleOccurrence = occurrenceAt(currentIndex)
+        if (targetPreviewIndex == currentIndex) {
+            previousAudibleOccurrence = occurrenceAtIndex(currentIndex)
         }
     }
 
     // Keep one outgoing/incoming pair for an entire drag/Next/Previous travel. Pager.currentPage
     // switches at the midpoint, so deriving the pair directly from it used to reverse base and
     // adjacent covers halfway through the same gesture—the source of the Cover-background flash.
-    LaunchedEffect(pager, queue, occurrenceIds) {
-        var stableBasePage = pager.settledPage.coerceIn(0, queue.lastIndex)
+    LaunchedEffect(pager, queue, occurrenceIds, repeatAll) {
+        var stableBasePage = pager.settledPage.coerceIn(0, pagerPageCount - 1)
         snapshotFlow {
             Triple(
                 pager.currentPage + pager.currentPageOffsetFraction,
@@ -220,19 +251,21 @@ fun XvoxNowPlayingArtworkPager(
             )
         }.collect { (rawPagePosition, moving, settledPage) ->
             if (!moving) {
-                stableBasePage = settledPage.coerceIn(0, queue.lastIndex)
-                queue.getOrNull(stableBasePage)?.let { settledSong ->
+                stableBasePage = settledPage.coerceIn(0, pagerPageCount - 1)
+                queue.getOrNull(indexForPage(stableBasePage))?.let { settledSong ->
                     palette(settledSong, null, 0f)
                 }
             } else {
-                val baseIndex = stableBasePage.coerceIn(0, queue.lastIndex)
-                val deltaFromBase = rawPagePosition - baseIndex
+                val basePage = stableBasePage.coerceIn(0, pagerPageCount - 1)
+                val deltaFromBase = rawPagePosition - basePage
                 val direction = when {
                     deltaFromBase > .0001f -> 1
                     deltaFromBase < -.0001f -> -1
                     else -> 0
                 }
-                val adjacentIndex = (baseIndex + direction).takeIf { it in queue.indices }
+                val baseIndex = indexForPage(basePage)
+                val adjacentPage = (basePage + direction).takeIf { it in 0 until pagerPageCount }
+                val adjacentIndex = adjacentPage?.let(::indexForPage)
                 val amount = abs(deltaFromBase).coerceIn(0f, 1f)
                 queue.getOrNull(baseIndex)?.let { baseSong ->
                     palette(baseSong, adjacentIndex?.let(queue::get), amount)
@@ -243,10 +276,11 @@ fun XvoxNowPlayingArtworkPager(
 
     // Playback changes only after a manual swipe has genuinely settled for 300 ms. Capture the
     // queue occurrence before waiting so two equal Song IDs never collapse to the first copy.
-    LaunchedEffect(pager, queue, occurrenceIds) {
+    LaunchedEffect(pager, queue, occurrenceIds, repeatAll) {
         snapshotFlow {
             Triple(pager.settledPage, pager.isScrollInProgress, isUserDragging)
-        }.distinctUntilChanged().collect { (settledIndex, inProgress, dragging) ->
+        }.distinctUntilChanged().collect { (settledPage, inProgress, dragging) ->
+            val settledIndex = indexForPage(settledPage)
             val targetSong = queue.getOrNull(settledIndex)
             if (!inProgress && !dragging && userSwiped && targetSong != null && settledIndex != latestCurrentIndex) {
                 userSwiped = false
@@ -254,11 +288,13 @@ fun XvoxNowPlayingArtworkPager(
                 val settledEpoch = swipeEpoch
                 val settledOccurrence = settledIndex
                 delay(300)
+                // A Repeat All edge page has been snapped back to its canonical page by now. The
+                // real queue index, rather than the virtual page number, remains the identity.
                 if (
                     settledEpoch == swipeEpoch &&
                     !pager.isScrollInProgress &&
                     !isUserDragging &&
-                    pager.settledPage == settledOccurrence &&
+                    indexForPage(pager.settledPage) == settledOccurrence &&
                     latestCurrentIndex != settledOccurrence
                 ) {
                     settled(settledOccurrence, targetSong)
@@ -283,10 +319,11 @@ fun XvoxNowPlayingArtworkPager(
             contentPadding = contentPadding,
             pageSpacing = pageSpacing,
             modifier = modifier.fillMaxSize(),
-            key = { page -> occurrenceKeys.getOrElse(page) { "artwork_missing_$page" } }
+            key = { page -> occurrenceKeyForPage(page) }
         ) { page ->
             XvoxNowPlayingArtworkPage(
                 page = page,
+                songIndex = indexForPage(page),
                 queue = queue,
                 pager = pager,
                 artworkHorizontalInset = artworkHorizontalInset,
@@ -304,10 +341,11 @@ fun XvoxNowPlayingArtworkPager(
             contentPadding = contentPadding,
             pageSpacing = pageSpacing,
             modifier = modifier.fillMaxSize(),
-            key = { page -> occurrenceKeys.getOrElse(page) { "artwork_missing_$page" } }
+            key = { page -> occurrenceKeyForPage(page) }
         ) { page ->
             XvoxNowPlayingArtworkPage(
                 page = page,
+                songIndex = indexForPage(page),
                 queue = queue,
                 pager = pager,
                 artworkHorizontalInset = artworkHorizontalInset,
@@ -321,7 +359,10 @@ fun XvoxNowPlayingArtworkPager(
 
 @Composable
 private fun XvoxNowPlayingArtworkPage(
+    /** Physical pager page; may be one of Repeat All's virtual edge pages. */
     page: Int,
+    /** Real queue index displayed by this page. */
+    songIndex: Int,
     queue: List<Song>,
     pager: PagerState,
     artworkHorizontalInset: Dp,
@@ -329,7 +370,7 @@ private fun XvoxNowPlayingArtworkPage(
     applyDepth: Boolean,
     onArtworkTap: () -> Unit
 ) {
-    val song = queue.getOrNull(page) ?: return
+    val song = queue.getOrNull(songIndex) ?: return
     val shape = remember(artworkCornerRadius) { RoundedCornerShape(artworkCornerRadius) }
     Box(
         Modifier

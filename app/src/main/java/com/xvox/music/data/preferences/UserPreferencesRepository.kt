@@ -585,8 +585,9 @@ class UserPreferencesRepository(
     val profileLines: Flow<List<String>> = context.xvoxDataStore.data
         .map { it[Keys.profileLines].orEmpty().lines().map { l -> l.trim() }.filter { l -> l.isNotEmpty() }.distinct().take(4) }
         .distinctUntilChanged()
+    /** Daily music reminders are opt-out by default; an explicit false is always respected. */
     val remindersEnabled: Flow<Boolean> = context.xvoxDataStore.data
-        .map { it[Keys.remindersEnabled] ?: false }.distinctUntilChanged()
+        .map { it[Keys.remindersEnabled] ?: true }.distinctUntilChanged()
 
     suspend fun setLyricsSettings(settings: LyricsSettings) { context.xvoxDataStore.edit { it[Keys.lyricsSettings] = settings.sanitized().encode() } }
     suspend fun setSplitShowPill(v: Boolean) { context.xvoxDataStore.edit { it[Keys.splitShowPill] = v } }

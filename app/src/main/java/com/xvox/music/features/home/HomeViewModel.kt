@@ -74,6 +74,8 @@ class HomeViewModel(
     private var sourceMode = XvoxSourceMode.OFFLINE
     private var publishJob: Job? = null
     private var allRawSongs: List<Song> = emptyList()
+    /** File-backed image previews keyed by the exact MediaStore URI of an edited song. */
+    private var songArtworkOverrides: Map<String, String> = emptyMap()
     private var recentIds: List<Long> = emptyList()
     private var recentHistoryCapacity = 20
     private var transitionId = 0L
@@ -165,6 +167,17 @@ class HomeViewModel(
         }
 
         viewModelScope.launch {
+            libraryPreferences.songArtworkOverrides.collect { overrides ->
+                songArtworkOverrides = overrides
+                val decorated = applySongArtworkOverrides(allRawSongs)
+                _folders.value = withContext(Dispatchers.Default) {
+                    HomeLibraryFilterHelper.groupFolders(decorated)
+                }
+                publishFilteredSongs()
+            }
+        }
+
+        viewModelScope.launch {
             preferencesRepository.hiddenArtists.collect { artists ->
                 _state.update { it.copy(hiddenArtists = artists) }
             }
@@ -212,6 +225,19 @@ class HomeViewModel(
         }
     }
 
+    /**
+     * MediaStore exposes album artwork rather than a guaranteed per-file image. A completed edit
+     * still writes artwork into the audio file; this app-owned local copy bridges MediaStore's
+     * asynchronous album-art re-index so the chosen track image updates immediately everywhere.
+     */
+    private fun applySongArtworkOverrides(songs: List<Song>): List<Song> {
+        if (songArtworkOverrides.isEmpty()) return songs
+        return songs.map { song ->
+            val override = songArtworkOverrides[song.contentUri.toString()]?.takeIf { it.isNotBlank() }
+            if (override == null) song else song.copy(artworkUri = Uri.parse(override))
+        }
+    }
+
     private fun publishFilteredSongs() {
         if (!rawReady || !filterReady || !hiddenReady) return
         // Online must never expose or search device-indexed tracks as a silent fallback. Until an
@@ -229,7 +255,10 @@ class HomeViewModel(
             }
             return
         }
-        val raw = allRawSongs; val hidden = _state.value.hiddenSongIds; val config = filterConfig; val recent = recentIds
+        val raw = applySongArtworkOverrides(allRawSongs)
+        val hidden = _state.value.hiddenSongIds
+        val config = filterConfig
+        val recent = recentIds
         publishJob?.cancel()
         publishJob = viewModelScope.launch {
             val result = withContext(Dispatchers.Default) {
@@ -260,7 +289,9 @@ class HomeViewModel(
             val loaded = scan?.songs.orEmpty()
             allRawSongs = loaded
             rawReady = true
-            _folders.value = withContext(Dispatchers.Default) { HomeLibraryFilterHelper.groupFolders(loaded) }
+            _folders.value = withContext(Dispatchers.Default) {
+                HomeLibraryFilterHelper.groupFolders(applySongArtworkOverrides(loaded))
+            }
             _state.update {
                 it.copy(
                     verifiedDeviceSongCount = loaded.size,
@@ -312,7 +343,9 @@ class HomeViewModel(
             )
 
             allRawSongs = refreshed
-            _folders.value = withContext(Dispatchers.Default) { HomeLibraryFilterHelper.groupFolders(refreshed) }
+            _folders.value = withContext(Dispatchers.Default) {
+                HomeLibraryFilterHelper.groupFolders(applySongArtworkOverrides(refreshed))
+            }
             _state.update {
                 it.copy(
                     refreshing = false,
@@ -325,6 +358,13 @@ class HomeViewModel(
             }
             publishFilteredSongs()
             onDone(result)
+        }
+    }
+
+    /** Persists the immediately displayable copy only after the audio-file edit has succeeded. */
+    fun setSongArtworkOverride(mediaUri: Uri, artworkUri: Uri?) {
+        viewModelScope.launch {
+            libraryPreferences.setSongArtworkOverride(mediaUri.toString(), artworkUri?.toString())
         }
     }
 

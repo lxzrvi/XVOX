@@ -25,6 +25,8 @@ class XvoxLibraryPreferences(
         val liked = stringPreferencesKey("library_liked_ids")
         val hidden = stringPreferencesKey("library_hidden_ids")
         val playlists = stringPreferencesKey("library_playlists_json")
+        /** Media URI -> app-owned preview of artwork that was also embedded into the edited file. */
+        val songArtworkOverrides = stringPreferencesKey("library_song_artwork_overrides_json")
     }
 
     val likedSongIds: Flow<Set<Long>> = context.xvoxDataStore.data.map { it[Keys.liked].orEmpty() }
@@ -33,6 +35,24 @@ class XvoxLibraryPreferences(
         .distinctUntilChanged().map(::decodeIds)
     val playlists: Flow<List<XvoxPlaylist>> = context.xvoxDataStore.data.map { it[Keys.playlists].orEmpty() }
         .distinctUntilChanged().map(::decodePlaylists)
+    /**
+     * Immediate per-track artwork source after a successful file-tag write. MediaStore artwork is
+     * album-scoped and can take time to re-index, so this preserves the exact chosen image in the
+     * app while the embedded artwork remains the durable file-level source of truth.
+     */
+    val songArtworkOverrides: Flow<Map<String, String>> = context.xvoxDataStore.data
+        .map { it[Keys.songArtworkOverrides].orEmpty() }
+        .distinctUntilChanged()
+        .map(::decodeArtworkOverrides)
+
+    suspend fun setSongArtworkOverride(mediaUri: String, artworkUri: String?) {
+        if (mediaUri.isBlank()) return
+        context.xvoxDataStore.edit { prefs ->
+            val current = decodeArtworkOverrides(prefs[Keys.songArtworkOverrides].orEmpty()).toMutableMap()
+            if (artworkUri.isNullOrBlank()) current.remove(mediaUri) else current[mediaUri] = artworkUri
+            prefs[Keys.songArtworkOverrides] = encodeArtworkOverrides(current)
+        }
+    }
 
     suspend fun setLiked(songId: Long, liked: Boolean) {
         context.xvoxDataStore.edit { prefs ->
@@ -163,6 +183,29 @@ class XvoxLibraryPreferences(
 
     private fun decodeIds(raw: String): Set<Long> =
         raw.split(",").mapNotNull { it.toLongOrNull() }.toSet()
+
+    private fun encodeArtworkOverrides(overrides: Map<String, String>): String {
+        val objectValue = JSONObject()
+        overrides.forEach { (mediaUri, artworkUri) ->
+            if (mediaUri.isNotBlank() && artworkUri.isNotBlank()) objectValue.put(mediaUri, artworkUri)
+        }
+        return objectValue.toString()
+    }
+
+    private fun decodeArtworkOverrides(raw: String): Map<String, String> {
+        if (raw.isBlank()) return emptyMap()
+        return runCatching {
+            val objectValue = JSONObject(raw)
+            buildMap {
+                val keys = objectValue.keys()
+                while (keys.hasNext()) {
+                    val mediaUri = keys.next()
+                    val artworkUri = objectValue.optString(mediaUri).trim()
+                    if (mediaUri.isNotBlank() && artworkUri.isNotBlank()) put(mediaUri, artworkUri)
+                }
+            }
+        }.getOrDefault(emptyMap())
+    }
 
     private fun encodePlaylists(playlists: List<XvoxPlaylist>): String {
         val array = JSONArray()

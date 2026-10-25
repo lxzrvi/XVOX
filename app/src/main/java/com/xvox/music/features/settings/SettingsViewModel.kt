@@ -15,6 +15,7 @@ import kotlinx.coroutines.launch
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
 
+    private val appContext = application.applicationContext
     private val prefs = UserPreferencesRepository(application)
     private val sourceModeRepository = com.xvox.music.data.sourcemode.XvoxSourceModeRepository(application)
     private var pendingWidget: com.xvox.music.widget.WidgetCustomization? = null
@@ -461,5 +462,12 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setPlaybackSpeed(value: Float) = viewModelScope.launch { prefs.setPlaybackSpeed(value) }
     fun setPlaybackPitch(value: Float) = viewModelScope.launch { prefs.setPlaybackPitch(value) }
     fun setProfileLines(lines: List<String>) = viewModelScope.launch { prefs.setProfileLines(lines) }
-    fun setRemindersEnabled(enabled: Boolean) = viewModelScope.launch { prefs.setRemindersEnabled(enabled) }
+    fun setRemindersEnabled(enabled: Boolean) = viewModelScope.launch {
+        prefs.setRemindersEnabled(enabled)
+        if (enabled) {
+            com.xvox.music.notifications.XvoxReminderManager.scheduleNext(appContext)
+        } else {
+            com.xvox.music.notifications.XvoxReminderManager.cancel(appContext)
+        }
+    }
 }

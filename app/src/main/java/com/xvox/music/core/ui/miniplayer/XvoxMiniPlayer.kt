@@ -49,6 +49,7 @@ import androidx.compose.material3.Icon
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
+import com.xvox.music.player.playback.RepeatMode
 import kotlin.math.abs
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -59,6 +60,8 @@ fun XvoxMiniPlayer(
     queue: List<Song>,
     currentSongId: Long,
     currentIndex: Int,
+    /** Repeat All makes edge swipes wrap; Off and Repeat One retain their existing boundaries. */
+    repeatMode: RepeatMode = RepeatMode.OFF,
     isPlaying: Boolean,
     position: Long,
     duration: Long,
@@ -234,7 +237,7 @@ fun XvoxMiniPlayer(
                 .fillMaxWidth()
                 .height(68.dp)
                 .align(Alignment.BottomCenter)
-                .pointerInput(queue, currentSongId, exiting) {
+                .pointerInput(queue, currentSongId, repeatMode, exiting) {
                     if (exiting) return@pointerInput
 
                     detectDragGestures(
@@ -286,18 +289,22 @@ fun XvoxMiniPlayer(
                                 XvoxMiniAxis.HORIZONTAL -> {
                                     dragX = 0f
                                     dragY = 0f
-                                    when {
-                                        finalX <= -XvoxMiniPlayerMotion.HorizontalThreshold && previewIndex < queue.lastIndex -> {
-                                            transitionDirection = 1
-                                            previewIndex++
-                                        }
-                                        finalX >= XvoxMiniPlayerMotion.HorizontalThreshold && previewIndex > 0 -> {
-                                            transitionDirection = -1
-                                            previewIndex--
-                                        }
-                                        else -> {
-                                            transitionDirection = 0
-                                        }
+                                    val target = when {
+                                        finalX <= -XvoxMiniPlayerMotion.HorizontalThreshold && previewIndex < queue.lastIndex -> previewIndex + 1
+                                        finalX <= -XvoxMiniPlayerMotion.HorizontalThreshold &&
+                                            repeatMode == RepeatMode.ALL && queue.size > 1 -> 0
+                                        finalX >= XvoxMiniPlayerMotion.HorizontalThreshold && previewIndex > 0 -> previewIndex - 1
+                                        finalX >= XvoxMiniPlayerMotion.HorizontalThreshold &&
+                                            repeatMode == RepeatMode.ALL && queue.size > 1 -> queue.lastIndex
+                                        else -> previewIndex
+                                    }
+                                    if (target != previewIndex) {
+                                        // A wrap retains the physical swipe direction, so the card
+                                        // travels forward/backward rather than looking like a jump.
+                                        transitionDirection = if (finalX < 0f) 1 else -1
+                                        previewIndex = target
+                                    } else {
+                                        transitionDirection = 0
                                     }
                                     scheduleCommit()
                                 }

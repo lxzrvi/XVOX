@@ -15,13 +15,16 @@ class XvoxReminderReceiver : BroadcastReceiver() {
             try {
                 val prefs = UserPreferencesRepository(context.applicationContext)
                 val enabled = runBlocking { prefs.remindersEnabled.first() }
-                if (enabled && !com.xvox.music.MainActivity.isAppInForeground) {
-                    if (XvoxReminderManager.consumeBudget()) {
+                if (enabled) {
+                    if (!com.xvox.music.MainActivity.isAppInForeground && XvoxReminderManager.consumeBudget()) {
                         XvoxReminderManager.fireNow(context)
                     }
+                    // Keep the enabled default chained under the existing daily budget.
+                    XvoxReminderManager.scheduleNext(context)
+                } else {
+                    // An alarm may have been queued before the user turned the setting off.
+                    XvoxReminderManager.cancel(context)
                 }
-                // Always chain the next nudge; the budget keeps it under three per day.
-                XvoxReminderManager.scheduleNext(context)
             } finally {
                 pending.finish()
             }

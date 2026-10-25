@@ -115,7 +115,8 @@ data class SettingsState(
     val audioOutputRoute: String = "auto",
     val profileLines: List<String> = emptyList(),
     val greetingIntervalMs: Long = 8_000L,
-    val remindersEnabled: Boolean = false,
+    /** Daily music reminders are enabled until the user explicitly turns them off. */
+    val remindersEnabled: Boolean = true,
     /** Off by default: removing the app task stops active playback unless explicitly enabled. */
     val persistentBackgroundPlayback: Boolean = false,
     /** Durable guard so Android's runtime prompt is requested only once from this setting. */

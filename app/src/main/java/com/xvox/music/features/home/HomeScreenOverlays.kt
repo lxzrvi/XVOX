@@ -202,6 +202,37 @@ fun showMultiAddToQueueOverlay(
     }
 }
 
+fun showSongFileEditOverlay(
+    overlays: XvoxOverlayController,
+    song: Song,
+    entry: SongFileEditEntry,
+    viewModel: HomeViewModel
+) {
+    overlays.showBox(
+        title = if (entry == SongFileEditEntry.COVER) "Edit cover" else "Rename song"
+    ) {
+        SongFileEditBox(
+            song = song,
+            entry = entry,
+            onCancel = overlays::hideBox,
+            onSaved = { saved ->
+                // The selected cover was embedded into the actual audio file before this callback.
+                // Keep its local copy only as an immediate per-track preview while MediaStore's
+                // album-art index catches up with the changed file.
+                if (saved.artworkPreviewUri != null) {
+                    viewModel.setSongArtworkOverride(saved.mediaUri, saved.artworkPreviewUri)
+                }
+                overlays.hideBox()
+                viewModel.refresh()
+                overlays.showP(
+                    if (saved.createdCopy) "Created an edited copy in your library"
+                    else "Updated the original audio file"
+                )
+            }
+        )
+    }
+}
+
 fun showSongOptionsOverlay(
     overlays: XvoxOverlayController,
     context: Context,
@@ -328,6 +359,14 @@ fun showSongOptionsOverlay(
             onShare = {
                 overlays.hideBox()
                 XvoxSongActions.share(context, sourcedSong)
+            },
+            onRename = {
+                overlays.hideBox()
+                showSongFileEditOverlay(overlays, sourcedSong, SongFileEditEntry.RENAME, viewModel)
+            },
+            onEditCover = {
+                overlays.hideBox()
+                showSongFileEditOverlay(overlays, sourcedSong, SongFileEditEntry.COVER, viewModel)
             }
         )
     }

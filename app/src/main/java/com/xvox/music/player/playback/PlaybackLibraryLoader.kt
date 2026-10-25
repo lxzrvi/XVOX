@@ -26,8 +26,17 @@ object PlaybackLibraryLoader {
         try {
             val raw = MediaStoreSongRepository(context).loadSongs()
             val library = XvoxLibraryPreferences(context)
+            // Match Home's immediate artwork bridge after a successful tag write. MediaStore's
+            // album-art index can lag behind the file mutation, but resume/widget playback should
+            // still carry the user's selected cover through its MediaItem metadata.
+            val artworkOverrides = library.songArtworkOverrides.first()
+            val decorated = raw.map { song ->
+                artworkOverrides[song.contentUri.toString()]?.takeIf { it.isNotBlank() }
+                    ?.let { song.copy(artworkUri = android.net.Uri.parse(it)) }
+                    ?: song
+            }
             val config = LibraryFilterConfig(prefs.sortOrder.first(), prefs.ignoreBelowSec.first(), prefs.ignoreBelowKb.first(), prefs.ignoredFolders.first())
-            val eligible = HomeLibraryFilterHelper.filterAndSort(raw, library.hiddenSongIds.first(), config, 0L)
+            val eligible = HomeLibraryFilterHelper.filterAndSort(decorated, library.hiddenSongIds.first(), config, 0L)
             if (eligible.isEmpty()) return@withContext null
             val byId = eligible.associateBy { it.id }
             // Resume the app's existing source/queue when available rather than silently replacing a playlist.

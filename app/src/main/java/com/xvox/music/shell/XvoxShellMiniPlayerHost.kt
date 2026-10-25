@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.max
 import com.xvox.music.core.model.Song
 import com.xvox.music.core.ui.miniplayer.XvoxMiniPlayer
 import com.xvox.music.core.ui.miniplayer.XvoxMiniPlayerPlacement
+import com.xvox.music.player.playback.RepeatMode
 
 @Composable
 fun BoxScope.XvoxShellMiniPlayerHost(
@@ -42,6 +43,7 @@ fun BoxScope.XvoxShellMiniPlayerHost(
     currentSongId: Long?,
     queue: List<Song>,
     currentIndex: Int,
+    repeatMode: RepeatMode = RepeatMode.OFF,
     isPlaying: Boolean,
     position: Long,
     duration: Long,
@@ -132,6 +134,7 @@ fun BoxScope.XvoxShellMiniPlayerHost(
                 queue = queue,
                 currentSongId = currentSongId,
                 currentIndex = currentIndex,
+                repeatMode = repeatMode,
                 isPlaying = isPlaying,
                 position = position,
                 duration = duration,
