@@ -42,6 +42,10 @@ class XvoxOverlayController {
     internal var boxSettingsAction by mutableStateOf<(() -> Unit)?>(null)
         private set
 
+    /** Optional pencil action shown beside Settings (or in its slot when no gear is present). */
+    internal var boxEditAction by mutableStateOf<(() -> Unit)?>(null)
+        private set
+
     internal var boxUndoAction by mutableStateOf<(() -> Unit)?>(null)
         private set
 
@@ -72,6 +76,7 @@ class XvoxOverlayController {
     fun showBox(
         title: String = "XVOX",
         onSettings: (() -> Unit)? = null,
+        onEdit: (() -> Unit)? = null,
         onUndo: (() -> Unit)? = null,
         headerTitleContent: (@Composable () -> Unit)? = null,
         bottomAction: (@Composable () -> Unit)? = null,
@@ -89,6 +94,7 @@ class XvoxOverlayController {
             presentation
         }
         boxSettingsAction = onSettings
+        boxEditAction = onEdit
         boxUndoAction = onUndo
         boxHeaderTitleContent = headerTitleContent
         boxBottomAction = bottomAction
@@ -101,6 +107,7 @@ class XvoxOverlayController {
     fun showMiniBox(
         title: String = "XVOX",
         onSettings: (() -> Unit)? = null,
+        onEdit: (() -> Unit)? = null,
         onUndo: (() -> Unit)? = null,
         headerTitleContent: (@Composable () -> Unit)? = null,
         presentation: XvoxBoxPresentation = XvoxBoxPresentation.DEFAULT,
@@ -110,6 +117,7 @@ class XvoxOverlayController {
         boxTitle = title
         boxPresentation = presentation
         boxSettingsAction = onSettings
+        boxEditAction = onEdit
         boxUndoAction = onUndo
         boxHeaderTitleContent = headerTitleContent
         boxBottomAction = null
@@ -125,6 +133,7 @@ class XvoxOverlayController {
         boxMini = false
         boxPresentation = XvoxBoxPresentation.DEFAULT
         boxSettingsAction = null
+        boxEditAction = null
         boxUndoAction = null
         boxHeaderTitleContent = null
         boxBottomAction = null

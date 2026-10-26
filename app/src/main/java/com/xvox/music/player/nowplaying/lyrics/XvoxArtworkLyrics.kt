@@ -107,7 +107,15 @@ fun XvoxArtworkLyrics(
         rememberLauncherForActivityResult(
             ActivityResultContracts.OpenDocument()
         ) { uri ->
-            uri?.let(onAttach)
+            uri?.let { selected ->
+                if (XvoxLyricsFileSupport.isSupported(context, selected)) {
+                    onAttach(selected)
+                } else {
+                    // Some providers still surface generic binary files for an LRC picker. Reject
+                    // them before they can replace the current lyric source or saved preference.
+                    overlays.showP(XvoxLyricsFileSupport.unsupportedMessage())
+                }
+            }
         }
 
     // Pill visibility: visible initially on card open, disappears 3s after user inactivity, reappears on user scroll/touch
@@ -427,7 +435,7 @@ fun XvoxArtworkLyrics(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null
                         ) {
-                            launcher.launch(arrayOf("*/*"))
+                            launcher.launch(XvoxLyricsFileSupport.pickerMimeTypes())
                         },
                     contentAlignment = Alignment.Center
                 ) {

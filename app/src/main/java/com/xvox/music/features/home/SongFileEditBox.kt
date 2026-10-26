@@ -58,18 +58,15 @@ import com.xvox.music.media.SongFileEditRequest
 import com.xvox.music.media.SongFileEditor
 import kotlinx.coroutines.launch
 
-/** Chooses the emphasis of the shared real-file song editor opened from the action sheet. */
-enum class SongFileEditEntry { RENAME, COVER }
-
 /**
- * A single edit surface for title and embedded artwork. The user explicitly picks whether Android
- * should mutate the original shared file or create a separately indexed copy before any bytes are
- * written; there is no hidden app-only rename/cover path.
+ * A single edit surface for a song title and embedded artwork. The header pencil always opens
+ * this surface so Rename and Edit cover never need separate long-press action cards. The user
+ * explicitly picks whether Android should mutate the original shared file or create a separately
+ * indexed copy before any bytes are written; there is no hidden app-only rename/cover path.
  */
 @Composable
 fun SongFileEditBox(
     song: Song,
-    entry: SongFileEditEntry,
     onCancel: () -> Unit,
     onSaved: (SongFileEditOutcome.Saved) -> Unit
 ) {
@@ -135,7 +132,12 @@ fun SongFileEditBox(
             error = "Enter a song name before saving"
             return
         }
-        val request = SongFileEditRequest(cleanTitle, selectedCover, destination)
+        val request = SongFileEditRequest(
+            title = cleanTitle,
+            coverUri = selectedCover,
+            destination = destination,
+            renameRequested = cleanTitle != song.title.trim()
+        )
         error = null
         if (destination == SongFileEditDestination.ORIGINAL) {
             val consent = editor.originalWriteRequest(song)
@@ -166,17 +168,24 @@ fun SongFileEditBox(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text(
-            text = if (entry == SongFileEditEntry.COVER) "Edit Song Cover" else "Rename Song",
+            text = "Edit Song",
             color = colors.primaryText,
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold
         )
 
         Text(
-            text = "Changes are written into the audio file. Choose whether to update the original or make a new copy.",
+            text = "Rename the real MediaStore file or select a new embedded cover, then choose whether to update the original or make a copy.",
             color = colors.secondaryText,
             fontSize = 12.sp,
             lineHeight = 17.sp
+        )
+
+        Text(
+            text = "All audio files can be renamed. Cover embedding depends on the audio container; unsupported files show a clear failure instead of a visual-only change.",
+            color = colors.mutedText,
+            fontSize = 10.5.sp,
+            lineHeight = 14.sp
         )
 
         SongEditIdentityCard(

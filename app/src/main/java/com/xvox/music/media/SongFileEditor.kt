@@ -23,7 +23,9 @@ enum class SongFileEditDestination { ORIGINAL, COPY }
 data class SongFileEditRequest(
     val title: String,
     val coverUri: Uri?,
-    val destination: SongFileEditDestination
+    val destination: SongFileEditDestination,
+    /** Keeps a cover-only save from changing a title that MediaStore has independently refreshed. */
+    val renameRequested: Boolean
 )
 
 sealed interface SongFileEditOutcome {
@@ -32,17 +34,21 @@ sealed interface SongFileEditOutcome {
         val mediaUri: Uri,
         /** App-owned JPEG used until MediaStore finishes regenerating album artwork. */
         val artworkPreviewUri: Uri?,
-        val createdCopy: Boolean
+        val createdCopy: Boolean,
+        /** Truthful user-facing result; it distinguishes a file rename from a tag/artwork edit. */
+        val message: String
     ) : SongFileEditOutcome
 
     data class Failed(val message: String) : SongFileEditOutcome
 }
 
 /**
- * Writes a song's title and optional artwork into the actual audio bytes, never into a UI-only
- * placeholder. MediaStore's write-consent sheet is launched by the composable before [apply] is
- * called for an existing file. Copy mode inserts a new pending MediaStore item so the original
- * stays untouched.
+ * Writes edits to real MediaStore files rather than cached UI state.
+ *
+ * Every MediaStore audio item can be renamed through its real display name and TITLE column.
+ * Embedded cover art is inherently container-dependent, so XVOX only attempts a byte-level
+ * artwork write for formats with a portable tag representation. Unsupported containers fail
+ * clearly instead of pretending that artwork was changed.
  */
 class SongFileEditor(context: Context) {
     private val appContext = context.applicationContext
@@ -62,61 +68,187 @@ class SongFileEditor(context: Context) {
 
     suspend fun apply(song: Song, request: SongFileEditRequest): SongFileEditOutcome =
         withContext(Dispatchers.IO) {
+            val changingCover = request.coverUri != null
             try {
                 val cleanTitle = request.title.trim()
-                if (cleanTitle.isEmpty()) return@withContext SongFileEditOutcome.Failed("Song name cannot be empty")
+                if (cleanTitle.isEmpty()) {
+                    return@withContext SongFileEditOutcome.Failed("Song name cannot be empty")
+                }
 
                 val info = readSourceInfo(song)
-                val editDirectory = File(appContext.cacheDir, "song_file_edits").apply { mkdirs() }
-                val extension = extensionFor(info.displayName, info.mimeType)
-                val originalBytes = File.createTempFile("xvox_original_", ".${extension}", editDirectory)
-                val editableBytes = File.createTempFile("xvox_editable_", ".${extension}", editDirectory)
-                var previewCover: File? = null
-                try {
-                    copyMediaToFile(song.contentUri, originalBytes)
-                    originalBytes.copyTo(editableBytes, overwrite = true)
-                    previewCover = request.coverUri?.let { persistCoverPreview(it) }
-                    rewriteAudioTags(editableBytes, cleanTitle, previewCover)
-
-                    val targetUri = when (request.destination) {
-                        SongFileEditDestination.ORIGINAL -> {
-                            replaceOriginal(
-                                mediaUri = song.contentUri,
-                                backup = originalBytes,
-                                edited = editableBytes,
-                                displayName = displayNameFor(info, cleanTitle, copy = false),
-                                title = cleanTitle
-                            )
-                            song.contentUri
-                        }
-
-                        SongFileEditDestination.COPY -> createCopy(
-                            info = info,
-                            edited = editableBytes,
-                            title = cleanTitle
-                        )
-                    }
-                    SongFileEditOutcome.Saved(
-                        mediaUri = targetUri,
-                        artworkPreviewUri = previewCover?.let(Uri::fromFile),
-                        createdCopy = request.destination == SongFileEditDestination.COPY
+                val changingTitle = request.renameRequested
+                val titleToWrite = if (changingTitle) cleanTitle else info.title
+                if (!changingTitle && !changingCover) {
+                    return@withContext SongFileEditOutcome.Failed(
+                        "Choose a different song name or select a cover image before saving"
                     )
-                } catch (cancelled: CancellationException) {
-                    previewCover?.delete()
-                    throw cancelled
-                } catch (error: Exception) {
-                    previewCover?.delete()
-                    SongFileEditOutcome.Failed(editErrorMessage(error))
-                } finally {
-                    originalBytes.delete()
-                    editableBytes.delete()
                 }
+
+                if (!changingCover) {
+                    // A provider-level rename is a real filename / MediaStore metadata update and
+                    // works for every indexed audio container, even ones without writable tags.
+                    return@withContext renameEveryAudioFile(song, info, titleToWrite, request.destination)
+                }
+
+                val extension = extensionFor(info.displayName, info.mimeType)
+                if (!supportsEmbeddedArtwork(extension)) {
+                    return@withContext SongFileEditOutcome.Failed(
+                        unsupportedArtworkMessage(extension)
+                    )
+                }
+
+                rewriteTaggedAudio(
+                    song = song,
+                    info = info,
+                    title = titleToWrite,
+                    coverUri = request.coverUri,
+                    destination = request.destination
+                )
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: Exception) {
-                SongFileEditOutcome.Failed(editErrorMessage(error))
+                SongFileEditOutcome.Failed(editErrorMessage(error, changingCover))
             }
         }
+
+    /**
+     * First try a portable embedded title update for containers with writable tags. If the source
+     * file has malformed/unsupported tags, fall back to the actual MediaStore display name + TITLE
+     * update, so a normal rename still works for that audio file rather than falsely succeeding.
+     */
+    private fun renameEveryAudioFile(
+        song: Song,
+        info: SourceInfo,
+        title: String,
+        destination: SongFileEditDestination
+    ): SongFileEditOutcome.Saved {
+        val extension = extensionFor(info.displayName, info.mimeType)
+        if (supportsWritableTags(extension)) {
+            try {
+                return rewriteTaggedAudio(
+                    song = song,
+                    info = info,
+                    title = title,
+                    coverUri = null,
+                    destination = destination
+                )
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                // The direct MediaStore rename below is still a genuine file/title update. It is
+                // specifically what lets unknown, damaged, and tagless audio containers rename.
+            }
+        }
+
+        return renameViaMediaStore(song, info, title, destination)
+    }
+
+    private fun renameViaMediaStore(
+        song: Song,
+        info: SourceInfo,
+        title: String,
+        destination: SongFileEditDestination
+    ): SongFileEditOutcome.Saved = when (destination) {
+        SongFileEditDestination.ORIGINAL -> {
+            updateMediaColumns(
+                mediaUri = song.contentUri,
+                displayName = displayNameFor(info, title, copy = false),
+                title = title,
+                pending = null
+            )
+            SongFileEditOutcome.Saved(
+                mediaUri = song.contentUri,
+                artworkPreviewUri = null,
+                createdCopy = false,
+                message = "Renamed the original audio file"
+            )
+        }
+
+        SongFileEditDestination.COPY -> {
+            val editDirectory = File(appContext.cacheDir, "song_file_edits").apply { mkdirs() }
+            val extension = extensionFor(info.displayName, info.mimeType)
+            val rawCopy = File.createTempFile("xvox_rename_", ".${extension}", editDirectory)
+            try {
+                copyMediaToFile(song.contentUri, rawCopy)
+                val target = createCopy(info, rawCopy, title)
+                SongFileEditOutcome.Saved(
+                    mediaUri = target,
+                    artworkPreviewUri = null,
+                    createdCopy = true,
+                    message = "Created a renamed copy in your library"
+                )
+            } finally {
+                rawCopy.delete()
+            }
+        }
+    }
+
+    /**
+     * Uses seekable cache files because ContentResolver streams do not support tag rewriting. The
+     * edited bytes are complete before an original is opened for output, so a failure can restore
+     * the untouched byte-for-byte backup instead of leaving a partial track behind.
+     */
+    private fun rewriteTaggedAudio(
+        song: Song,
+        info: SourceInfo,
+        title: String,
+        coverUri: Uri?,
+        destination: SongFileEditDestination
+    ): SongFileEditOutcome.Saved {
+        val editDirectory = File(appContext.cacheDir, "song_file_edits").apply { mkdirs() }
+        val extension = extensionFor(info.displayName, info.mimeType)
+        val originalBytes = File.createTempFile("xvox_original_", ".${extension}", editDirectory)
+        val editableBytes = File.createTempFile("xvox_editable_", ".${extension}", editDirectory)
+        var previewCover: File? = null
+
+        try {
+            copyMediaToFile(song.contentUri, originalBytes)
+            originalBytes.copyTo(editableBytes, overwrite = true)
+            previewCover = coverUri?.let(::persistCoverPreview)
+            rewriteAudioTags(editableBytes, title, previewCover)
+
+            val targetUri = when (destination) {
+                SongFileEditDestination.ORIGINAL -> {
+                    replaceOriginal(
+                        mediaUri = song.contentUri,
+                        backup = originalBytes,
+                        edited = editableBytes,
+                        displayName = displayNameFor(info, title, copy = false),
+                        title = title
+                    )
+                    song.contentUri
+                }
+
+                SongFileEditDestination.COPY -> createCopy(
+                    info = info,
+                    edited = editableBytes,
+                    title = title
+                )
+            }
+
+            SongFileEditOutcome.Saved(
+                mediaUri = targetUri,
+                artworkPreviewUri = previewCover?.let(Uri::fromFile),
+                createdCopy = destination == SongFileEditDestination.COPY,
+                message = when {
+                    coverUri != null && destination == SongFileEditDestination.COPY ->
+                        "Created an edited copy in your library"
+                    coverUri != null -> "Updated the original audio file"
+                    destination == SongFileEditDestination.COPY -> "Created a renamed copy in your library"
+                    else -> "Renamed the original audio file"
+                }
+            )
+        } catch (cancelled: CancellationException) {
+            previewCover?.delete()
+            throw cancelled
+        } catch (error: Exception) {
+            previewCover?.delete()
+            throw error
+        } finally {
+            originalBytes.delete()
+            editableBytes.delete()
+        }
+    }
 
     private fun readSourceInfo(song: Song): SourceInfo {
         val projection = arrayOf(
@@ -155,8 +287,8 @@ class SongFileEditor(context: Context) {
     }
 
     /**
-     * Transcodes the picked image to a bounded JPEG. This keeps the embedded tag portable across
-     * common MP3, M4A, FLAC and OGG readers and avoids writing a multi-megabyte camera original.
+     * Transcodes the picked image to a bounded JPEG. This keeps embedded tags portable and avoids
+     * writing a multi-megabyte camera original into every selected song.
      */
     private fun persistCoverPreview(source: Uri): File {
         val directory = File(appContext.filesDir, "song_artwork").apply { mkdirs() }
@@ -192,7 +324,7 @@ class SongFileEditor(context: Context) {
         return target
     }
 
-    /** Uses a seekable cache file because ContentResolver streams do not support tag rewriting. */
+    /** Writes only portable TITLE/artwork tags for the containers preflighted above. */
     private fun rewriteAudioTags(audio: File, title: String, cover: File?) {
         // The dependency is also used on desktop; select its Android-safe filesystem behaviour.
         org.jaudiotagger.tag.TagOptionSingleton.getInstance().setAndroid(true)
@@ -208,10 +340,6 @@ class SongFileEditor(context: Context) {
         audioFile.commit()
     }
 
-    /**
-     * The edited temp file is complete before the original is opened for output. If an output error
-     * occurs, restore the untouched byte-for-byte cache copy as a best-effort safety net.
-     */
     private fun replaceOriginal(
         mediaUri: Uri,
         backup: File,
@@ -273,7 +401,7 @@ class SongFileEditor(context: Context) {
     private fun displayNameFor(info: SourceInfo, title: String, copy: Boolean): String {
         // Cover-only edits must not unexpectedly rename a file whose display filename differs
         // from its embedded title. A deliberate title change, or a new copy, gets a new filename.
-        if (!copy && title.equals(info.title, ignoreCase = true)) return info.displayName
+        if (!copy && title == info.title) return info.displayName
         val extension = extensionFor(info.displayName, info.mimeType)
         val existingBase = info.displayName.substringBeforeLast('.', info.displayName).trim()
         val safeTitle = title
@@ -299,16 +427,36 @@ class SongFileEditor(context: Context) {
         }
     }
 
-    private fun editErrorMessage(error: Exception): String {
+    private fun supportsWritableTags(extension: String): Boolean =
+        extension.lowercase() in WritableTagExtensions
+
+    private fun supportsEmbeddedArtwork(extension: String): Boolean =
+        extension.lowercase() in ArtworkTagExtensions
+
+    private fun unsupportedArtworkMessage(extension: String): String {
+        val label = extension.uppercase().ifBlank { "this" }
+        return "$label files can be renamed, but XVOX cannot safely embed cover art in this format. Use a tag-writable format such as MP3, M4A/MP4, FLAC, OGG, WAV, WMA, AIFF, or DSF."
+    }
+
+    private fun editErrorMessage(error: Exception, changingCover: Boolean): String {
         val detail = error.message?.trim().orEmpty()
         return when {
             detail.contains("denied", ignoreCase = true) -> "Android did not allow that file to be edited"
             detail.contains("readable", ignoreCase = true) || detail.contains("empty", ignoreCase = true) -> detail
-            else -> "This audio format or file could not be updated"
+            changingCover -> "This audio file did not accept embedded cover art"
+            else -> "Android could not rename this audio file"
         }
     }
 
     private companion object {
         const val MAX_COVER_EDGE = 1600
+        // JavaAudioTagger 3.0.1 provides writers for these containers. Each artwork write is still
+        // committed to a temp copy first; a malformed or non-portable individual file returns a
+        // truthful failure instead of damaging the source or showing a fake cover update.
+        val WritableTagExtensions = setOf(
+            "mp3", "m4a", "m4b", "m4p", "mp4", "flac", "ogg", "oga",
+            "wav", "wma", "aif", "aifc", "aiff", "dsf"
+        )
+        val ArtworkTagExtensions = WritableTagExtensions
     }
 }

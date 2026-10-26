@@ -22,6 +22,7 @@ fun XvoxOverlayHost(
                     presentation = controller.boxPresentation,
                     mini = controller.boxMini,
                     onSettingsClick = controller.boxSettingsAction,
+                    onEditClick = controller.boxEditAction,
                     onUndoClick = controller.boxUndoAction,
                     headerTitleContent = controller.boxHeaderTitleContent,
                     bottomAction = controller.boxBottomAction,

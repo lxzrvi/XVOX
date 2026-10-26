@@ -205,15 +205,11 @@ fun showMultiAddToQueueOverlay(
 fun showSongFileEditOverlay(
     overlays: XvoxOverlayController,
     song: Song,
-    entry: SongFileEditEntry,
     viewModel: HomeViewModel
 ) {
-    overlays.showBox(
-        title = if (entry == SongFileEditEntry.COVER) "Edit cover" else "Rename song"
-    ) {
+    overlays.showBox(title = "Edit song") {
         SongFileEditBox(
             song = song,
-            entry = entry,
             onCancel = overlays::hideBox,
             onSaved = { saved ->
                 // The selected cover was embedded into the actual audio file before this callback.
@@ -224,10 +220,7 @@ fun showSongFileEditOverlay(
                 }
                 overlays.hideBox()
                 viewModel.refresh()
-                overlays.showP(
-                    if (saved.createdCopy) "Created an edited copy in your library"
-                    else "Updated the original audio file"
-                )
+                overlays.showP(saved.message)
             }
         )
     }
@@ -262,8 +255,13 @@ fun showSongOptionsOverlay(
     overlays.showBox(
         title = "Song Options",
         // Playlist rows have contextual actions only; their Song Options must not expose the
-        // unrelated section gear.
+        // unrelated section gear. The pencil is always present: when no gear is contextual it
+        // occupies that same header slot, and when a gear exists it sits beside it at equal size.
         onSettings = if (playlist == null) onSectionSettings?.let { act -> { act() } } else null,
+        onEdit = {
+            overlays.hideBox()
+            showSongFileEditOverlay(overlays, sourcedSong, viewModel)
+        },
         presentation = XvoxBoxPresentation.SONG_OPTIONS,
         // Long-press menus always expose an explicit, theme-consistent close footer. Actions may
         // still execute immediately; Cancel/Okay simply leave an untouched menu predictably.
@@ -359,14 +357,6 @@ fun showSongOptionsOverlay(
             onShare = {
                 overlays.hideBox()
                 XvoxSongActions.share(context, sourcedSong)
-            },
-            onRename = {
-                overlays.hideBox()
-                showSongFileEditOverlay(overlays, sourcedSong, SongFileEditEntry.RENAME, viewModel)
-            },
-            onEditCover = {
-                overlays.hideBox()
-                showSongFileEditOverlay(overlays, sourcedSong, SongFileEditEntry.COVER, viewModel)
             }
         )
     }

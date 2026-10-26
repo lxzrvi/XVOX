@@ -79,6 +79,12 @@ class XvoxLyricsRepository(
         uri: Uri
     ): XvoxLyrics? =
         withContext(Dispatchers.IO) {
+            // This repository guard also protects callers that bypass the Compose picker. A ZIP,
+            // image, or arbitrary binary file must never become the saved custom-lyrics URI.
+            if (!XvoxLyricsFileSupport.isSupported(appContext, uri)) {
+                return@withContext null
+            }
+
             runCatching {
                 appContext.contentResolver
                     .takePersistableUriPermission(
@@ -132,23 +138,14 @@ class XvoxLyricsRepository(
     private fun readUserLyrics(
         uri: Uri
     ): XvoxLyrics? {
-        val raw =
-            runCatching {
-                appContext.contentResolver
-                    .openInputStream(uri)
-                    ?.bufferedReader()
-                    ?.use {
-                        it.readText()
-                    }
-            }.getOrNull()
-                ?: return null
-
-        if (raw.isBlank()) return null
+        if (!XvoxLyricsFileSupport.isSupported(appContext, uri)) return null
+        val raw = readBoundedLyricsText(uri) ?: return null
+        if (raw.isBlank() || !looksLikeReadableText(raw)) return null
 
         val synced =
             Regex(
                 """\[\d{1,3}:\d{2}(?:[.:]\d{1,3})?]"""
-            ).containsMatchIn(raw)
+            ).containsMatchIn(raw) || raw.contains("-->") || raw.contains("Dialogue:", ignoreCase = true)
 
         return XvoxLyricsParser.parse(
             raw = raw,
@@ -158,6 +155,31 @@ class XvoxLyricsRepository(
                 } else {
                     XvoxLyricsSource.USER_TEXT
                 }
-        )
+        ).takeIf { it.lines.isNotEmpty() }
+    }
+
+    /** Avoid treating a large archive/image stream as a lyrics text document. */
+    private fun readBoundedLyricsText(uri: Uri): String? = runCatching {
+        appContext.contentResolver.openInputStream(uri)?.bufferedReader()?.use { reader ->
+            val buffer = CharArray(8 * 1024)
+            val text = StringBuilder()
+            while (true) {
+                val read = reader.read(buffer)
+                if (read <= 0) break
+                if (text.length + read > MAX_LYRICS_CHARACTERS) return@use null
+                text.append(buffer, 0, read)
+            }
+            text.toString().removePrefix("\uFEFF")
+        }
+    }.getOrNull()
+
+    private fun looksLikeReadableText(raw: String): Boolean {
+        if ('\u0000' in raw) return false
+        val replacementCharacters = raw.count { it == '\uFFFD' }
+        return replacementCharacters * 20 < raw.length.coerceAtLeast(1)
+    }
+
+    private companion object {
+        const val MAX_LYRICS_CHARACTERS = 1_000_000
     }
 }

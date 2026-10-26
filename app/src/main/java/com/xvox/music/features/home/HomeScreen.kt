@@ -177,41 +177,6 @@ fun HomeScreen(
         }
     }
 
-    if (showArtistInfo != null) {
-        val currentArtist = showArtistInfo!!
-        ArtistInfoDialog(
-            artist = currentArtist,
-            hideText = config.artistHideText,
-            liked = currentArtist.name in likedArtistNames,
-            onToggleLiked = { viewModel.toggleLikedArtist(currentArtist.name) },
-            columns = config.artistColumns,
-            onColumnsChange = { viewModel.setArtistColumns(it) },
-            onHideTextChange = { viewModel.setArtistHideText(it) },
-            onDismiss = { showArtistInfo = null },
-            onPlayNext = {
-                val artistSongs = currentArtist.songs.map { it.copy(source = currentArtist.name) }
-                val msg = playerViewModel.playNextInQueue(artistSongs)
-                overlays.showP(if (msg.isNotBlank()) msg else "Playing by ${currentArtist.name}")
-            },
-            onAddToQueue = {
-                val artistSongs = currentArtist.songs.map { it.copy(source = currentArtist.name) }
-                showMultiAddToQueueOverlay(overlays, playerViewModel, artistSongs)
-            },
-            onSelectArtist = {
-                selectedSongIds = emptySet()
-                selectedPlaylistIds = emptySet()
-                selectedArtistNames = setOf(currentArtist.name)
-                selectionCategoryName = "Artists"
-                selectionLibraryMode = XvoxHomeLibraryMode.ARTISTS
-                showArtistInfo = null
-            },
-            onHideArtist = {
-                viewModel.hideArtist(currentArtist.name)
-                overlays.showP("${currentArtist.name} hidden")
-            }
-        )
-    }
-
     val selectedPlaylist = effectiveSelectedPlaylistId?.let { id ->
         state.playlists.firstOrNull { it.id == id }
     }
@@ -1016,5 +981,41 @@ fun HomeScreen(
                 }
             }
         }
+    }
+
+    // Compose this sheet after Home content so it owns the foreground and receives taps.
+    if (showArtistInfo != null) {
+        val currentArtist = showArtistInfo!!
+        ArtistInfoDialog(
+            artist = currentArtist,
+            hideText = config.artistHideText,
+            liked = currentArtist.name in likedArtistNames,
+            onToggleLiked = { viewModel.toggleLikedArtist(currentArtist.name) },
+            columns = config.artistColumns,
+            onColumnsChange = { viewModel.setArtistColumns(it) },
+            onHideTextChange = { viewModel.setArtistHideText(it) },
+            onDismiss = { showArtistInfo = null },
+            onPlayNext = {
+                val artistSongs = currentArtist.songs.map { it.copy(source = currentArtist.name) }
+                val msg = playerViewModel.playNextInQueue(artistSongs)
+                overlays.showP(if (msg.isNotBlank()) msg else "Playing by ${currentArtist.name}")
+            },
+            onAddToQueue = {
+                val artistSongs = currentArtist.songs.map { it.copy(source = currentArtist.name) }
+                showMultiAddToQueueOverlay(overlays, playerViewModel, artistSongs)
+            },
+            onSelectArtist = {
+                selectedSongIds = emptySet()
+                selectedPlaylistIds = emptySet()
+                selectedArtistNames = setOf(currentArtist.name)
+                selectionCategoryName = "Artists"
+                selectionLibraryMode = XvoxHomeLibraryMode.ARTISTS
+                showArtistInfo = null
+            },
+            onHideArtist = {
+                viewModel.hideArtist(currentArtist.name)
+                overlays.showP("${currentArtist.name} hidden")
+            }
+        )
     }
 }

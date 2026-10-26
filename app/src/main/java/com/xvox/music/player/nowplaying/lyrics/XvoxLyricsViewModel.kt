@@ -70,11 +70,16 @@ class XvoxLyricsViewModel(
     }
 
     fun attach(
-        uri: Uri
+        uri: Uri,
+        onRejected: (String) -> Unit = {}
     ) {
-        val song =
-            currentSong ?: return
+        val song = currentSong ?: return
+        if (!XvoxLyricsFileSupport.isSupported(getApplication<Application>(), uri)) {
+            onRejected(XvoxLyricsFileSupport.unsupportedMessage())
+            return
+        }
 
+        val previousLyrics = _state.value.lyrics
         loadJob?.cancel()
 
         _state.update {
@@ -93,11 +98,18 @@ class XvoxLyricsViewModel(
                     currentSong?.id ==
                     song.id
                 ) {
-                    _state.update {
-                        it.copy(
-                            loading = false,
-                            lyrics = lyrics
-                        )
+                    if (lyrics == null) {
+                        // An unreadable/mislabeled file must not replace existing lyrics or leave
+                        // a bad URI in preferences. Surface the requested truthful XVOX pill.
+                        _state.update { it.copy(loading = false, lyrics = previousLyrics) }
+                        onRejected(XvoxLyricsFileSupport.unsupportedMessage())
+                    } else {
+                        _state.update {
+                            it.copy(
+                                loading = false,
+                                lyrics = lyrics
+                            )
+                        }
                     }
                 }
             }

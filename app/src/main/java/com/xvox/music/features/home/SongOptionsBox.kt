@@ -48,10 +48,6 @@ fun SongOptionsBox(
     onInfo: () -> Unit,
     onRingtone: () -> Unit,
     onShare: () -> Unit,
-    /** Opens the real-file editor with its title field emphasized. */
-    onRename: () -> Unit,
-    /** Opens the same real-file editor with its cover card/pencil emphasized. */
-    onEditCover: () -> Unit,
     onPlayNext: () -> Unit,
     onSelect: (() -> Unit)? = null,
     onAddToEach: (() -> Unit)? = null,
@@ -90,10 +86,8 @@ fun SongOptionsBox(
         onLiked
     )
     actions += SongOptionGridAction("Add to playlist", R.drawable.ic_xvox_playlist, onPlaylist)
-    // These are available from the shared long-press sheet in Home, Search, Likes, Recent, and
-    // playlists. They edit bytes/metadata after an explicit Original-vs-Copy choice—not a cache.
-    actions += SongOptionGridAction("Rename", R.drawable.ic_xvox_edit, onRename)
-    actions += SongOptionGridAction("Edit cover", R.drawable.ic_xvox_edit, onEditCover)
+    // Rename and cover editing deliberately live behind the single header pencil. Keeping them
+    // out of the action grid gives every long-press surface the same compact set of cards.
     actions += SongOptionGridAction("Info", R.drawable.ic_xvox_info, onInfo)
     actions += SongOptionGridAction("Set as ringtone", R.drawable.ic_xvox_music_note, onRingtone)
     actions += SongOptionGridAction("Share", R.drawable.ic_xvox_share, onShare)
