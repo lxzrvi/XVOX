@@ -14,9 +14,9 @@ android {
         minSdk = 33
         targetSdk = 37
 
-        // v1.02.1: real file metadata/cover editing and Repeat All gesture reliability.
-        versionCode = 10201
-        versionName = "1.02.1"
+        // v1.02.2: header pencil editing, universal MediaStore renames, and safe lyric imports.
+        versionCode = 10202
+        versionName = "1.02.2"
     }
 
     compileOptions {
