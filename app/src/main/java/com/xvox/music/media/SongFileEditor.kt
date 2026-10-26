@@ -201,7 +201,7 @@ class SongFileEditor(context: Context) {
         val editableBytes = File.createTempFile("xvox_editable_", ".${extension}", editDirectory)
         var previewCover: File? = null
 
-        try {
+        return try {
             copyMediaToFile(song.contentUri, originalBytes)
             originalBytes.copyTo(editableBytes, overwrite = true)
             previewCover = coverUri?.let(::persistCoverPreview)
