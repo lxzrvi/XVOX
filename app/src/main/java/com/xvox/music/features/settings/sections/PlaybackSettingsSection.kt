@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -20,6 +19,7 @@ import com.xvox.music.features.settings.SettingsViewModel
 import com.xvox.music.features.settings.components.SettingsControlsEditor
 import com.xvox.music.features.settings.components.SettingsToggle
 import com.xvox.music.features.settings.components.XvoxSlider
+import com.xvox.music.core.ui.effects.xvoxPressScale
 import kotlin.math.roundToInt
 
 /** Direct-persistence form retained for the standalone Settings page. */
@@ -173,7 +173,7 @@ private fun CrossfadeCurveChoice(selected: Int, onSelect: (Int) -> Unit) {
                     .clip(shape)
                     .background(if (active) colors.primaryAccent else colors.card)
                     .border(.7.dp, if (active) colors.primaryAccent else colors.cardBorder.copy(alpha = .72f), shape)
-                    .com.xvox.music.core.ui.effects.xvoxPressScale { onSelect(style) }
+                    .xvoxPressScale { onSelect(style) }
                     .padding(horizontal = 5.dp, vertical = 8.dp),
                 contentAlignment = androidx.compose.ui.Alignment.Center
             ) {
