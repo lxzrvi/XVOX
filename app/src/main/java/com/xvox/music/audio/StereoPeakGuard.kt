@@ -3,6 +3,7 @@ package com.xvox.music.audio
 import kotlin.math.abs
 import kotlin.math.exp
 import kotlin.math.max
+import kotlin.math.tanh
 
 /**
  * Stereo-linked look-ahead true-peak guard.
@@ -72,8 +73,25 @@ class StereoPeakGuard {
         // More requested control captures a crest faster; the response is monotonic from 0→100.
         val attack = (fastAttack * (.10 + .90 * amount)).coerceIn(.01, 1.0)
         gain += (desired - gain) * if (desired < gain) attack else release
-        left = (oldL * gain).coerceIn(-.999, .999)
-        right = (oldR * gain).coerceIn(-.999, .999)
+        // Look-ahead gain catches the next crest, then a gentle endpoint rounds any sample that
+        // arrives during the attack. It only operates on the protected path; amount 0 above is
+        // a true transparent bypass, and the final clamp remains a last-resort PCM rail.
+        left = softClip(oldL * gain, amount).coerceIn(-.999, .999)
+        right = softClip(oldR * gain, amount).coerceIn(-.999, .999)
         frame++
+    }
+
+    private fun softClip(sample: Double, amount: Double): Double {
+        val strength = amount.coerceIn(0.0, 1.0)
+        if (strength <= .0001) return sample
+        val magnitude = abs(sample)
+        // High enough to leave normal programme untouched; the knee only catches a transient
+        // that escaped the look-ahead gain envelope during its first few samples.
+        val knee = .86 + .10 * strength
+        if (magnitude <= knee) return sample
+        val tail = (1.0 - knee).coerceAtLeast(.001)
+        val rounded = knee + tail * tanh((magnitude - knee) / tail)
+        val blended = magnitude + (rounded - magnitude) * strength
+        return if (sample < 0.0) -blended else blended
     }
 }

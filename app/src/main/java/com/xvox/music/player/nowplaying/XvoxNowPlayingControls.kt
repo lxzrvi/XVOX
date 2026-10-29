@@ -7,8 +7,10 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -25,9 +27,11 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import kotlin.math.roundToInt
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
@@ -162,43 +166,62 @@ fun XvoxNowPlayingControls(
         listOf(shuffleOffset, previousOffset, playOffset, nextOffset, repeatOffset)
     }
 
-    Layout(
+    // Standard Box placement deliberately replaces the old manual Layout measure policy. A
+    // transport-control subtree can contain editable overlays while Customize is active; relying
+    // on normal Compose measurement guarantees that no Measurable is measured twice in that path.
+    BoxWithConstraints(
         modifier = modifier
             .fillMaxWidth()
-            .height(62.dp),
-        content = {
-            // The user may swap only the two outer utility controls. Previous/next stay paired
-            // around the Play circle, and Play itself is always measured at the true midpoint.
-            if (shuffleRepeatSide == "right") {
-                key("nowPlayingRepeat") { controlSurface(NowPlayingEditItem.Repeat, controlsAlpha) { repeatControl() } }
-                key("nowPlayingPrevious") { controlSurface(NowPlayingEditItem.Previous, controlsAlpha) { previousControl() } }
-                key("nowPlayingPlay") { controlSurface(NowPlayingEditItem.Play, playAlpha) { playControl() } }
-                key("nowPlayingNext") { controlSurface(NowPlayingEditItem.Next, controlsAlpha) { nextControl() } }
-                key("nowPlayingShuffle") { controlSurface(NowPlayingEditItem.Shuffle, controlsAlpha) { shuffleControl() } }
-            } else {
-                key("nowPlayingShuffle") { controlSurface(NowPlayingEditItem.Shuffle, controlsAlpha) { shuffleControl() } }
-                key("nowPlayingPrevious") { controlSurface(NowPlayingEditItem.Previous, controlsAlpha) { previousControl() } }
-                key("nowPlayingPlay") { controlSurface(NowPlayingEditItem.Play, playAlpha) { playControl() } }
-                key("nowPlayingNext") { controlSurface(NowPlayingEditItem.Next, controlsAlpha) { nextControl() } }
-                key("nowPlayingRepeat") { controlSurface(NowPlayingEditItem.Repeat, controlsAlpha) { repeatControl() } }
-            }
-        }
-    ) { measurables, constraints ->
-        val placeables = measurables.map {
-            it.measure(constraints.copy(minWidth = 0, minHeight = 0))
-        }
+            .height(62.dp)
+    ) {
+        val density = LocalDensity.current
+        val widthPx = with(density) { maxWidth.roundToPx() }
+        val halfSlotPx = with(density) { 28.dp.roundToPx() }
         val centers = floatArrayOf(0.10f, 0.30f, 0.50f, 0.70f, 0.90f)
-        // Resolve dp offsets in the MeasureScope before entering PlacementScope; this keeps free
-        // layout offsets density-correct on every screen while controls retain their base slots.
-        val pixelOffsets = orderedOffsets.map { (x, y) -> x.dp.roundToPx() to y.dp.roundToPx() }
 
-        layout(constraints.maxWidth, constraints.maxHeight) {
-            placeables.forEachIndexed { index, placeable ->
-                val x = (constraints.maxWidth * centers[index] - placeable.width / 2f).toInt()
-                val y = (constraints.maxHeight - placeable.height) / 2
-                val (offsetX, offsetY) = pixelOffsets[index]
-                placeable.placeRelative(x + offsetX, y + offsetY)
+        @Composable
+        fun PositionedControl(
+            itemId: String,
+            index: Int,
+            alpha: Float,
+            itemOffset: Pair<Float, Float>,
+            content: @Composable () -> Unit
+        ) {
+            val placement = with(density) {
+                IntOffset(
+                    x = (widthPx * centers[index] - halfSlotPx + itemOffset.first.dp.toPx()).roundToInt(),
+                    y = itemOffset.second.dp.toPx().roundToInt()
+                )
             }
+            key(itemId) {
+                // Every slot is 56dp: smaller 42dp utility buttons centre to their historical
+                // position, while Play keeps its native 56dp hit target at the exact midpoint.
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterStart)
+                        .offset { placement }
+                        .size(56.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    controlSurface(itemId, alpha, content)
+                }
+            }
+        }
+
+        // The user may swap only the two outer utility controls. Previous/next stay paired around
+        // Play, and the standard Box slots preserve the same 10/30/50/70/90 percent centres.
+        if (shuffleRepeatSide == "right") {
+            PositionedControl(NowPlayingEditItem.Repeat, 0, controlsAlpha, orderedOffsets[0]) { repeatControl() }
+            PositionedControl(NowPlayingEditItem.Previous, 1, controlsAlpha, orderedOffsets[1]) { previousControl() }
+            PositionedControl(NowPlayingEditItem.Play, 2, playAlpha, orderedOffsets[2]) { playControl() }
+            PositionedControl(NowPlayingEditItem.Next, 3, controlsAlpha, orderedOffsets[3]) { nextControl() }
+            PositionedControl(NowPlayingEditItem.Shuffle, 4, controlsAlpha, orderedOffsets[4]) { shuffleControl() }
+        } else {
+            PositionedControl(NowPlayingEditItem.Shuffle, 0, controlsAlpha, orderedOffsets[0]) { shuffleControl() }
+            PositionedControl(NowPlayingEditItem.Previous, 1, controlsAlpha, orderedOffsets[1]) { previousControl() }
+            PositionedControl(NowPlayingEditItem.Play, 2, playAlpha, orderedOffsets[2]) { playControl() }
+            PositionedControl(NowPlayingEditItem.Next, 3, controlsAlpha, orderedOffsets[3]) { nextControl() }
+            PositionedControl(NowPlayingEditItem.Repeat, 4, controlsAlpha, orderedOffsets[4]) { repeatControl() }
         }
     }
 }

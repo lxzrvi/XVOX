@@ -24,6 +24,7 @@ fun XvoxOverlayHost(
                     onSettingsClick = controller.boxSettingsAction,
                     onEditClick = controller.boxEditAction,
                     onUndoClick = controller.boxUndoAction,
+                    headerLeadingContent = controller.boxHeaderLeadingContent,
                     headerTitleContent = controller.boxHeaderTitleContent,
                     bottomAction = controller.boxBottomAction,
                     modifier = Modifier.fillMaxSize()

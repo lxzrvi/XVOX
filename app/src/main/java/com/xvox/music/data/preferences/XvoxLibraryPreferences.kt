@@ -18,6 +18,16 @@ data class XvoxPlaylist(
     val customCoverUri: String? = null
 )
 
+/**
+ * A user-visible title confirmed against a specific physical MediaStore filename. Some providers
+ * retain an old embedded TITLE (notably for containers without a safe tag writer), so XVOX can
+ * accurately represent a verified rename without claiming the stale tag is the filename.
+ */
+data class XvoxSongTitleOverride(
+    val displayName: String,
+    val title: String
+)
+
 class XvoxLibraryPreferences(
     private val context: Context
 ) {
@@ -27,6 +37,8 @@ class XvoxLibraryPreferences(
         val playlists = stringPreferencesKey("library_playlists_json")
         /** Media URI -> app-owned preview of artwork that was also embedded into the edited file. */
         val songArtworkOverrides = stringPreferencesKey("library_song_artwork_overrides_json")
+        /** Media URI -> title only while its confirmed physical display filename still matches. */
+        val songTitleOverrides = stringPreferencesKey("library_song_title_overrides_json")
     }
 
     val likedSongIds: Flow<Set<Long>> = context.xvoxDataStore.data.map { it[Keys.liked].orEmpty() }
@@ -44,6 +56,10 @@ class XvoxLibraryPreferences(
         .map { it[Keys.songArtworkOverrides].orEmpty() }
         .distinctUntilChanged()
         .map(::decodeArtworkOverrides)
+    val songTitleOverrides: Flow<Map<String, XvoxSongTitleOverride>> = context.xvoxDataStore.data
+        .map { it[Keys.songTitleOverrides].orEmpty() }
+        .distinctUntilChanged()
+        .map(::decodeTitleOverrides)
 
     suspend fun setSongArtworkOverride(mediaUri: String, artworkUri: String?) {
         if (mediaUri.isBlank()) return
@@ -51,6 +67,27 @@ class XvoxLibraryPreferences(
             val current = decodeArtworkOverrides(prefs[Keys.songArtworkOverrides].orEmpty()).toMutableMap()
             if (artworkUri.isNullOrBlank()) current.remove(mediaUri) else current[mediaUri] = artworkUri
             prefs[Keys.songArtworkOverrides] = encodeArtworkOverrides(current)
+        }
+    }
+
+    /**
+     * Persist an override only after the file editor has queried MediaStore and confirmed the
+     * filename. A later scan applies it exclusively when that same filename is still indexed.
+     */
+    suspend fun setSongTitleOverride(
+        mediaUri: String,
+        displayName: String,
+        title: String
+    ) {
+        if (mediaUri.isBlank()) return
+        context.xvoxDataStore.edit { prefs ->
+            val current = decodeTitleOverrides(prefs[Keys.songTitleOverrides].orEmpty()).toMutableMap()
+            if (displayName.isBlank() || title.isBlank()) {
+                current.remove(mediaUri)
+            } else {
+                current[mediaUri] = XvoxSongTitleOverride(displayName, title)
+            }
+            prefs[Keys.songTitleOverrides] = encodeTitleOverrides(current)
         }
     }
 
@@ -202,6 +239,40 @@ class XvoxLibraryPreferences(
                     val mediaUri = keys.next()
                     val artworkUri = objectValue.optString(mediaUri).trim()
                     if (mediaUri.isNotBlank() && artworkUri.isNotBlank()) put(mediaUri, artworkUri)
+                }
+            }
+        }.getOrDefault(emptyMap())
+    }
+
+    private fun encodeTitleOverrides(overrides: Map<String, XvoxSongTitleOverride>): String {
+        val objectValue = JSONObject()
+        overrides.forEach { (mediaUri, override) ->
+            if (mediaUri.isNotBlank() && override.displayName.isNotBlank() && override.title.isNotBlank()) {
+                objectValue.put(
+                    mediaUri,
+                    JSONObject()
+                        .put("displayName", override.displayName)
+                        .put("title", override.title)
+                )
+            }
+        }
+        return objectValue.toString()
+    }
+
+    private fun decodeTitleOverrides(raw: String): Map<String, XvoxSongTitleOverride> {
+        if (raw.isBlank()) return emptyMap()
+        return runCatching {
+            val objectValue = JSONObject(raw)
+            buildMap {
+                val keys = objectValue.keys()
+                while (keys.hasNext()) {
+                    val mediaUri = keys.next()
+                    val entry = objectValue.optJSONObject(mediaUri) ?: continue
+                    val displayName = entry.optString("displayName").trim()
+                    val title = entry.optString("title").trim()
+                    if (mediaUri.isNotBlank() && displayName.isNotBlank() && title.isNotBlank()) {
+                        put(mediaUri, XvoxSongTitleOverride(displayName, title))
+                    }
                 }
             }
         }.getOrDefault(emptyMap())

@@ -435,7 +435,10 @@ fun XvoxArtworkLyrics(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null
                         ) {
-                            launcher.launch(XvoxLyricsFileSupport.pickerMimeTypes())
+                            // Let Android's picker show every document. Validation happens after
+                            // selection, so ZIPs/images/binary files are never attached and the
+                            // user receives the requested XVOX pill instead of a silent filter.
+                            launcher.launch(arrayOf("*/*"))
                         },
                     contentAlignment = Alignment.Center
                 ) {

@@ -5,9 +5,9 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -79,27 +79,29 @@ private fun HeadsetSettingsContent(
             audioOutput()
         }
 
-        // Connection and disconnection behavior are independent but equally important. Put their
-        // complete controls side by side so neither action spills onto a detached next line.
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            HeadsetActionBox(
+        // These action choices are one vertical group, rather than two narrow cards. It keeps
+        // their labels readable in phone portrait and makes the opposing connection lifecycle
+        // actions feel like one deliberate policy.
+        HeadsetGroupBox(title = "Automatic actions") {
+            Text(
+                text = "Choose how XVOX reacts to wired, Bluetooth, or USB audio changes.",
+                color = XvoxTheme.colors.secondaryText,
+                fontSize = 10.5.sp,
+                lineHeight = 14.sp
+            )
+            HeadsetActionSegment(
                 title = "When headset connects",
-                detail = "Choose what XVOX does after a wired, Bluetooth, or USB route is ready.",
+                detail = "After a private output becomes ready",
                 options = listOf("none" to "Nothing", "play" to "Start playing"),
                 selected = state.btConnectAction,
-                onSelect = onConnectAction,
-                modifier = Modifier.weight(1f)
+                onSelect = onConnectAction
             )
-            HeadsetActionBox(
+            HeadsetActionSegment(
                 title = "When headset disconnects",
-                detail = "Choose whether playback pauses when the private route goes away.",
+                detail = "When the private output goes away",
                 options = listOf("pause" to "Pause", "keep" to "Keep playing"),
                 selected = state.btDisconnectAction,
-                onSelect = onDisconnectAction,
-                modifier = Modifier.weight(1f)
+                onSelect = onDisconnectAction
             )
         }
     }
@@ -133,50 +135,49 @@ private fun HeadsetGroupBox(
 }
 
 @Composable
-private fun HeadsetActionBox(
+private fun HeadsetActionSegment(
     title: String,
     detail: String,
     options: List<Pair<String, String>>,
     selected: String,
-    onSelect: (String) -> Unit,
-    modifier: Modifier = Modifier
+    onSelect: (String) -> Unit
 ) {
     val colors = XvoxTheme.colors
-    val shape = RoundedCornerShape(16.dp)
+    val shape = RoundedCornerShape(13.dp)
     Column(
-        modifier = modifier
+        modifier = Modifier
+            .fillMaxWidth()
             .clip(shape)
-            .background(colors.cardElevated.copy(alpha = .70f))
-            .border(.8.dp, colors.cardBorder.copy(alpha = .78f), shape)
-            .padding(10.dp),
-        verticalArrangement = Arrangement.spacedBy(7.dp)
+            .background(colors.card.copy(alpha = .60f))
+            .border(.7.dp, colors.cardBorder.copy(alpha = .64f), shape)
+            .padding(9.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         Text(title, color = colors.primaryText, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
-        Text(
-            detail,
-            color = colors.secondaryText,
-            fontSize = 9.5.sp,
-            lineHeight = 12.sp,
-            minLines = 3,
-            maxLines = 3
-        )
-        options.forEach { (key, label) ->
-            val active = selected == key
-            val optionShape = RoundedCornerShape(11.dp)
-            Text(
-                text = label,
-                color = if (active) colors.background else colors.primaryText,
-                fontSize = 10.sp,
-                fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(optionShape)
-                    .background(if (active) colors.primaryAccent else colors.card.copy(alpha = .78f))
-                    .border(.7.dp, if (active) colors.primaryAccent else colors.cardBorder.copy(alpha = .65f), optionShape)
-                    .xvoxPressScale { onSelect(key) }
-                    .padding(horizontal = 8.dp, vertical = 8.dp),
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center
-            )
+        Text(detail, color = colors.secondaryText, fontSize = 10.sp, lineHeight = 13.sp)
+        androidx.compose.foundation.layout.Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            options.forEach { (key, label) ->
+                val active = selected == key
+                val optionShape = RoundedCornerShape(10.dp)
+                Text(
+                    text = label,
+                    color = if (active) colors.background else colors.primaryText,
+                    fontSize = 10.5.sp,
+                    fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(optionShape)
+                        .background(if (active) colors.primaryAccent else colors.cardElevated)
+                        .border(.7.dp, if (active) colors.primaryAccent else colors.cardBorder.copy(alpha = .65f), optionShape)
+                        .xvoxPressScale { onSelect(key) }
+                        .padding(horizontal = 7.dp, vertical = 8.dp),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    maxLines = 1
+                )
+            }
         }
     }
 }

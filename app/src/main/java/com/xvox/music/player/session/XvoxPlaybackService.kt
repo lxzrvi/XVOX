@@ -250,6 +250,7 @@ class XvoxPlaybackService : MediaSessionService() {
         serviceScope.launch { prefs.crossfadeSmart.collect { playback.smartBlendEnabled = it } }
         serviceScope.launch { prefs.crossfadeClashControl.collect { playback.clashControl = it } }
         serviceScope.launch { prefs.crossfadeBeatSync.collect { playback.beatSyncEnabled = it } }
+        serviceScope.launch { prefs.crossfadeCurveStyle.collect { playback.curveStyle = it } }
         serviceScope.launch { prefs.crossfade.distinctUntilChanged().collect { playback.crossfadeEnabled = it } }
         serviceScope.launch { prefs.crossfadeDuration.distinctUntilChanged().collect { playback.crossfadeSeconds = it.coerceIn(1, 12) } }
         serviceScope.launch { prefs.audioOutputRoute.distinctUntilChanged().collect { playback.setOutputRoute(it) } }

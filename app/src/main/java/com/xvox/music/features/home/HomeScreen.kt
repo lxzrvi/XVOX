@@ -41,7 +41,8 @@ import com.xvox.music.core.ui.navigation.LocalXvoxTopInset
 import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
 import com.xvox.music.data.preferences.UserPreferencesRepository
 import com.xvox.music.data.preferences.XvoxPlaylist
-import com.xvox.music.features.artist.ArtistInfoDialog
+import com.xvox.music.features.artist.ArtistInfoBox
+import com.xvox.music.features.artist.ArtistInfoHeaderArtwork
 import com.xvox.music.features.artist.XvoxArtist
 import com.xvox.music.features.artist.XvoxArtistGrid
 import com.xvox.music.features.home.allsongs.XvoxMosaicPagePlan
@@ -118,6 +119,7 @@ fun HomeScreen(
                 viewModel.setArtistPhoto(croppingArtistPhotoFor!!.first, croppedUri)
                 croppingArtistPhotoFor = null
                 showArtistInfo = null
+                overlays.hideBox()
                 overlays.showP("Artist photo updated")
             },
             onDismiss = { croppingArtistPhotoFor = null }
@@ -162,6 +164,50 @@ fun HomeScreen(
     val isPlaylistSelectionMode = selectedPlaylistIds.isNotEmpty()
     val isSelectionMode = isSongSelectionMode || isArtistSelectionMode || isPlaylistSelectionMode
     var pendingDeleteSongs by remember { mutableStateOf<List<Song>>(emptyList()) }
+
+    // Artist options are deliberately hosted by the app-wide overlay, not by Home's content tree.
+    // That host is composed after the mini-player and navigation shell, so a long-press sheet
+    // always remains above both persistent layers.
+    fun showArtistOptions(artist: XvoxArtist) {
+        showArtistInfo = artist
+        overlays.showBox(
+            title = artist.name,
+            headerLeadingContent = { ArtistInfoHeaderArtwork(artist) },
+            onDismiss = { showArtistInfo = null }
+        ) {
+            ArtistInfoBox(
+                artist = artist,
+                hideText = config.artistHideText,
+                liked = artist.name in likedArtistNames,
+                onToggleLiked = { viewModel.toggleLikedArtist(artist.name) },
+                columns = config.artistColumns,
+                onColumnsChange = { viewModel.setArtistColumns(it) },
+                onHideTextChange = { viewModel.setArtistHideText(it) },
+                onDismiss = overlays::hideBox,
+                onPlayNext = {
+                    val artistSongs = artist.songs.map { it.copy(source = artist.name) }
+                    val message = playerViewModel.playNextInQueue(artistSongs)
+                    overlays.showP(if (message.isNotBlank()) message else "Playing by ${artist.name}")
+                },
+                onAddToQueue = {
+                    val artistSongs = artist.songs.map { it.copy(source = artist.name) }
+                    showMultiAddToQueueOverlay(overlays, playerViewModel, artistSongs)
+                },
+                onSelectArtist = {
+                    selectedSongIds = emptySet()
+                    selectedPlaylistIds = emptySet()
+                    selectedArtistNames = setOf(artist.name)
+                    selectionCategoryName = "Artists"
+                    selectionLibraryMode = XvoxHomeLibraryMode.ARTISTS
+                },
+                onHideArtist = {
+                    viewModel.hideArtist(artist.name)
+                    overlays.showP("${artist.name} hidden")
+                }
+            )
+        }
+    }
+
     // A selection rail is contextual to the underlying Home surface. Once Now Playing has covered
     // that surface and is subsequently closed, return Home in its normal non-selection state.
     var selectionWasCoveredByNowPlaying by remember { mutableStateOf(false) }
@@ -556,10 +602,10 @@ fun HomeScreen(
                         }
                         if (selectedArtistNames.isEmpty()) selectionCategoryName = null
                     } else {
-                        // Preserve the original artist option sheet. Its Select action enters the
-                        // distinct outer artist-selection rail, instead of long press jumping
-                        // straight into selection and hiding the prior actions.
-                        showArtistInfo = artist
+                        // Its Select action enters the distinct outer artist-selection rail,
+                        // instead of long press jumping straight into selection and hiding the
+                        // other actions.
+                        showArtistOptions(artist)
                     }
                 },
                 selectedArtistNames = selectedArtistNames,
@@ -844,7 +890,7 @@ fun HomeScreen(
                         actions = buildList {
                             if (selectedArtists.size == 1) {
                                 add(XvoxCollectionSelectionAction(R.drawable.ic_xvox_info, "Artist options") {
-                                    showArtistInfo = selectedArtists.first()
+                                    showArtistOptions(selectedArtists.first())
                                 })
                             }
                             add(XvoxCollectionSelectionAction(R.drawable.ic_xvox_play, "Play selected artists") {
@@ -983,39 +1029,4 @@ fun HomeScreen(
         }
     }
 
-    // Compose this sheet after Home content so it owns the foreground and receives taps.
-    if (showArtistInfo != null) {
-        val currentArtist = showArtistInfo!!
-        ArtistInfoDialog(
-            artist = currentArtist,
-            hideText = config.artistHideText,
-            liked = currentArtist.name in likedArtistNames,
-            onToggleLiked = { viewModel.toggleLikedArtist(currentArtist.name) },
-            columns = config.artistColumns,
-            onColumnsChange = { viewModel.setArtistColumns(it) },
-            onHideTextChange = { viewModel.setArtistHideText(it) },
-            onDismiss = { showArtistInfo = null },
-            onPlayNext = {
-                val artistSongs = currentArtist.songs.map { it.copy(source = currentArtist.name) }
-                val msg = playerViewModel.playNextInQueue(artistSongs)
-                overlays.showP(if (msg.isNotBlank()) msg else "Playing by ${currentArtist.name}")
-            },
-            onAddToQueue = {
-                val artistSongs = currentArtist.songs.map { it.copy(source = currentArtist.name) }
-                showMultiAddToQueueOverlay(overlays, playerViewModel, artistSongs)
-            },
-            onSelectArtist = {
-                selectedSongIds = emptySet()
-                selectedPlaylistIds = emptySet()
-                selectedArtistNames = setOf(currentArtist.name)
-                selectionCategoryName = "Artists"
-                selectionLibraryMode = XvoxHomeLibraryMode.ARTISTS
-                showArtistInfo = null
-            },
-            onHideArtist = {
-                viewModel.hideArtist(currentArtist.name)
-                overlays.showP("${currentArtist.name} hidden")
-            }
-        )
-    }
 }

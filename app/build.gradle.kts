@@ -98,4 +98,6 @@ dependencies {
     implementation("io.coil-kt.coil3:coil-gif:3.3.0")
     implementation("androidx.core:core-splashscreen:1.0.1")
     implementation("net.jthink:jaudiotagger:3.0.1")
+    // Pure-Java Ogg/Opus packet writer used for standards-compliant OpusTags title/artwork edits.
+    implementation("org.gagravarr:vorbis-java-core:0.8")
 }

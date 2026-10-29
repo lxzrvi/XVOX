@@ -585,21 +585,7 @@ private fun SupportDeveloperCard(modifier: Modifier = Modifier) {
 
     SettingsCardFrame(title = "Support the Developer", modifier = modifier) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(colors.primaryAccent.copy(alpha = 0.18f))
-                    .border(1.dp, colors.primaryAccent.copy(alpha = 0.18f), RoundedCornerShape(16.dp))
-                    .padding(12.dp)
-            ) {
-                Text(
-                    text = "Developer Ixzrvi crafted XVOX using Kotlin & Jetpack Compose. If you love the experience and want to encourage further development and new upcoming apps, you can show your support! It is totally your own choice and deeply appreciated.",
-                    color = colors.primaryText,
-                    fontSize = 12.sp,
-                    lineHeight = 18.sp
-                )
-            }
+            SupportDeveloperHero()
 
             Row(
                 modifier = Modifier
@@ -641,6 +627,68 @@ private fun SupportDeveloperCard(modifier: Modifier = Modifier) {
                     )
                 }
             }
+        }
+    }
+}
+
+/**
+ * The support card's hero stays within the active palette: a pair of slow accent blooms gives it
+ * a living thank-you feel without introducing a separate red/orange donation brand.
+ */
+@Composable
+private fun SupportDeveloperHero() {
+    val colors = XvoxTheme.colors
+    val transition = rememberInfiniteTransition(label = "supportDeveloperHero")
+    val phase by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(5200, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "supportDeveloperHeroPhase"
+    )
+    val shape = RoundedCornerShape(17.dp)
+    val accent = colors.primaryAccent
+    val bloomA = Brush.radialGradient(
+        colors = listOf(accent.copy(alpha = if (colors.isLight) .30f else .44f), Color.Transparent),
+        center = Offset(-8f + phase * 190f, 8f + phase * 52f),
+        radius = 155f
+    )
+    val bloomB = Brush.radialGradient(
+        colors = listOf(lerp(accent, Color.White, .30f).copy(alpha = if (colors.isLight) .15f else .24f), Color.Transparent),
+        center = Offset(218f - phase * 170f, 112f - phase * 72f),
+        radius = 135f
+    )
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(colors.cardElevated, shape)
+            .background(bloomB, shape)
+            .background(bloomA, shape)
+            .border(1.dp, accent.copy(alpha = if (colors.isLight) .22f else .30f), shape)
+            .padding(14.dp)
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            Text(
+                text = "XVOX, made with care",
+                color = colors.primaryText,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.ExtraBold
+            )
+            Text(
+                text = "Developer Ixzrvi crafted XVOX using Kotlin and Jetpack Compose. If the experience brings you joy, a small optional treat helps support future improvements and new apps.",
+                color = colors.primaryText.copy(alpha = .90f),
+                fontSize = 11.5.sp,
+                lineHeight = 16.sp
+            )
+            Text(
+                text = "Completely optional · deeply appreciated",
+                color = colors.secondaryText,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.SemiBold
+            )
         }
     }
 }
@@ -887,38 +935,10 @@ private fun SettingsDialogAction(
 
 @Composable
 private fun AboutSectionCard(modifier: Modifier = Modifier) {
-    val colors = XvoxTheme.colors
-    val context = LocalContext.current
-    val haptics = LocalXvoxHaptics.current
     val isLandscape = LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
-    val shareShape = CircleShape
-    SettingsCardFrame(
-        title = "About XVOX",
-        modifier = modifier,
-        titleAction = {
-            // Share belongs beside the actual About title, keeping the card's primary action
-            // visible without adding another wide control above its feature guide.
-            Box(
-                modifier = Modifier
-                    .size(34.dp)
-                    .clip(shareShape)
-                    .background(colors.cardElevated)
-                    .border(.8.dp, colors.cardBorder.copy(alpha = .78f), shareShape)
-                    .xvoxPressScale {
-                        haptics.tap()
-                        shareXvoxApp(context)
-                    },
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_xvox_share),
-                    contentDescription = "Share XVOX",
-                    tint = colors.primaryAccent,
-                    modifier = Modifier.size(17.dp)
-                )
-            }
-        }
-    ) {
+    SettingsCardFrame(title = "About XVOX", modifier = modifier) {
+        // Sharing and feedback are expandable in the About content, keeping one clear action
+        // cluster rather than a detached title icon and an unrelated footer.
         AboutSettingsSection(expanded = isLandscape)
     }
 }

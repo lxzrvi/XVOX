@@ -215,20 +215,22 @@ private fun CollectionSelectionAction(
     val colors = XvoxTheme.colors
     val overlays = LocalXvoxOverlayController.current
     val actionShape = RoundedCornerShape(10.dp)
+    val destructive = label.startsWith("Delete") || label.startsWith("Remove")
+    val actionTint = if (destructive) androidx.compose.ui.graphics.Color(0xFFE85B5B) else colors.primaryAccent
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(height)
             .clip(actionShape)
-            .background(colors.background.copy(alpha = .72f))
-            .border(.8.dp, colors.cardBorder.copy(alpha = .88f), actionShape)
+            .background(if (destructive) actionTint.copy(alpha = .10f) else colors.background.copy(alpha = .72f))
+            .border(.8.dp, if (destructive) actionTint.copy(alpha = .48f) else colors.cardBorder.copy(alpha = .88f), actionShape)
             .combinedClickable(onClick = onClick, onLongClick = { overlays.showP(label) }),
         contentAlignment = Alignment.Center
     ) {
         Icon(
             painter = painterResource(iconRes),
             contentDescription = label,
-            tint = colors.primaryAccent,
+            tint = actionTint,
             modifier = Modifier
                 .size(20.dp)
                 .graphicsLayer { scaleX = if (mirrorIcon) -1f else 1f }

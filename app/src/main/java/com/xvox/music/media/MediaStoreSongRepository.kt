@@ -196,7 +196,12 @@ class MediaStoreSongRepository(
                     continue
                 }
 
-                val title = cursor.getString(titleColumn)?.trim()?.takeIf { it.isNotEmpty() } ?: "Unknown song"
+                val title = cursor.getString(titleColumn)?.trim()?.takeIf { it.isNotEmpty() }
+                    ?: displayName
+                        ?.let { fileName -> fileName.substringBeforeLast('.', fileName) }
+                        ?.trim()
+                        ?.takeIf { it.isNotEmpty() }
+                    ?: "Unknown song"
                 val rawArtist = cursor.getString(artistColumn)?.trim()
                 val artist = rawArtist?.takeIf {
                     it.isNotEmpty() && !it.equals("<unknown>", ignoreCase = true)
@@ -224,7 +229,8 @@ class MediaStoreSongRepository(
                         duration = duration,
                         sizeBytes = sizeBytes,
                         folderName = folderName,
-                        folderPath = com.xvox.music.features.home.FolderPaths.normalize(folderPath)
+                        folderPath = com.xvox.music.features.home.FolderPaths.normalize(folderPath),
+                        displayName = displayName.orEmpty()
                     )
                 )
             }

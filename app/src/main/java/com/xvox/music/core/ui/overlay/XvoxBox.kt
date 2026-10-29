@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.shape.CircleShape
@@ -491,12 +492,13 @@ fun XvoxSheet(
                         presentation == XvoxBoxPresentation.EQUALIZER -> 16.dp
                         else -> 16.dp
                     }
-                    // Only fixed (overflowing) sheets fill their bounded viewport. Compact
-                    // content keeps its intrinsic height instead of gaining blank space.
+                    // The body always owns the flexible sheet lane. With fill=false a compact
+                    // sheet still wraps its content, while an IME can only shrink this viewport
+                    // instead of pushing the fixed footer below the keyboard.
                     val bodyViewport = if (
                         requestedHeight != null ||
                         (presentation == XvoxBoxPresentation.EQUALIZER && equalizerBaseHeightPx > 0f)
-                    ) Modifier.weight(1f) else Modifier
+                    ) Modifier.weight(1f) else Modifier.weight(1f, fill = false)
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()

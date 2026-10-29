@@ -34,8 +34,24 @@ fun HiddenSongsSettingsSection(
     val state by viewModel.state.collectAsState()
     val colors = XvoxTheme.colors
     val byId = remember(state.hiddenSongs) { state.hiddenSongs.associateBy { it.id } }
-    val ids = remember(state.hiddenSongIds, byId) { state.hiddenSongIds.sortedBy { byId[it]?.title.orEmpty().lowercase() } }
-    val artists = remember(state.hiddenArtists) { state.hiddenArtists.toList().sorted() }
+    val artists = remember(state.hiddenArtists) { state.hiddenArtists.toList().sortedBy { it.lowercase() } }
+    // Hiding an artist intentionally hides every matching song. Those song IDs still live in the
+    // durable bin so restore can be exact, but listing them again below the artist creates both
+    // duplicate rows and a misleading Restore all count.
+    val hiddenArtistKeys = remember(artists) { artists.map(::artistBinKey).toSet() }
+    val hiddenArtistSongIds = remember(state.hiddenSongs, hiddenArtistKeys) {
+        state.hiddenSongs.asSequence()
+            .filter { artistBinKey(it.artist) in hiddenArtistKeys }
+            .map { it.id }
+            .toSet()
+    }
+    val ids = remember(state.hiddenSongIds, hiddenArtistSongIds, byId) {
+        state.hiddenSongIds
+            .asSequence()
+            .filterNot { it in hiddenArtistSongIds }
+            .sortedBy { byId[it]?.title.orEmpty().lowercase() }
+            .toList()
+    }
 
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         if (state.loading) {
@@ -43,6 +59,8 @@ fun HiddenSongsSettingsSection(
         } else if (ids.isEmpty() && artists.isEmpty()) {
             Text("Nothing deleted", color = colors.primaryText, modifier = Modifier.padding(vertical = 18.dp))
         } else {
+            // Count visible logical entries. Artist-managed song IDs are restored by the artist
+            // action as one unit, so they must not inflate this button's count.
             val totalCount = ids.size + artists.size
             Button(onClick = viewModel::restoreAllHiddenSongs, modifier = Modifier.fillMaxWidth()) {
                 Text("Restore all ($totalCount)")
@@ -92,8 +110,11 @@ fun HiddenSongsSettingsSection(
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
+                                val artistSongCount = state.hiddenSongs.count { song ->
+                                    artistBinKey(song.artist) == artistBinKey(artist)
+                                }
                                 Text(
-                                    "Artist",
+                                    text = if (artistSongCount == 1) "1 hidden song" else "$artistSongCount hidden songs",
                                     color = colors.secondaryText,
                                     fontSize = 10.sp
                                 )
@@ -176,3 +197,6 @@ fun HiddenSongsSettingsSection(
         }
     }
 }
+
+/** Case/spacing tolerant key used only to group a hidden artist with its hidden songs. */
+private fun artistBinKey(artist: String): String = artist.trim().lowercase()

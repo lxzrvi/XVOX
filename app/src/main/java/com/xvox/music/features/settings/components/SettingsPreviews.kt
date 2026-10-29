@@ -375,7 +375,9 @@ fun CrossfadeSettingsPreview(state: SettingsState) {
 
             for (i in 0..100) {
                 val t = i / 100f
-                val gain = if (state.crossfade) com.xvox.music.player.playback.EnergyBlendPlanner.gains(t, handoff, state.crossfadeSmart)
+                val gain = if (state.crossfade) com.xvox.music.player.playback.EnergyBlendPlanner.gains(
+                    t, handoff, state.crossfadeSmart, state.crossfadeCurveStyle
+                )
                     else com.xvox.music.player.playback.CrossfadeGains(if (t < .5f) 1f else 0f, if (t < .5f) 0f else 1f)
                 val cycles = state.crossfadeDuration * 1.6f * state.playbackPitch.coerceIn(0.5f, 2.0f)
                 val bass = if (state.crossfadeSmart) com.xvox.music.player.playback.EnergyBlendPlanner.bassGains(t, handoff, state.crossfadeClashControl, gain)

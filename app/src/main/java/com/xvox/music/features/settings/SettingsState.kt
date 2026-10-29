@@ -62,6 +62,8 @@ data class SettingsState(
     val crossfadeSmart: Boolean = true,
     val crossfadeClashControl: Float = .7f,
     val crossfadeBeatSync: Boolean = true,
+    /** 0 = equal-power, 1 = late/steep, 2 = soft S-curve. */
+    val crossfadeCurveStyle: Int = 0,
     val widgetCustomization: com.xvox.music.widget.WidgetCustomization = com.xvox.music.widget.WidgetCustomization(),
     val widgetPaddingX: Int = 10,
     val widgetPaddingY: Int = 8,

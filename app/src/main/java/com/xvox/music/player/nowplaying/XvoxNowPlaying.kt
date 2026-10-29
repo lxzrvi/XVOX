@@ -265,6 +265,7 @@ fun XvoxNowPlaying(
         settingsViewModel.setCrossfadeSmart(draft.crossfadeSmart)
         settingsViewModel.setCrossfadeClashControl(draft.crossfadeClashControl)
         settingsViewModel.setCrossfadeBeatSync(draft.crossfadeBeatSync)
+        settingsViewModel.setCrossfadeCurveStyle(draft.crossfadeCurveStyle)
     }
     fun applyThreeDSoundDraft(draft: com.xvox.music.features.settings.SettingsState = optionDraft) {
         settingsViewModel.setStereoWidening(draft.stereoWidening)
@@ -1425,7 +1426,8 @@ fun XvoxNowPlaying(
                                             crossfadeDuration = 3,
                                             crossfadeSmart = true,
                                             crossfadeClashControl = .7f,
-                                            crossfadeBeatSync = true
+                                            crossfadeBeatSync = true,
+                                            crossfadeCurveStyle = com.xvox.music.player.playback.CrossfadeMath.CURVE_EQUAL_POWER
                                         )
                                         applyCrossfadeDraft()
                                     },

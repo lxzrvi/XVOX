@@ -54,6 +54,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             launch { prefs.crossfadeSmart.collect { v -> _state.update { it.copy(crossfadeSmart = v) } } }
             launch { prefs.crossfadeClashControl.collect { v -> _state.update { it.copy(crossfadeClashControl = v) } } }
             launch { prefs.crossfadeBeatSync.collect { v -> _state.update { it.copy(crossfadeBeatSync = v) } } }
+            launch { prefs.crossfadeCurveStyle.collect { v -> _state.update { it.copy(crossfadeCurveStyle = v) } } }
             launch { prefs.widgetCustomization.collect { value ->
                 if (pendingWidget == null || pendingWidget == value) {
                     pendingWidget = null
@@ -221,6 +222,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setCrossfadeSmart(v: Boolean) = viewModelScope.launch { prefs.setCrossfadeSmart(v) }
     fun setCrossfadeClashControl(v: Float) = viewModelScope.launch { prefs.setCrossfadeClashControl(v) }
     fun setCrossfadeBeatSync(value: Boolean) = viewModelScope.launch { prefs.setCrossfadeBeatSync(value) }
+    fun setCrossfadeCurveStyle(style: Int) = viewModelScope.launch { prefs.setCrossfadeCurveStyle(style) }
     fun setWidgetPaddingX(value: Int) = viewModelScope.launch { prefs.setWidgetPaddingX(value) }
     fun setWidgetPaddingY(value: Int) = viewModelScope.launch { prefs.setWidgetPaddingY(value) }
     fun updateWidget(change: (com.xvox.music.widget.WidgetCustomization) -> com.xvox.music.widget.WidgetCustomization) {

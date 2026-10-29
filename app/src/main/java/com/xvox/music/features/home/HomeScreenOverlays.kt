@@ -218,6 +218,16 @@ fun showSongFileEditOverlay(
                 if (saved.artworkPreviewUri != null) {
                     viewModel.setSongArtworkOverride(saved.mediaUri, saved.artworkPreviewUri)
                 }
+                if (saved.titleChanged || saved.createdCopy) {
+                    // The editor already re-read this exact DISPLAY_NAME and TITLE. It preserves
+                    // a newly indexed tag title when confirmed, otherwise safely derives the
+                    // visible title from the physical filename instead of surfacing stale metadata.
+                    viewModel.setSongTitleOverride(
+                        mediaUri = saved.mediaUri,
+                        displayName = saved.displayName,
+                        title = saved.displayTitle.ifBlank { song.title }
+                    )
+                }
                 overlays.hideBox()
                 viewModel.refresh()
                 overlays.showP(saved.message)
@@ -333,6 +343,9 @@ fun showSongOptionsOverlay(
             onInfo = {
                 overlays.hideBox()
                 viewModel.loadInfo(sourcedSong) { info ->
+                    // The detail surface must not inherit a centred/menu presentation if a
+                    // concurrent action opened another box while MediaStore info was loading.
+                    overlays.hideBox()
                     overlays.showBox(
                         title = "Song info",
                         bottomAction = {

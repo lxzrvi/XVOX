@@ -52,6 +52,10 @@ class XvoxOverlayController {
     internal var boxHeaderTitleContent by mutableStateOf<(@Composable () -> Unit)?>(null)
         private set
 
+    /** Optional leading header content, such as an artist avatar beside the standard title. */
+    internal var boxHeaderLeadingContent by mutableStateOf<(@Composable () -> Unit)?>(null)
+        private set
+
     /** Optional fixed footer rendered outside the sheet's scrolling content. */
     internal var boxBottomAction by mutableStateOf<(@Composable () -> Unit)?>(null)
         private set
@@ -78,6 +82,7 @@ class XvoxOverlayController {
         onSettings: (() -> Unit)? = null,
         onEdit: (() -> Unit)? = null,
         onUndo: (() -> Unit)? = null,
+        headerLeadingContent: (@Composable () -> Unit)? = null,
         headerTitleContent: (@Composable () -> Unit)? = null,
         bottomAction: (@Composable () -> Unit)? = null,
         onDismiss: (() -> Unit)? = null,
@@ -96,6 +101,7 @@ class XvoxOverlayController {
         boxSettingsAction = onSettings
         boxEditAction = onEdit
         boxUndoAction = onUndo
+        boxHeaderLeadingContent = headerLeadingContent
         boxHeaderTitleContent = headerTitleContent
         boxBottomAction = bottomAction
         boxOnDismiss = onDismiss
@@ -109,6 +115,7 @@ class XvoxOverlayController {
         onSettings: (() -> Unit)? = null,
         onEdit: (() -> Unit)? = null,
         onUndo: (() -> Unit)? = null,
+        headerLeadingContent: (@Composable () -> Unit)? = null,
         headerTitleContent: (@Composable () -> Unit)? = null,
         presentation: XvoxBoxPresentation = XvoxBoxPresentation.DEFAULT,
         content: @Composable () -> Unit
@@ -119,6 +126,7 @@ class XvoxOverlayController {
         boxSettingsAction = onSettings
         boxEditAction = onEdit
         boxUndoAction = onUndo
+        boxHeaderLeadingContent = headerLeadingContent
         boxHeaderTitleContent = headerTitleContent
         boxBottomAction = null
         boxOnDismiss = null
@@ -135,6 +143,7 @@ class XvoxOverlayController {
         boxSettingsAction = null
         boxEditAction = null
         boxUndoAction = null
+        boxHeaderLeadingContent = null
         boxHeaderTitleContent = null
         boxBottomAction = null
         dismiss?.invoke()

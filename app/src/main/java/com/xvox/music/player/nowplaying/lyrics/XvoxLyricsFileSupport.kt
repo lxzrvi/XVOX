@@ -11,6 +11,7 @@ import android.provider.OpenableColumns
  */
 object XvoxLyricsFileSupport {
     private val supportedExtensions = setOf("lrc", "txt", "srt", "vtt", "ass", "ssa")
+    private val timedExtensions = setOf("srt", "vtt", "ass", "ssa")
 
     private val supportedMimeTypes = setOf(
         "text/plain",
@@ -24,29 +25,26 @@ object XvoxLyricsFileSupport {
         "text/x-ssa"
     )
 
-    /**
-     * Include the generic binary MIME only because several Android document providers label .lrc
-     * files that way. [isSupported] still rejects ZIPs, images, and every unknown extension after
-     * selection, before app state or lyric preferences can be changed.
-     */
-    fun pickerMimeTypes(): Array<String> = arrayOf(
-        "text/plain",
-        "text/*",
-        "application/x-subrip",
-        "text/vtt",
-        "application/octet-stream"
-    )
-
     fun isSupported(context: Context, uri: Uri): Boolean {
-        val name = displayName(context, uri)
-        val extension = name.substringAfterLast('.', "").trim().lowercase()
+        val extension = extension(context, uri)
         if (extension.isNotBlank()) {
             return extension in supportedExtensions
         }
 
-        val mimeType = context.contentResolver.getType(uri).orEmpty().lowercase()
-        return mimeType in supportedMimeTypes || mimeType.startsWith("text/")
+        val mimeType = context.contentResolver.getType(uri)
+            .orEmpty()
+            .substringBefore(';')
+            .trim()
+            .lowercase()
+        return mimeType in supportedMimeTypes
     }
+
+    /** File suffix is used only to enforce syntax that the named subtitle formats require. */
+    fun extension(context: Context, uri: Uri): String =
+        displayName(context, uri).substringAfterLast('.', "").trim().lowercase()
+
+    fun requiresTimedSyntax(context: Context, uri: Uri): Boolean =
+        extension(context, uri) in timedExtensions
 
     fun unsupportedMessage(): String = "Unsupported lyrics file or format"
 

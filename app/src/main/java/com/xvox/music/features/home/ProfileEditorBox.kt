@@ -134,22 +134,9 @@ fun ProfileEditorBox(
                 android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
             )
         }
-        val isGif = uri.toString().contains(".gif", ignoreCase = true) ||
-            (context.contentResolver.getType(uri)?.contains("gif", ignoreCase = true) == true)
-        if (isGif) {
-            // Preserve animation by keeping an internal copy rather than sending a GIF through a
-            // bitmap cropper.  Selecting it is still draft-only until Save.
-            val saved = runCatching {
-                val file = java.io.File(context.filesDir, "xvox_header_gif_${System.currentTimeMillis()}.gif")
-                context.contentResolver.openInputStream(uri)?.use { input ->
-                    java.io.FileOutputStream(file).use { output -> input.copyTo(output) }
-                }
-                Uri.fromFile(file).toString()
-            }.getOrElse { uri.toString() }
-            onDraftChange(draft.copy(headerImageUri = saved, rememberedHeaderImageUri = saved))
-        } else {
-            croppingHeaderUri = uri
-        }
+        // The crop dialog now exports animated GIFs as animated GIFs, so headers use one bounded
+        // pan/zoom path for every source instead of bypassing crop for animation.
+        croppingHeaderUri = uri
     }
 
     if (croppingAvatarUri != null) {

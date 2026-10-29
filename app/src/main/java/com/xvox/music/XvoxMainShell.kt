@@ -1108,7 +1108,12 @@ fun XvoxMainShell(
                     onTimer = ::showTimerBox,
                     onQueue = ::showQueueBox,
                     onInfo = {
+                        // Song information is always a first-level bottom sheet. Clear the
+                        // current Now Playing/menu box before loading and once more before
+                        // presenting in case an asynchronous callback raced another overlay.
+                        overlays.hideBox()
                         homeViewModel.loadInfo(playingSong) { info ->
+                            overlays.hideBox()
                             overlays.showBox(
                                 title = "Song info",
                                 bottomAction = {

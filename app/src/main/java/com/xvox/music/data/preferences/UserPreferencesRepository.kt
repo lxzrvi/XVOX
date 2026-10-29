@@ -82,6 +82,8 @@ class UserPreferencesRepository(
         val crossfadeSmart = booleanPreferencesKey("crossfade_smart")
         val crossfadeClashControl = floatPreferencesKey("crossfade_clash_control")
         val crossfadeBeatSync = booleanPreferencesKey("crossfade_beat_sync")
+        /** Persisted curve family for the dual-deck gain law. */
+        val crossfadeCurveStyle = intPreferencesKey("crossfade_curve_style")
         val widgetCustomization = stringPreferencesKey("widget_customization_v1")
         val widgetPaddingX = intPreferencesKey("widget_padding_x")
         val widgetPaddingY = intPreferencesKey("widget_padding_y")
@@ -369,6 +371,9 @@ class UserPreferencesRepository(
     val crossfadeSmart: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.crossfadeSmart] ?: true }.distinctUntilChanged()
     val crossfadeClashControl: Flow<Float> = context.xvoxDataStore.data.map { (it[Keys.crossfadeClashControl] ?: .7f).coerceIn(0f, 1f) }.distinctUntilChanged()
     val crossfadeBeatSync: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.crossfadeBeatSync] ?: true }.distinctUntilChanged()
+    val crossfadeCurveStyle: Flow<Int> = context.xvoxDataStore.data.map {
+        (it[Keys.crossfadeCurveStyle] ?: 0).coerceIn(0, 2)
+    }.distinctUntilChanged()
     val widgetPaddingX: Flow<Int> = context.xvoxDataStore.data.map { (it[Keys.widgetPaddingX] ?: 10).coerceIn(0, 32) }.distinctUntilChanged()
     val widgetPaddingY: Flow<Int> = context.xvoxDataStore.data.map { (it[Keys.widgetPaddingY] ?: 8).coerceIn(0, 28) }.distinctUntilChanged()
     val crossfade: Flow<Boolean> = context.xvoxDataStore.data.map { it[Keys.crossfade] ?: false }.distinctUntilChanged()
@@ -653,6 +658,9 @@ class UserPreferencesRepository(
     suspend fun setCrossfadeSmart(v: Boolean) { context.xvoxDataStore.edit { it[Keys.crossfadeSmart] = v } }
     suspend fun setCrossfadeClashControl(v: Float) { context.xvoxDataStore.edit { it[Keys.crossfadeClashControl] = v.coerceIn(0f, 1f) } }
     suspend fun setCrossfadeBeatSync(enabled: Boolean) { context.xvoxDataStore.edit { it[Keys.crossfadeBeatSync] = enabled } }
+    suspend fun setCrossfadeCurveStyle(style: Int) {
+        context.xvoxDataStore.edit { it[Keys.crossfadeCurveStyle] = style.coerceIn(0, 2) }
+    }
     suspend fun setWidgetCustomization(value: com.xvox.music.widget.WidgetCustomization) { context.xvoxDataStore.edit { it[Keys.widgetCustomization] = value.sanitized().encode() } }
     suspend fun setWidgetPaddingX(value: Int) { context.xvoxDataStore.edit { it[Keys.widgetPaddingX] = value.coerceIn(0, 32) } }
     suspend fun setWidgetPaddingY(value: Int) { context.xvoxDataStore.edit { it[Keys.widgetPaddingY] = value.coerceIn(0, 28) } }

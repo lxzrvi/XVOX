@@ -99,10 +99,6 @@ fun HorizontalSongPages(
     val columns = config.columnsFor(isLandscape)
 
     BoxWithConstraints(modifier.fillMaxWidth()) {
-        val rows = remember(songs.size, config.rows, config.style) {
-            if (config.style == "mosaic2") mosaicRows(songs.size, config.rows.coerceIn(3, 10)) else config.rows.coerceIn(3, 10)
-        }
-        val renderConfig = remember(config, rows) { config.copy(rows = rows) }
         val pageWidth = maxWidth - 12.dp
         // Dense five/six-column portrait layouts use a tighter tile gutter so artwork remains
         // visually clean inside its own card rather than leaving oversized seams.
@@ -117,7 +113,15 @@ fun HorizontalSongPages(
             columns < 4 -> 20.dp
             else -> 38.dp
         }
-        val pageHeight = unitHeight * rows + gap * (rows - 1).coerceAtLeast(0)
+        // A horizontal pager may finish on a short final page. Measure that actual page shape
+        // instead of blindly reserving the requested grid rows, removing the blank bottom band
+        // in landscape while preserving a complete mosaic for every page.
+        val renderedRows = remember(songs, plans, config, columns) {
+            plans.map { plan -> pageRenderedRows(songs, plan, config, columns) }
+        }
+        val visibleIndex = state.firstVisibleItemIndex.coerceIn(0, (plans.size - 1).coerceAtLeast(0))
+        val currentRows = renderedRows.getOrElse(visibleIndex) { config.rows.toFloat() }.coerceAtLeast(1f)
+        val pageHeight = unitHeight * currentRows + gap * (currentRows - 1).coerceAtLeast(0f)
 
         LazyRow(
             state = state,
@@ -129,13 +133,32 @@ fun HorizontalSongPages(
         ) {
             items(plans, key = { it.startIndex }, contentType = { "mosaic_page" }) { plan ->
                 XvoxSongGridPage(
-                    songs, plan, renderConfig, currentSongId, isPlaying, selectedSongIds,
-                    onSongClick, onSongLongClick, compact = false,
+                    songs, plan, config, currentSongId, isPlaying, selectedSongIds,
+                    onSongClick, onSongLongClick, compact = false, fillRows = false,
                     modifier = Modifier.width(pageWidth)
                 )
             }
         }
     }
+}
+
+/** The number of physical grid rows the configured page actually draws. */
+private fun pageRenderedRows(
+    songs: List<Song>,
+    plan: XvoxMosaicPagePlan,
+    config: HomePresentation,
+    columns: Int
+): Float {
+    val page = buildMosaicPage(
+        songs = songs,
+        plan = plan,
+        rows = config.rows,
+        isUniform = config.style == "uniform",
+        mosaicOne = config.style == "mosaic1",
+        fillRows = false,
+        cols = columns
+    )
+    return page.tiles.maxOfOrNull { it.y + it.height } ?: 1f
 }
 
 /** Shared by the real Home and the scale-correct settings preview. */
@@ -150,6 +173,8 @@ fun XvoxSongGridPage(
     onSongClick: (Song) -> Unit,
     onSongLongClick: (Song) -> Unit,
     compact: Boolean,
+    /** Horizontal pages pass false so a short last page does not reserve empty rows. */
+    fillRows: Boolean = !compact,
     modifier: Modifier = Modifier
 ) {
     val isLandscape = LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
@@ -157,13 +182,13 @@ fun XvoxSongGridPage(
     val uniform = config.style == "uniform"
     val classic = config.style == "mosaic1"
 
-    val page = remember(songs, plan, config.rows, uniform, classic, compact, isLandscape, columns) {
-        buildMosaicPage(songs, plan, config.rows, uniform, classic, fillRows = !compact, cols = columns)
+    val page = remember(songs, plan, config.rows, uniform, classic, fillRows, isLandscape, columns) {
+        buildMosaicPage(songs, plan, config.rows, uniform, classic, fillRows = fillRows, cols = columns)
     }
 
-    val usedRows = remember(page, compact, config.rows) {
-        if (compact) page.tiles.maxOfOrNull { it.y + it.height } ?: 0f else config.rows.toFloat()
-    }
+    // The final horizontal page can genuinely use fewer rows. Derive height from rendered tiles
+    // rather than the requested grid count so it never carries a visual trailing blank row.
+    val usedRows = remember(page) { page.tiles.maxOfOrNull { it.y + it.height } ?: 0f }
 
     val click by rememberUpdatedState(onSongClick)
     val longClick by rememberUpdatedState(onSongLongClick)

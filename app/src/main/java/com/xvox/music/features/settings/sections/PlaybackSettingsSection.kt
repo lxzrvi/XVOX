@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -36,7 +37,8 @@ fun PlaybackSettingsSection(
         onDuration = viewModel::setCrossfadeDuration,
         onSmartBlend = viewModel::setCrossfadeSmart,
         onClashControl = viewModel::setCrossfadeClashControl,
-        onBeatSync = viewModel::setCrossfadeBeatSync
+        onBeatSync = viewModel::setCrossfadeBeatSync,
+        onCurveStyle = viewModel::setCrossfadeCurveStyle
     )
 }
 
@@ -57,7 +59,8 @@ fun PlaybackSettingsDraftSection(
         onDuration = { value -> onStateChange(state.copy(crossfadeDuration = value)) },
         onSmartBlend = { value -> onStateChange(state.copy(crossfadeSmart = value)) },
         onClashControl = { value -> onStateChange(state.copy(crossfadeClashControl = value)) },
-        onBeatSync = { value -> onStateChange(state.copy(crossfadeBeatSync = value)) }
+        onBeatSync = { value -> onStateChange(state.copy(crossfadeBeatSync = value)) },
+        onCurveStyle = { value -> onStateChange(state.copy(crossfadeCurveStyle = value)) }
     )
 }
 
@@ -70,7 +73,8 @@ private fun PlaybackSettingsContent(
     onDuration: (Int) -> Unit,
     onSmartBlend: (Boolean) -> Unit,
     onClashControl: (Float) -> Unit,
-    onBeatSync: (Boolean) -> Unit
+    onBeatSync: (Boolean) -> Unit,
+    onCurveStyle: (Int) -> Unit
 ) {
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         if (showPreview) com.xvox.music.features.settings.components.CrossfadeSettingsPreview(state)
@@ -99,6 +103,13 @@ private fun PlaybackSettingsContent(
                     steps = 19,
                     valueLabel = { "${it.roundToInt()} s" }
                 )
+                androidx.compose.material3.Text(
+                    text = "Blend curve",
+                    color = com.xvox.music.core.design.theme.XvoxTheme.colors.primaryText,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+                CrossfadeCurveChoice(state.crossfadeCurveStyle, onCurveStyle)
 
                 androidx.compose.material3.Text(
                     text = "Smart blend",
@@ -135,6 +146,45 @@ private fun PlaybackSettingsContent(
                 checked = state.gapless,
                 onChange = onGapless
             )
+        }
+    }
+}
+
+
+/** Three timing families, deliberately rendered as one compact segment group. */
+@Composable
+private fun CrossfadeCurveChoice(selected: Int, onSelect: (Int) -> Unit) {
+    val colors = com.xvox.music.core.design.theme.XvoxTheme.colors
+    val labels = listOf(
+        com.xvox.music.player.playback.CrossfadeMath.CURVE_EQUAL_POWER to "Equal power",
+        com.xvox.music.player.playback.CrossfadeMath.CURVE_LATE to "Late",
+        com.xvox.music.player.playback.CrossfadeMath.CURVE_SOFT to "Soft"
+    )
+    androidx.compose.foundation.layout.Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        labels.forEach { (style, label) ->
+            val active = selected == style
+            val shape = RoundedCornerShape(10.dp)
+            androidx.compose.foundation.layout.Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(shape)
+                    .background(if (active) colors.primaryAccent else colors.card)
+                    .border(.7.dp, if (active) colors.primaryAccent else colors.cardBorder.copy(alpha = .72f), shape)
+                    .com.xvox.music.core.ui.effects.xvoxPressScale { onSelect(style) }
+                    .padding(horizontal = 5.dp, vertical = 8.dp),
+                contentAlignment = androidx.compose.ui.Alignment.Center
+            ) {
+                androidx.compose.material3.Text(
+                    text = label,
+                    color = if (active) colors.background else colors.secondaryText,
+                    fontSize = 10.sp,
+                    fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
+                    maxLines = 1
+                )
+            }
         }
     }
 }

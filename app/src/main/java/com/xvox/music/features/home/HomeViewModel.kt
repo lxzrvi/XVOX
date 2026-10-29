@@ -2,13 +2,18 @@ package com.xvox.music.features.home
 
 import android.app.Application
 import android.content.Context
+import android.database.ContentObserver
 import android.net.Uri
+import android.os.Handler
+import android.os.Looper
+import android.provider.MediaStore
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.xvox.music.core.model.Song
 import com.xvox.music.data.preferences.UserPreferencesRepository
 import com.xvox.music.data.preferences.XvoxLibraryPreferences
 import com.xvox.music.data.preferences.XvoxPlaylist
+import com.xvox.music.data.preferences.XvoxSongTitleOverride
 import com.xvox.music.features.home.recent.RecentTransitionMode
 import com.xvox.music.features.home.recent.RecentTransitionRequest
 import com.xvox.music.features.playlist.XvoxHomeLibraryMode
@@ -26,6 +31,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
 data class FolderInfo(
@@ -76,6 +82,19 @@ class HomeViewModel(
     private var allRawSongs: List<Song> = emptyList()
     /** File-backed image previews keyed by the exact MediaStore URI of an edited song. */
     private var songArtworkOverrides: Map<String, String> = emptyMap()
+    /** Verified filename -> displayed title bridge for providers that retain an old tag TITLE. */
+    private var songTitleOverrides: Map<String, XvoxSongTitleOverride> = emptyMap()
+    private var mediaStoreRefreshJob: Job? = null
+    private var refreshAgainAfterCurrent = false
+    private val mediaStoreObserver = object : ContentObserver(Handler(Looper.getMainLooper())) {
+        override fun onChange(selfChange: Boolean) {
+            scheduleMediaStoreRefresh()
+        }
+
+        override fun onChange(selfChange: Boolean, uri: Uri?) {
+            scheduleMediaStoreRefresh()
+        }
+    }
     private var recentIds: List<Long> = emptyList()
     private var recentHistoryCapacity = 20
     private var transitionId = 0L
@@ -90,7 +109,43 @@ class HomeViewModel(
         observeRecent()
         observeLibraryPreferences()
         observeFilterPreferences()
+        observeMediaStoreChanges()
         loadLibrary()
+    }
+
+    /**
+     * A full scanner refresh follows device-indexed changes (including file-manager renames), not
+     * just edits initiated from this screen. Events are coalesced so a provider's multi-column
+     * update yields one re-query instead of several competing scans.
+     */
+    private fun observeMediaStoreChanges() {
+        runCatching {
+            getApplication<Application>().contentResolver.registerContentObserver(
+                MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+                true,
+                mediaStoreObserver
+            )
+        }
+    }
+
+    private fun scheduleMediaStoreRefresh() {
+        if (!rawReady) return
+        if (_state.value.refreshing) {
+            refreshAgainAfterCurrent = true
+            return
+        }
+        mediaStoreRefreshJob?.cancel()
+        mediaStoreRefreshJob = viewModelScope.launch {
+            delay(300)
+            if (_state.value.refreshing) refreshAgainAfterCurrent = true else refresh()
+        }
+    }
+
+    private fun refreshQueuedMediaStoreChange() {
+        if (refreshAgainAfterCurrent) {
+            refreshAgainAfterCurrent = false
+            scheduleMediaStoreRefresh()
+        }
     }
 
     private fun observeSourceMode() {
@@ -169,11 +224,14 @@ class HomeViewModel(
         viewModelScope.launch {
             libraryPreferences.songArtworkOverrides.collect { overrides ->
                 songArtworkOverrides = overrides
-                val decorated = applySongArtworkOverrides(allRawSongs)
-                _folders.value = withContext(Dispatchers.Default) {
-                    HomeLibraryFilterHelper.groupFolders(decorated)
-                }
-                publishFilteredSongs()
+                publishSongOverrideChanges()
+            }
+        }
+
+        viewModelScope.launch {
+            libraryPreferences.songTitleOverrides.collect { overrides ->
+                songTitleOverrides = overrides
+                publishSongOverrideChanges()
             }
         }
 
@@ -229,12 +287,68 @@ class HomeViewModel(
      * MediaStore exposes album artwork rather than a guaranteed per-file image. A completed edit
      * still writes artwork into the audio file; this app-owned local copy bridges MediaStore's
      * asynchronous album-art re-index so the chosen track image updates immediately everywhere.
+     *
+     * A confirmed filename/title override is intentionally stricter: it applies only while the
+     * freshly scanned physical DISPLAY_NAME remains the exact filename confirmed by the editor.
+     * That makes provider-stale TITLE columns visible as the real renamed file without ever
+     * masking a later external rename or provider failure.
      */
-    private fun applySongArtworkOverrides(songs: List<Song>): List<Song> {
-        if (songArtworkOverrides.isEmpty()) return songs
+    private fun applySongLocalOverrides(songs: List<Song>): List<Song> {
+        if (songArtworkOverrides.isEmpty() && songTitleOverrides.isEmpty()) return songs
         return songs.map { song ->
-            val override = songArtworkOverrides[song.contentUri.toString()]?.takeIf { it.isNotBlank() }
-            if (override == null) song else song.copy(artworkUri = Uri.parse(override))
+            var updated = song
+            songArtworkOverrides[song.contentUri.toString()]
+                ?.takeIf { it.isNotBlank() }
+                ?.let { updated = updated.copy(artworkUri = Uri.parse(it)) }
+            songTitleOverrides[song.contentUri.toString()]
+                ?.takeIf { override ->
+                    song.displayName.isNotBlank() && song.displayName == override.displayName
+                }
+                ?.let { updated = updated.copy(title = it.title) }
+            updated
+        }
+    }
+
+    private suspend fun publishSongOverrideChanges() {
+        val decorated = applySongLocalOverrides(allRawSongs)
+        _folders.value = withContext(Dispatchers.Default) {
+            HomeLibraryFilterHelper.groupFolders(decorated)
+        }
+        publishFilteredSongs()
+    }
+
+    /**
+     * If an indexed file's physical name changed while its MediaStore TITLE stayed exactly as the
+     * last scan, surface the confirmed filename base as its title. This catches provider/file
+     * manager renames in the same truthful way as the editor path, while retaining tag titles when
+     * the provider actually refreshed them.
+     */
+    private fun reconcileIndexedFilenameChanges(previous: List<Song>, refreshed: List<Song>) {
+        val oldByUri = previous.associateBy { it.contentUri.toString() }
+        val additions = buildMap {
+            refreshed.forEach { song ->
+                val old = oldByUri[song.contentUri.toString()] ?: return@forEach
+                if (
+                    old.displayName.isNotBlank() &&
+                    song.displayName.isNotBlank() &&
+                    old.displayName != song.displayName &&
+                    old.title == song.title
+                ) {
+                    val visibleTitle = song.displayName
+                        .substringBeforeLast('.', song.displayName)
+                        .trim()
+                    if (visibleTitle.isNotBlank()) {
+                        put(song.contentUri.toString(), XvoxSongTitleOverride(song.displayName, visibleTitle))
+                    }
+                }
+            }
+        }
+        if (additions.isEmpty()) return
+        songTitleOverrides = songTitleOverrides + additions
+        viewModelScope.launch {
+            additions.forEach { (uri, override) ->
+                libraryPreferences.setSongTitleOverride(uri, override.displayName, override.title)
+            }
         }
     }
 
@@ -255,7 +369,7 @@ class HomeViewModel(
             }
             return
         }
-        val raw = applySongArtworkOverrides(allRawSongs)
+        val raw = applySongLocalOverrides(allRawSongs)
         val hidden = _state.value.hiddenSongIds
         val config = filterConfig
         val recent = recentIds
@@ -290,7 +404,7 @@ class HomeViewModel(
             allRawSongs = loaded
             rawReady = true
             _folders.value = withContext(Dispatchers.Default) {
-                HomeLibraryFilterHelper.groupFolders(applySongArtworkOverrides(loaded))
+                HomeLibraryFilterHelper.groupFolders(applySongLocalOverrides(loaded))
             }
             _state.update {
                 it.copy(
@@ -308,7 +422,8 @@ class HomeViewModel(
         if (_state.value.refreshing) return
         viewModelScope.launch {
             _state.update { it.copy(refreshing = true, lastLibraryScanFailed = false) }
-            val before = allRawSongs.asSequence().map { it.contentUri.toString() }.toSet()
+            val previousSongs = allRawSongs
+            val before = previousSongs.asSequence().map { it.contentUri.toString() }.toSet()
             val scan = try {
                 withContext(Dispatchers.IO) { songRepository.scanSongs() }
             } catch (cancelled: CancellationException) {
@@ -329,6 +444,7 @@ class HomeViewModel(
                         scanFailed = true
                     )
                 )
+                refreshQueuedMediaStoreChange()
                 return@launch
             }
 
@@ -343,8 +459,9 @@ class HomeViewModel(
             )
 
             allRawSongs = refreshed
+            reconcileIndexedFilenameChanges(previousSongs, refreshed)
             _folders.value = withContext(Dispatchers.Default) {
-                HomeLibraryFilterHelper.groupFolders(applySongArtworkOverrides(refreshed))
+                HomeLibraryFilterHelper.groupFolders(applySongLocalOverrides(refreshed))
             }
             _state.update {
                 it.copy(
@@ -358,6 +475,7 @@ class HomeViewModel(
             }
             publishFilteredSongs()
             onDone(result)
+            refreshQueuedMediaStoreChange()
         }
     }
 
@@ -365,6 +483,22 @@ class HomeViewModel(
     fun setSongArtworkOverride(mediaUri: Uri, artworkUri: Uri?) {
         viewModelScope.launch {
             libraryPreferences.setSongArtworkOverride(mediaUri.toString(), artworkUri?.toString())
+        }
+    }
+
+    /**
+     * Surface a real MediaStore rename immediately, including containers whose scanner keeps an
+     * embedded legacy TITLE. The editor provides a post-write-confirmed DISPLAY_NAME; scans only
+     * honor this bridge while that same physical filename is still present.
+     */
+    fun setSongTitleOverride(mediaUri: Uri, displayName: String, title: String) {
+        if (displayName.isBlank() || title.isBlank()) return
+        songTitleOverrides = songTitleOverrides + (
+            mediaUri.toString() to XvoxSongTitleOverride(displayName, title)
+        )
+        viewModelScope.launch {
+            publishSongOverrideChanges()
+            libraryPreferences.setSongTitleOverride(mediaUri.toString(), displayName, title)
         }
     }
 
@@ -492,8 +626,12 @@ class HomeViewModel(
 
     fun restoreSong(id: Long) = viewModelScope.launch { libraryPreferences.restoreSong(id) }
     fun restoreAllHiddenSongs() = viewModelScope.launch {
+        // Snapshot both sides of the logical recycle bin before either DataStore flow can emit.
+        // Artist-owned song IDs are restored once by restoreAllSongs; removing each artist flag
+        // then reveals the same collection without a duplicate/partially-restored state.
+        val artists = state.value.hiddenArtists.toList()
         libraryPreferences.restoreAllSongs()
-        state.value.hiddenArtists.forEach { preferencesRepository.removeHiddenArtist(it) }
+        artists.forEach { preferencesRepository.removeHiddenArtist(it) }
     }
     fun hideSong(song: Song) = viewModelScope.launch { libraryPreferences.hideSong(song.id) }
 
@@ -683,4 +821,9 @@ class HomeViewModel(
     fun setHomeHorizontalRows(rows: Int) = viewModelScope.launch { preferencesRepository.setHomeHorizontalRows(rows) }
     fun setRecentsPlacement(placement: String) = viewModelScope.launch { preferencesRepository.setRecentsPlacement(placement) }
 
+    override fun onCleared() {
+        mediaStoreRefreshJob?.cancel()
+        runCatching { getApplication<Application>().contentResolver.unregisterContentObserver(mediaStoreObserver) }
+        super.onCleared()
+    }
 }

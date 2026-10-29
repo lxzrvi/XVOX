@@ -1,5 +1,6 @@
 package com.xvox.music.features.settings.sections
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -26,6 +27,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.contentDescription
@@ -104,6 +107,11 @@ fun EqualizerSettingsSection(
                     selected = state.eqPreset,
                     onSelect = viewModel::setEqPreset
                 )
+                EqualizerResponseCurve(
+                    bands = state.eqBands,
+                    enabled = state.equalizerEnabled,
+                    preset = state.eqPreset
+                )
                 Spacer(Modifier.height(4.dp))
                 EqualizerSectionLabel("Bands")
                 Box(
@@ -146,9 +154,15 @@ fun EqualizerSettingsSection(
 
         EqualizerCard {
             EqualizerToggleRow(
-                title = "Distortion control",
+                title = "Peak protection",
                 checked = state.distortionControlEnabled,
                 onCheckedChange = viewModel::setDistortionControlEnabled
+            )
+            Text(
+                text = "Look-ahead gain and a soft clip endpoint catch overloads without changing normal programme level.",
+                color = colors.secondaryText,
+                fontSize = 10.sp,
+                lineHeight = 14.sp
             )
         }
 
@@ -272,6 +286,60 @@ private fun EqualizerSectionLabel(text: String) {
         fontSize = 13.sp,
         fontWeight = FontWeight.Bold
     )
+}
+
+/**
+ * A lightweight response plot driven directly from the live bands/preset state. It purposefully
+ * does not pretend to be a laboratory transfer-function analyser: its anchors are the same five
+ * user-controlled bands, so every preset and drag is immediately legible before audio smoothing
+ * reaches the DSP engine.
+ */
+@Composable
+private fun EqualizerResponseCurve(bands: List<Int>, enabled: Boolean, preset: String) {
+    val colors = XvoxTheme.colors
+    val shape = RoundedCornerShape(13.dp)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(colors.background)
+            .border(.8.dp, colors.cardBorder.copy(alpha = .70f), shape)
+            .padding(horizontal = 9.dp, vertical = 7.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("Live response", color = colors.secondaryText, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+            Text(preset, color = colors.primaryAccent, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+        }
+        Canvas(Modifier.fillMaxWidth().height(72.dp)) {
+            val mid = size.height * .5f
+            val padX = 4.dp.toPx()
+            val usable = (size.width - padX * 2).coerceAtLeast(1f)
+            val stroke = 1.dp.toPx()
+            // Reference grid: neutral, ±6 dB, and ±12 dB bands.
+            listOf(-12f, -6f, 0f, 6f, 12f).forEach { db ->
+                val y = mid - (db / 12f) * (size.height * .40f)
+                drawLine(colors.cardBorder.copy(alpha = if (db == 0f) .72f else .34f),
+                    androidx.compose.ui.geometry.Offset(0f, y),
+                    androidx.compose.ui.geometry.Offset(size.width, y), strokeWidth = if (db == 0f) stroke else .65.dp.toPx())
+            }
+            val path = Path()
+            val points = EqBands.frequencies(5).mapIndexed { index, _ ->
+                val db = if (enabled) bands.getOrElse(index) { 0 }.coerceIn(-12, 12).toFloat() else 0f
+                val x = padX + usable * index / 4f
+                val y = mid - (db / 12f) * (size.height * .40f)
+                androidx.compose.ui.geometry.Offset(x, y)
+            }
+            points.forEachIndexed { index, point ->
+                if (index == 0) path.moveTo(point.x, point.y) else path.lineTo(point.x, point.y)
+            }
+            drawPath(path, colors.primaryAccent, style = Stroke(width = 2.dp.toPx()))
+            points.forEach { point ->
+                drawCircle(colors.background, radius = 4.dp.toPx(), center = point)
+                drawCircle(colors.primaryAccent, radius = 2.5.dp.toPx(), center = point)
+            }
+        }
+    }
 }
 
 @Composable

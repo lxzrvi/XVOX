@@ -28,7 +28,14 @@ data class EnergyBlendPlan(
 
 /** Match quiet/high-energy regions locally, then hand the bass from one track to the other. */
 object EnergyBlendPlanner {
-    fun plan(duration: Long, window: Long, out: TrackBlendProfile?, incoming: TrackBlendProfile?, alignBeats: Boolean): EnergyBlendPlan? {
+    fun plan(
+        duration: Long,
+        window: Long,
+        out: TrackBlendProfile?,
+        incoming: TrackBlendProfile?,
+        alignBeats: Boolean,
+        curveStyle: Int = CrossfadeMath.CURVE_EQUAL_POWER
+    ): EnergyBlendPlan? {
         if (out == null || incoming == null || window < 500) return null
         val normalStart = duration - window
         val beat = if (alignBeats) BeatAlignment.plan(duration, window, out.beats, incoming.beats) else null
@@ -52,7 +59,7 @@ object EnergyBlendPlanner {
                 val t = i / 47f
                 val a = out.energy.at(start + (length * t).toLong())
                 val b = incoming.energy.at((length * t).toLong())
-                val gains = gains(t, handoff, true)
+                val gains = gains(t, handoff, true, curveStyle)
                 collision += (if (beatAligned) abs(a - b) else a * b) * gains.incoming * gains.outgoing
             }
             val cost = collision / 48 + quiet * .16 + (start - normalStart).toDouble() / window * .22 - if (beatAligned) .12 else 0.0
@@ -94,12 +101,17 @@ object EnergyBlendPlanner {
         val index = incoming.energy.levels.subList(0, maxSamples).indexOfFirst { it > .04f }
         return if (index <= 1) 0 else ((index - 1) * hop).coerceAtLeast(0)
     }
-    fun gains(progress: Float, handoff: Float, smart: Boolean): CrossfadeGains {
+    fun gains(
+        progress: Float,
+        handoff: Float,
+        smart: Boolean,
+        curveStyle: Int = CrossfadeMath.CURVE_EQUAL_POWER
+    ): CrossfadeGains {
         val p = progress.coerceIn(0f, 1f)
         val h = handoff.coerceIn(.3f, .7f)
         val warped = if (!smart) p else if (p <= h) .5f * p / h else .5f + .5f * (p - h) / (1 - h)
         val t = if (smart) warped * warped * (3 - 2 * warped) else warped
-        return CrossfadeMath.gains(t)
+        return CrossfadeMath.gains(t, curveStyle)
     }
     fun bassGains(progress: Float, handoff: Float, strength: Float, master: CrossfadeGains): CrossfadeGains {
         val width = .65f - .47f * strength.coerceIn(0f, 1f)

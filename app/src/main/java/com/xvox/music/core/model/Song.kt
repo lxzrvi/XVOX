@@ -14,5 +14,7 @@ data class Song(
     val sizeBytes: Long = 0L,
     val folderName: String = "",
     val folderPath: String = folderName,
-    val source: String = ""
+    val source: String = "",
+    /** Real MediaStore filename, retained separately from the user-facing tag TITLE. */
+    val displayName: String = ""
 )

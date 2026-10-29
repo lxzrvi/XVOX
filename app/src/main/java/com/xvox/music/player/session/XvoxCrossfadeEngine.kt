@@ -62,6 +62,9 @@ class XvoxCrossfadeEngine(
     var beatSyncEnabled = true
     var smartBlendEnabled = true
     var clashControl = .7f
+    /** Persisted crossfade timing family; defaults to the established equal-power law. */
+    var curveStyle = CrossfadeMath.CURVE_EQUAL_POWER
+        set(value) { field = CrossfadeMath.normalizeCurveStyle(value) }
     private val analyzer = XvoxBeatAnalyzer(context)
     private var analysisKey: String? = null
     private var analysisJob: Job? = null
@@ -78,6 +81,8 @@ class XvoxCrossfadeEngine(
     private var overlap: Overlap? = null
     /** Live level-match factor; eased back to 1 after a blend so the trim is never permanent. */
     private var incomingTrim = 1f
+    /** A short DSP-side gain ramp prevents hard resumes or deck hand-off edges. */
+    private var softInJob: Job? = null
     private var released = false
     private var internalFocusChange = false
     private var focusGranted = false
@@ -321,7 +326,7 @@ class XvoxCrossfadeEngine(
             }
             if (!mixing.outgoing.player.playWhenReady) mixing.outgoing.player.play()
             val progress = CrossfadeMath.progress(player.currentPosition, mixing.startPosition, mixing.duration)
-            val gains = EnergyBlendPlanner.gains(progress, mixing.handoff, smartBlendEnabled)
+            val gains = EnergyBlendPlanner.gains(progress, mixing.handoff, smartBlendEnabled, curveStyle)
             val bass = if (smartBlendEnabled) EnergyBlendPlanner.bassGains(progress, mixing.handoff, clashControl, gains)
                 else com.xvox.music.player.playback.CrossfadeGains(1f, 1f)
             mixing.outgoing.processor.engine.transitionBassGain = bass.outgoing
@@ -366,7 +371,7 @@ class XvoxCrossfadeEngine(
         if (actualWindow == 0L || remaining > actualWindow || remaining < 50) return
         if (!ready.started) {
             if (ready.plan == null) {
-                ready.plan = if (smartBlendEnabled) EnergyBlendPlanner.plan(player.duration, actualWindow, outgoingBeats, incomingBeats, beatSyncEnabled)
+                ready.plan = if (smartBlendEnabled) EnergyBlendPlanner.plan(player.duration, actualWindow, outgoingBeats, incomingBeats, beatSyncEnabled, curveStyle)
                     else if (beatSyncEnabled) BeatAlignment.plan(player.duration, actualWindow, outgoingBeats?.beats, incomingBeats?.beats)?.let {
                         EnergyBlendPlan(it.startPositionMs, it.overlapMs, beatAligned = true)
                     } else null
@@ -384,6 +389,9 @@ class XvoxCrossfadeEngine(
         val outgoing = active
         outgoing.player.pauseAtEndOfMediaItems = true
         active = ready.deck
+        // The deck was pre-buffered at zero renderer gain. A tiny DSP-side soft-in avoids a
+        // discontinuity as its first non-zero crossfade samples enter the sink.
+        softInActive()
         prepared = null
         overlap = Overlap(outgoing, player.currentPosition, remaining.coerceAtLeast(50),
             ready.plan?.beatAligned == true, ready.plan?.handoff ?: .5f, ready.plan?.incomingTrim ?: 1f)
@@ -440,6 +448,29 @@ class XvoxCrossfadeEngine(
     }
     // AudioTrack volume applies to already-buffered PCM. Baking a zero gain into a prepared deck
     // would otherwise swallow the first buffered portion of the next song when the blend starts.
+    /**
+     * Soft gain-in is deliberately inside the PCM processor, so renderer-volume crossfade math
+     * remains exact. It is also used after transient audio-focus restoration.
+     */
+    private fun softInActive(durationMs: Long = 170L) {
+        softInJob?.cancel()
+        val deck = active
+        deck.processor.engine.mixGain = 0f
+        softInJob = scope.launch {
+            val startedAt = SystemClock.elapsedRealtime()
+            while (isActive && !released && deck === active) {
+                val linear = ((SystemClock.elapsedRealtime() - startedAt).toFloat() /
+                    durationMs.coerceAtLeast(1L).toFloat()).coerceIn(0f, 1f)
+                // Smoothstep has a zero-slope arrival, so there is no final 1-frame jump.
+                val eased = linear * linear * (3f - 2f * linear)
+                deck.processor.engine.mixGain = eased
+                if (linear >= 1f) break
+                delay(16L)
+            }
+            if (!released && deck === active) deck.processor.engine.mixGain = 1f
+        }
+    }
+
     private fun setGain(deck: Deck, gain: Float) { deck.gain = gain; applyOutputVolume(deck) }
     private fun applyOutputVolume(deck: Deck) {
         deck.player.volume = (deck.gain * duck).coerceIn(0f, 1f)
@@ -458,6 +489,7 @@ class XvoxCrossfadeEngine(
     private fun decks(): List<Deck> = listOfNotNull(active, prepared?.deck, overlap?.outgoing)
     fun acquirePlaybackFocus(): Boolean = requestFocus()
     fun resetResumeGain() {
+        softInJob?.cancel()
         if (overlap == null) { setGain(active, 1f); active.processor.engine.mixGain = 1f }
         duck = 1f
         decks().forEach(::applyOutputVolume)
@@ -479,7 +511,10 @@ class XvoxCrossfadeEngine(
             when (change) {
                 AudioManager.AUDIOFOCUS_GAIN -> {
                     focusGranted = true; duck = 1f
-                    if (resumeOnGain) player.play()
+                    if (resumeOnGain) {
+                        softInActive()
+                        player.play()
+                    }
                     resumeOnGain = false
                 }
                 AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> duck = .20f
@@ -501,6 +536,7 @@ class XvoxCrossfadeEngine(
         if (released) return
         released = true
         ticker.cancel()
+        softInJob?.cancel()
         finishOverlap(); discardPrepared()
         releaseDeck(active)
         resumeOnGain = false
