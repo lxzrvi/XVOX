@@ -47,7 +47,7 @@ fun AboutSettingsSection(expanded: Boolean = false) {
                 fontWeight = FontWeight.Bold
             )
             Text(
-                text = "v1.02.2",
+                text = "v1.02.3",
                 color = colors.mutedText,
                 fontSize = 11.sp
             )

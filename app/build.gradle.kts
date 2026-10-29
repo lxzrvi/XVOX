@@ -14,9 +14,9 @@ android {
         minSdk = 33
         targetSdk = 37
 
-        // v1.02.2: header pencil editing, universal MediaStore renames, and safe lyric imports.
-        versionCode = 10202
-        versionName = "1.02.2"
+        // v1.02.3: post-release media fixes plus GIF crop, playback, and Settings refinements.
+        versionCode = 10203
+        versionName = "1.02.3"
     }
 
     compileOptions {
