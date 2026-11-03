@@ -31,7 +31,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RectangleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -280,7 +279,7 @@ fun XvoxSheet(
                 // This is a sibling of the live app capture in XvoxAppRoot, so the empty space
                 // above a sheet blurs the actual page instead of merely applying a dark scrim.
                 .xvoxOverlayBlur(
-                    shape = RectangleShape,
+                    shape = RoundedCornerShape(0.dp),
                     level = XvoxBlurLevel.SheetBackdrop,
                     baseColor = scrimColor,
                     borderWidth = 0.dp
@@ -671,7 +670,7 @@ private fun XvoxCenteredBox(
             Modifier
                 .matchParentSize()
                 .xvoxOverlayBlur(
-                    shape = RectangleShape,
+                    shape = RoundedCornerShape(0.dp),
                     level = XvoxBlurLevel.SheetBackdrop,
                     baseColor = scrimColor,
                     borderWidth = 0.dp

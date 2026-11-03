@@ -8,7 +8,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.matchParentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -237,7 +236,7 @@ fun XvoxAppRoot(
                 // custom background image. hazeSource deliberately comes before background work.
                 Box(
                     modifier = Modifier
-                        .matchParentSize()
+                        .fillMaxSize()
                         .hazeSource(state = surfaceHazeState)
                         .background(colors.background)
                         .drawBehind {
@@ -278,7 +277,7 @@ fun XvoxAppRoot(
                 // Source 2: root-hosted sheets are siblings of this complete live app surface.
                 Box(
                     modifier = Modifier
-                        .matchParentSize()
+                        .fillMaxSize()
                         .hazeSource(state = overlayHazeState)
                 ) {
                     if (state == AppUiState.Setup) {
