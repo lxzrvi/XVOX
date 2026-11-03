@@ -42,6 +42,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.ui.blur.XvoxBlurLevel
+import com.xvox.music.core.ui.blur.xvoxLiveBlur
 import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.features.settings.SettingsState
 import kotlin.math.PI
@@ -77,11 +79,12 @@ fun SettingsChoiceRow(
                 fontSize = 12.sp,
                 fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
                 modifier = Modifier
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(if (active) colors.primaryAccent else colors.cardElevated)
-                    .then(
-                        if (!active) Modifier.border(0.8.dp, colors.cardBorder, RoundedCornerShape(12.dp))
-                        else Modifier
+                    .xvoxLiveBlur(
+                        shape = RoundedCornerShape(12.dp),
+                        level = XvoxBlurLevel.Selection,
+                        baseColor = if (active) colors.primaryAccent else colors.cardElevated,
+                        borderColor = if (active) Color.Transparent else colors.cardBorder,
+                        borderAlpha = if (active) 0f else .78f
                     )
                     .xvoxPressScale { onSelect(key) }
                     .padding(horizontal = 14.dp, vertical = 10.dp)
@@ -115,11 +118,12 @@ fun SettingsFlexChoiceRow(
                 modifier = Modifier
                     .weight(1f)
                     .height(pillHeight)
-                    .clip(shape)
-                    .background(if (active) colors.primaryAccent else colors.cardElevated)
-                    .then(
-                        if (!active) Modifier.border(0.8.dp, colors.cardBorder, shape)
-                        else Modifier
+                    .xvoxLiveBlur(
+                        shape = shape,
+                        level = XvoxBlurLevel.Selection,
+                        baseColor = if (active) colors.primaryAccent else colors.cardElevated,
+                        borderColor = if (active) Color.Transparent else colors.cardBorder,
+                        borderAlpha = if (active) 0f else .78f
                     )
                     .xvoxPressScale { onSelect(key) },
                 contentAlignment = Alignment.Center
@@ -148,9 +152,12 @@ fun SettingsPreviewFrame(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .background(colors.cardElevated)
-            .border(0.7.dp, colors.cardBorder, RoundedCornerShape(14.dp))
+            .xvoxLiveBlur(
+                shape = RoundedCornerShape(14.dp),
+                level = XvoxBlurLevel.Card,
+                baseColor = colors.cardElevated,
+                borderAlpha = .78f
+            )
             .padding(horizontal = 12.dp, vertical = 10.dp)
     ) {
         Row(

@@ -20,6 +20,8 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.xvox.music.core.design.theme.XvoxPersonalFont
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.ui.blur.XvoxBlurLevel
+import com.xvox.music.core.ui.blur.xvoxLiveBlur
 import com.xvox.music.data.preferences.UserPreferences
 import com.xvox.music.features.setup.PfpIcon
 import com.xvox.music.features.setup.PfpType
@@ -39,10 +41,14 @@ fun HomeProfileAvatar(
     val avatarSurface = colors.cardElevated.copy(alpha = if (colors.isLight) .72f else .64f)
     Box(
         modifier = modifier
-            .clip(CircleShape)
-            // The PFP control remains a translucent themed-gray material in light and dark mode,
-            // rather than turning into an isolated white circle above the app background.
-            .background(avatarSurface)
+            // The default PFP is a small live-glass circle. A custom image remains the visible
+            // foreground, while its circular material still provides a coherent fallback.
+            .xvoxLiveBlur(
+                shape = CircleShape,
+                level = XvoxBlurLevel.Selection,
+                baseColor = avatarSurface,
+                borderAlpha = .56f
+            )
             .then(
                 if (onClick != null) {
                     Modifier.clickable(

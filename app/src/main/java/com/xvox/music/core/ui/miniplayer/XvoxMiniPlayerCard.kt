@@ -53,6 +53,8 @@ import androidx.compose.ui.unit.sp
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
+import com.xvox.music.core.ui.blur.XvoxBlurLevel
+import com.xvox.music.core.ui.blur.xvoxLiveBlur
 import com.xvox.music.features.home.XvoxFallbackBrand
 import com.xvox.music.features.home.XvoxSongArtwork
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -115,14 +117,29 @@ fun XvoxMiniPlayerCard(
         modifier = modifier
             .fillMaxWidth()
             .height(56.dp)
-            .clip(cardShape)
-            .background(colors.background.copy(alpha = miniAlpha))
-            .border(
-                chrome.miniBorderWidth.coerceIn(0f, 4f).dp,
-                miniEdge.copy(
-                    alpha = chrome.miniBorderAlpha.coerceIn(.34f, 1f) * miniAlpha * miniBorderVisibility
-                ),
-                cardShape
+            .then(
+                if (miniCoverStyle == "default") {
+                    Modifier.xvoxLiveBlur(
+                        shape = cardShape,
+                        level = XvoxBlurLevel.Chrome,
+                        baseColor = colors.background.copy(alpha = miniAlpha),
+                        borderColor = miniEdge,
+                        borderAlpha = chrome.miniBorderAlpha.coerceIn(.34f, 1f) * miniAlpha * miniBorderVisibility,
+                        borderWidth = chrome.miniBorderWidth.coerceIn(0f, 4f).dp
+                    )
+                } else {
+                    // Cover-led modes retain their chosen artwork as the real background.
+                    Modifier
+                        .clip(cardShape)
+                        .background(colors.background.copy(alpha = miniAlpha))
+                        .border(
+                            chrome.miniBorderWidth.coerceIn(0f, 4f).dp,
+                            miniEdge.copy(
+                                alpha = chrome.miniBorderAlpha.coerceIn(.34f, 1f) * miniAlpha * miniBorderVisibility
+                            ),
+                            cardShape
+                        )
+                }
             )
             .drawWithContent {
                 drawContent()
@@ -355,11 +372,14 @@ fun XvoxMiniPlayerCard(
             Box(
                 modifier = Modifier
                     .size(38.dp)
-                    .clip(CircleShape)
-                    // Both right-side actions share one clearly distinct, theme-derived 50%
-                    // surface. It stays legible in light and dark themes without implying that
-                    // Like and Play belong to different visual systems.
-                    .background(colors.cardElevated.copy(alpha = .50f * miniAlpha))
+                    // Both actions use the lower Selection blur level so their hit targets stay
+                    // visually distinct from the larger frosted Mini Player body.
+                    .xvoxLiveBlur(
+                        shape = CircleShape,
+                        level = XvoxBlurLevel.Selection,
+                        baseColor = colors.cardElevated.copy(alpha = .50f * miniAlpha),
+                        borderAlpha = .42f
+                    )
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
@@ -378,9 +398,13 @@ fun XvoxMiniPlayerCard(
             Box(
                 modifier = Modifier
                     .size(38.dp)
-                    .clip(CircleShape)
-                    // Same theme-aware, 50%-transparent surface as Like.
-                    .background(colors.cardElevated.copy(alpha = .50f * miniAlpha))
+                    // Same light selection-glass treatment as Like.
+                    .xvoxLiveBlur(
+                        shape = CircleShape,
+                        level = XvoxBlurLevel.Selection,
+                        baseColor = colors.cardElevated.copy(alpha = .50f * miniAlpha),
+                        borderAlpha = .42f
+                    )
                     .clickable(
                         interactionSource = controlInteraction,
                         indication = null,

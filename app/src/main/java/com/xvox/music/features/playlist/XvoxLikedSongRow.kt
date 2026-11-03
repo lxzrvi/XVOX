@@ -33,6 +33,8 @@ import androidx.compose.ui.unit.sp
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
+import com.xvox.music.core.ui.blur.XvoxBlurLevel
+import com.xvox.music.core.ui.blur.xvoxLiveBlur
 import com.xvox.music.features.home.XvoxSongArtwork
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -57,9 +59,12 @@ fun XvoxLikedSongRow(
             .fillMaxWidth()
             .height(64.dp)
             .xvoxSongPress(onClick = onClick, onLongClick = onOptions, pressedScale = 0.95f)
-            .clip(shape)
-            .background(cardColor)
-            .border(width = 0.7.dp, color = colors.cardBorder, shape = shape)
+            .xvoxLiveBlur(
+                shape = shape,
+                level = if (selected) XvoxBlurLevel.Selection else XvoxBlurLevel.Card,
+                baseColor = cardColor,
+                borderAlpha = .78f
+            )
             .padding(3.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {

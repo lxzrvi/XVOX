@@ -18,6 +18,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.ui.blur.XvoxBlurLevel
+import com.xvox.music.core.ui.blur.xvoxLiveBlur
 import com.xvox.music.core.ui.chrome.XvoxChromeStyle
 import com.xvox.music.core.ui.miniplayer.XvoxPlayerTransitionMotion
 import com.xvox.music.core.ui.overlay.xvoxBoxScroll
@@ -126,9 +128,12 @@ private fun MiniPlayerSliderSection(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(shape)
-            .background(colors.cardElevated.copy(alpha = .62f))
-            .border(.8.dp, colors.cardBorder.copy(alpha = .82f), shape)
+            .xvoxLiveBlur(
+                shape = shape,
+                level = XvoxBlurLevel.Selection,
+                baseColor = colors.cardElevated.copy(alpha = .62f),
+                borderAlpha = .82f
+            )
             .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(3.dp)
     ) {

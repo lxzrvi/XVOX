@@ -20,6 +20,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxPersonalFont
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.ui.blur.XvoxBlurLevel
+import com.xvox.music.core.ui.blur.xvoxLiveBlur
 import com.xvox.music.data.preferences.UserPreferences
 import com.xvox.music.features.playlist.XvoxHomeLibraryMode
 
@@ -111,16 +113,11 @@ fun HomeHeader(
         Row(
             modifier = Modifier
                 .height(42.dp)
-                .clip(actionShape)
-                .background(
-                    colors.cardElevated.copy(
-                        alpha = if (colors.isLight) .72f else .64f
-                    )
-                )
-                .border(
-                    width = .8.dp,
-                    color = colors.cardBorder.copy(alpha = .88f),
-                    shape = actionShape
+                .xvoxLiveBlur(
+                    shape = actionShape,
+                    level = XvoxBlurLevel.Chrome,
+                    baseColor = colors.cardElevated.copy(alpha = if (colors.isLight) .72f else .64f),
+                    borderAlpha = .88f
                 )
                 .padding(
                     horizontal = 2.dp

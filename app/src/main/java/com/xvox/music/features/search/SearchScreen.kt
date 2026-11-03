@@ -71,6 +71,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
+import com.xvox.music.core.ui.blur.XvoxBlurLevel
+import com.xvox.music.core.ui.blur.xvoxLiveBlur
 import com.xvox.music.core.ui.effects.xvoxSongPress
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 import com.xvox.music.core.ui.navigation.LocalXvoxBottomInset
@@ -727,13 +729,12 @@ private fun SearchBarComponent(
         modifier = modifier
             .fillMaxWidth()
             .height(48.dp)
-            .clip(RoundedCornerShape(24.dp))
-            .background(if (colors.isLight) colors.cardElevated else colors.card)
-            // Match the restrained All Songs card edge: one thin themed border in both themes.
-            .border(
-                .7.dp,
-                colors.cardBorder,
-                RoundedCornerShape(24.dp)
+            .xvoxLiveBlur(
+                shape = RoundedCornerShape(24.dp),
+                level = XvoxBlurLevel.Chrome,
+                baseColor = if (colors.isLight) colors.cardElevated else colors.card,
+                borderAlpha = 1f,
+                borderWidth = .7.dp
             )
             .padding(horizontal = 14.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -895,9 +896,12 @@ private fun RecentSearchesSection(
                 // No vertical inner padding: a one-row history is exactly one row tall and the
                 // box grows naturally through six rows, then becomes a six-row scroll viewport.
                 .height(rowHeight * visibleRows)
-                .clip(boxShape)
-                .background(colors.cardElevated)
-                .border(0.8.dp, colors.cardBorder, boxShape)
+                .xvoxLiveBlur(
+                    shape = boxShape,
+                    level = XvoxBlurLevel.Card,
+                    baseColor = colors.cardElevated,
+                    borderAlpha = 1f
+                )
         ) {
             if (searches.size <= 6) {
                 Column(Modifier.fillMaxSize()) {

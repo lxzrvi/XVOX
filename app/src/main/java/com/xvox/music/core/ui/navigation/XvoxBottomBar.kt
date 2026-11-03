@@ -34,6 +34,8 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.ui.blur.XvoxBlurLevel
+import com.xvox.music.core.ui.blur.xvoxLiveBlur
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 import kotlinx.coroutines.launch
 import kotlin.math.abs
@@ -159,11 +161,13 @@ fun XvoxBottomBar(
                 .align(Alignment.TopCenter)
                 .offset(y = topOffset)
                 .size(navBarWidth, navBarHeight)
-                .clip(parentShape)
-                .border(
-                    width = chrome.navBorderWidth.coerceIn(0f, 4f).dp,
-                    color = navEdge,
-                    shape = parentShape
+                .xvoxLiveBlur(
+                    shape = parentShape,
+                    level = XvoxBlurLevel.Chrome,
+                    baseColor = defaultNavSurface.copy(alpha = appliedNavSurfaceAlpha),
+                    borderColor = navEdge,
+                    borderAlpha = 1f,
+                    borderWidth = chrome.navBorderWidth.coerceIn(0f, 4f).dp
                 )
         ) {
             if (chrome.navigationImageUri.isNotBlank()) {
@@ -173,17 +177,12 @@ fun XvoxBottomBar(
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .matchParentSize()
-                        .graphicsLayer { alpha = navSurfaceAlpha }
-                )
-                // A fully opaque custom image is the surface itself.  Do not put a theme wash
-                // over it at 0% transparency; the image should be seen exactly as chosen.
-            } else {
-                Box(
-                    Modifier
-                        .matchParentSize()
-                        .background(defaultNavSurface.copy(alpha = appliedNavSurfaceAlpha))
+                        // Let the Haze surface remain visible under a custom image, rather than
+                        // turning the navigation bar into an opaque photo strip.
+                        .graphicsLayer { alpha = (navSurfaceAlpha * .72f).coerceIn(0f, .72f) }
                 )
             }
+
         }
 
         Box(
@@ -202,12 +201,15 @@ fun XvoxBottomBar(
                     clip = true
                 }
                 .size(selectorWidth, selectorHeight)
-                .clip(selectorShape)
-                .background(pillFill)
-                .border(
-                    width = chrome.pillBorderWidth.coerceIn(0f, 4f).dp,
-                    color = pillEdge,
-                    shape = selectorShape
+                // Selection is deliberately the lightest blur level: it remains a clear active
+                // tab marker over the more strongly frosted navigation material.
+                .xvoxLiveBlur(
+                    shape = selectorShape,
+                    level = XvoxBlurLevel.Selection,
+                    baseColor = pillFill,
+                    borderColor = pillEdge,
+                    borderAlpha = 1f,
+                    borderWidth = chrome.pillBorderWidth.coerceIn(0f, 4f).dp
                 )
         )
 

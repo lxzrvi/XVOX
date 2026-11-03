@@ -33,6 +33,8 @@ import androidx.compose.ui.unit.sp
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxPersonalFont
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.ui.blur.XvoxBlurLevel
+import com.xvox.music.core.ui.blur.xvoxLiveBlur
 import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.core.ui.navigation.XvoxDestination
 import com.xvox.music.data.preferences.UserPreferences
@@ -210,8 +212,12 @@ fun XvoxShellTopHeader(
                         Box(
                             modifier = Modifier
                                 .size(42.dp)
-                                .clip(CircleShape)
-                                .background(controlSurface)
+                                .xvoxLiveBlur(
+                                    shape = CircleShape,
+                                    level = XvoxBlurLevel.Chrome,
+                                    baseColor = controlSurface,
+                                    borderAlpha = .58f
+                                )
                                 .xvoxPressScale(pressedScale = .90f, onClick = onRefreshClick),
                             contentAlignment = Alignment.Center
                         ) {
@@ -228,8 +234,12 @@ fun XvoxShellTopHeader(
                             modifier = Modifier
                                 .height(42.dp)
                                 .width(actionPillWidth)
-                                .clip(actionShape)
-                                .background(controlSurface)
+                                .xvoxLiveBlur(
+                                    shape = actionShape,
+                                    level = XvoxBlurLevel.Chrome,
+                                    baseColor = controlSurface,
+                                    borderAlpha = .58f
+                                )
                         ) {
                             Row(
                                 modifier = Modifier

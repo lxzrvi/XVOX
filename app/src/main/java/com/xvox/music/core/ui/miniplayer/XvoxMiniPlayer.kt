@@ -49,6 +49,8 @@ import androidx.compose.material3.Icon
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
+import com.xvox.music.core.ui.blur.XvoxBlurLevel
+import com.xvox.music.core.ui.blur.xvoxLiveBlur
 import com.xvox.music.player.playback.RepeatMode
 import kotlin.math.abs
 import kotlinx.coroutines.Job
@@ -446,8 +448,12 @@ private fun XvoxMiniQuickActionPill(
         modifier = Modifier
             .height(44.dp)
             .width(164.dp)
-            .clip(shape)
-            .background(colors.background.copy(alpha = .94f))
+            .xvoxLiveBlur(
+                shape = shape,
+                level = XvoxBlurLevel.Chrome,
+                baseColor = colors.background.copy(alpha = .94f),
+                borderAlpha = .56f
+            )
             .padding(horizontal = 5.dp),
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically

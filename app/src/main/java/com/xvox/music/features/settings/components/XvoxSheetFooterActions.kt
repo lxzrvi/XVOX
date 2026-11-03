@@ -18,6 +18,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.ui.blur.XvoxBlurLevel
+import com.xvox.music.core.ui.blur.xvoxLiveBlur
 import com.xvox.music.core.ui.effects.xvoxPressScale
 
 /** Shared fixed footer for live option sheets: Cancel/Okay close, while Reset applies immediately. */
@@ -53,9 +55,15 @@ private fun XvoxTransactionalFooterButton(
     Box(
         modifier = modifier
             .height(40.dp)
-            .clip(shape)
-            .background(if (prominent) colors.primaryAccent else colors.cardElevated)
-            .border(.8.dp, if (prominent) Color.Transparent else colors.cardBorder, shape)
+            // Primary confirmation remains solid enough to read as the commit action; secondary
+            // options use the gentler selection glass rather than disappearing into sheet blur.
+            .xvoxLiveBlur(
+                shape = shape,
+                level = XvoxBlurLevel.Selection,
+                baseColor = if (prominent) colors.primaryAccent else colors.cardElevated,
+                borderColor = if (prominent) Color.Transparent else colors.cardBorder,
+                borderAlpha = if (prominent) 0f else .76f
+            )
             .xvoxPressScale(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {

@@ -7,7 +7,7 @@ data class SettingsState(
         com.xvox.music.features.sourcemode.XvoxSourceMode.OFFLINE,
     /** Default adaptive player canvas or the optional current-cover background. */
     val nowPlayingBackgroundStyle: String = "default",
-    /** Local blur amount for Cover background only; no app-wide blur mode exists. */
+    /** Local blur amount for the optional cover-art Now Playing background. */
     val nowPlayingCoverBlur: Float = 24f,
     val lyrics: com.xvox.music.data.preferences.LyricsSettings = com.xvox.music.data.preferences.LyricsSettings(),
     val theme: String = "System",

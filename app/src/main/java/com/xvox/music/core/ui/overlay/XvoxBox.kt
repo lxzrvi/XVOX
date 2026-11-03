@@ -31,6 +31,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RectangleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -70,6 +71,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.ui.blur.XvoxBlurLevel
+import com.xvox.music.core.ui.blur.xvoxOverlayBlur
 import com.xvox.music.core.ui.effects.xvoxPressScale
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -246,7 +249,9 @@ fun XvoxSheet(
     // The scrim is immediately opaque on open, then fades independently as the sheet closes.
     // This leaves the sheet as the only travelling layer while the host owns one dim layer.
     val scrimAlpha by animateFloatAsState(
-        targetValue = if (closing) 0f else .40f,
+        // The live sheet backdrop now carries the visual separation; retain only a quiet dim
+        // veil so the page is recognizably present through the stronger blur above the sheet.
+        targetValue = if (closing) 0f else .24f,
         animationSpec = tween(
             durationMillis = if (closing) XvoxSheetExitMs else XvoxSheetEnterMs,
             easing = XvoxBoxEasing
@@ -272,6 +277,14 @@ fun XvoxSheet(
         Box(
             modifier = Modifier
                 .matchParentSize()
+                // This is a sibling of the live app capture in XvoxAppRoot, so the empty space
+                // above a sheet blurs the actual page instead of merely applying a dark scrim.
+                .xvoxOverlayBlur(
+                    shape = RectangleShape,
+                    level = XvoxBlurLevel.SheetBackdrop,
+                    baseColor = scrimColor,
+                    borderWidth = 0.dp
+                )
                 .drawBehind { drawRect(scrimColor, alpha = scrimAlpha) }
                 .clickable(remember { MutableInteractionSource() }, indication = null) { close() }
         )
@@ -386,8 +399,12 @@ fun XvoxSheet(
                     modifier = Modifier
                         .fillMaxWidth()
                         .then(sheetSizing)
-                        .clip(sheetShape)
-                        .background(optionSurface)
+                        .xvoxOverlayBlur(
+                            shape = sheetShape,
+                            level = XvoxBlurLevel.Sheet,
+                            baseColor = optionSurface,
+                            borderAlpha = .72f
+                        )
                         .clickable(swallowInteraction, indication = null) { }
                         .onGloballyPositioned { layout ->
                             measuredHeightPx = layout.size.height
@@ -586,7 +603,7 @@ private fun XvoxCenteredBox(
     var closing by remember { mutableStateOf(false) }
     // Centered choices paint their dim layer immediately and fade it only while closing.
     val scrimAlpha by animateFloatAsState(
-        targetValue = if (closing) 0f else .48f,
+        targetValue = if (closing) 0f else .28f,
         animationSpec = tween(
             durationMillis = if (closing) XvoxSheetExitMs else XvoxSheetEnterMs,
             easing = XvoxBoxEasing
@@ -653,6 +670,12 @@ private fun XvoxCenteredBox(
         Box(
             Modifier
                 .matchParentSize()
+                .xvoxOverlayBlur(
+                    shape = RectangleShape,
+                    level = XvoxBlurLevel.SheetBackdrop,
+                    baseColor = scrimColor,
+                    borderWidth = 0.dp
+                )
                 .drawBehind { drawRect(scrimColor, alpha = scrimAlpha) }
                 .clickable(remember { MutableInteractionSource() }, indication = null) { close() }
         )
@@ -673,9 +696,14 @@ private fun XvoxCenteredBox(
                 modifier = Modifier
                     .fillMaxWidth(.90f)
                     .then(centeredSizing)
-                    .clip(centeredShape)
-                    .background(optionSurface)
-                    .then(if (showOptionBorder) Modifier.border(.7.dp, optionEdge, centeredShape) else Modifier)
+                    .xvoxOverlayBlur(
+                        shape = centeredShape,
+                        level = XvoxBlurLevel.Sheet,
+                        baseColor = optionSurface,
+                        borderColor = optionEdge,
+                        borderAlpha = if (showOptionBorder) 1f else 0f,
+                        borderWidth = if (showOptionBorder) .7.dp else 0.dp
+                    )
                     .clickable(swallowInteraction, indication = null) { }
                     .onGloballyPositioned { measuredHeightPx = it.size.height }
                     .semantics { paneTitle = title }

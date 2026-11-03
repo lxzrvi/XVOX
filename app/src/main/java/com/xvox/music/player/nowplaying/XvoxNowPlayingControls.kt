@@ -34,6 +34,8 @@ import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.ui.blur.XvoxBlurLevel
+import com.xvox.music.core.ui.blur.xvoxLiveBlur
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 import com.xvox.music.player.playback.RepeatMode
 import com.xvox.music.player.nowplaying.components.NowPlayingEditItem
@@ -344,7 +346,12 @@ private fun PlayControl(
     Box(
         modifier = Modifier
             .size(56.dp)
-            .background(circleColor, CircleShape)
+            .xvoxLiveBlur(
+                shape = CircleShape,
+                level = XvoxBlurLevel.Chrome,
+                baseColor = circleColor,
+                borderAlpha = .46f
+            )
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,

@@ -21,6 +21,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.ui.blur.XvoxBlurLevel
+import com.xvox.music.core.ui.blur.xvoxLiveBlur
 
 @Composable
 fun SettingsSectionCard(
@@ -34,8 +36,12 @@ fun SettingsSectionCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(shape)
-            .background(colors.cardElevated.copy(alpha = colors.cardElevated.alpha * .82f))
+            .xvoxLiveBlur(
+                shape = shape,
+                level = XvoxBlurLevel.Card,
+                baseColor = colors.cardElevated,
+                borderAlpha = .58f
+            )
             .padding(12.dp)
     ) {
         Row(

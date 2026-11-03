@@ -52,6 +52,8 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.ui.blur.XvoxBlurLevel
+import com.xvox.music.core.ui.blur.xvoxLiveBlur
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
 import kotlinx.coroutines.delay
@@ -203,8 +205,12 @@ fun NowPlayingActions(
                 modifier = Modifier
                     .graphicsLayer(alpha = controlsAlpha.coerceIn(0f, 1f))
                     .height(42.dp)
-                    .clip(RoundedCornerShape(21.dp))
-                    .background(colors.card.copy(alpha = surfaceAlpha.coerceIn(0f, 1f)))
+                    .xvoxLiveBlur(
+                        shape = RoundedCornerShape(21.dp),
+                        level = XvoxBlurLevel.Chrome,
+                        baseColor = colors.card.copy(alpha = surfaceAlpha.coerceIn(0f, 1f)),
+                        borderAlpha = .50f
+                    )
                     .padding(horizontal = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -636,8 +642,12 @@ fun NowPlayingCircleAction(
     Box(
         modifier = Modifier
             .size(42.dp)
-            .clip(CircleShape)
-            .background(bgColor, CircleShape)
+            .xvoxLiveBlur(
+                shape = CircleShape,
+                level = XvoxBlurLevel.Selection,
+                baseColor = bgColor,
+                borderAlpha = .44f
+            )
             .combinedClickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,

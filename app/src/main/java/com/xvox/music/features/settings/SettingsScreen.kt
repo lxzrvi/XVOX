@@ -35,6 +35,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
@@ -46,8 +47,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil3.compose.AsyncImage
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.ui.blur.XvoxBlurLevel
+import com.xvox.music.core.ui.blur.xvoxLiveBlur
 import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 import com.xvox.music.core.ui.navigation.LocalXvoxBottomInset
@@ -227,7 +231,9 @@ fun SettingsScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(colors.background),
+            // Let a selected app photo remain visible under Settings' live-glass cards without
+            // changing the opaque default theme when no custom background exists.
+            .background(colors.background.copy(alpha = if (state.backgroundImageUri != null) .60f else 1f)),
         contentAlignment = Alignment.TopCenter
     ) {
         LazyVerticalGrid(
@@ -337,6 +343,12 @@ private fun AppearanceSectionCard(
     modifier: Modifier = Modifier
 ) {
     val colors = XvoxTheme.colors
+    val overlays = LocalXvoxOverlayController.current
+    // The repository copies this into app-private storage, so the selected app background remains
+    // available after the document provider's transient permission disappears.
+    val backgroundPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        uri?.let { viewModel.setBackgroundImage(it.toString()) }
+    }
     val themeOptions = listOf("System" to "System", "Light" to "Light", "Dark" to "Dark")
     val selectedTheme = themeOptions.firstOrNull { it.first.equals(state.theme, ignoreCase = true) }?.first
         ?: if (state.theme.equals("AMOLED", ignoreCase = true)) "Dark" else null
@@ -378,6 +390,150 @@ private fun AppearanceSectionCard(
                         if (key == "custom") onOpenColorWheel() else viewModel.setAccentColor(key)
                     }
                 )
+            }
+
+            SettingsField("App background") {
+                val previewShape = RoundedCornerShape(16.dp)
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(if (compact) 64.dp else 82.dp)
+                            .xvoxLiveBlur(
+                                shape = previewShape,
+                                level = XvoxBlurLevel.Card,
+                                baseColor = colors.cardElevated,
+                                borderAlpha = .72f
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        state.backgroundImageUri?.let { image ->
+                            AsyncImage(
+                                model = image,
+                                contentDescription = "Selected app background",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.matchParentSize().clip(previewShape)
+                            )
+                            // Preserve readable status text over a bright photo without replacing
+                            // the selected image itself with a hard opaque card.
+                            Box(
+                                Modifier
+                                    .matchParentSize()
+                                    .background(Color.Black.copy(alpha = .22f))
+                            )
+                        }
+                        Text(
+                            text = if (state.backgroundImageUri == null) "Use a photo behind live glass" else "Custom app background active",
+                            color = if (state.backgroundImageUri == null) colors.secondaryText else Color.White,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        val actionShape = RoundedCornerShape(14.dp)
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(38.dp)
+                                .xvoxLiveBlur(
+                                    shape = actionShape,
+                                    level = XvoxBlurLevel.Selection,
+                                    baseColor = colors.cardElevated,
+                                    borderAlpha = .62f
+                                )
+                                .xvoxPressScale { backgroundPicker.launch("image/*") },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = if (state.backgroundImageUri == null) "Choose photo" else "Replace photo",
+                                color = colors.primaryText,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        if (state.backgroundImageUri != null) {
+                            Box(
+                                modifier = Modifier
+                                    .height(38.dp)
+                                    .width(78.dp)
+                                    .xvoxLiveBlur(
+                                        shape = actionShape,
+                                        level = XvoxBlurLevel.Selection,
+                                        baseColor = colors.cardElevated,
+                                        borderAlpha = .62f
+                                    )
+                                    .xvoxPressScale { viewModel.setBackgroundImage(null) },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("Remove", color = colors.secondaryText, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                    val dimness = (1f - state.backgroundBrightness).coerceIn(0f, .80f)
+                    Text(
+                        text = "Dimness · ${(dimness * 100f).toInt()}%",
+                        color = colors.secondaryText,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(start = 4.dp)
+                    )
+                    XvoxSlider(
+                        value = dimness,
+                        // Storage retains its established brightness contract; the Appearance UI
+                        // speaks in the user-facing inverse, Dimness, requested for a wallpaper.
+                        onValueChange = { viewModel.setBackgroundBrightness(1f - it) },
+                        valueRange = 0f..0.80f,
+                        defaultValue = .20f,
+                        snapRadius = .015f,
+                        valueLabel = { "${(it * 100f).toInt()} percent app background dimness" },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+
+            SettingsField("Background blur") {
+                // No fake purchase state is inferred here. Until the app has a real supporter
+                // entitlement, this control stays visibly Premium and cannot silently charge or
+                // enable a paid feature. Live glass elsewhere remains available as requested.
+                val premiumShape = RoundedCornerShape(16.dp)
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .xvoxLiveBlur(
+                            shape = premiumShape,
+                            level = XvoxBlurLevel.Selection,
+                            baseColor = colors.cardElevated,
+                            borderAlpha = .58f
+                        )
+                        .xvoxPressScale { overlays.showP("Background blur is a Premium feature") }
+                        .padding(horizontal = 12.dp, vertical = 9.dp)
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "Photo blur",
+                                color = colors.primaryText,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Text(
+                                text = "PREMIUM",
+                                color = colors.primaryAccent,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                        }
+                        XvoxSlider(
+                            value = .52f,
+                            onValueChange = {},
+                            valueRange = 0f..1f,
+                            enabled = false,
+                            valueLabel = { "Premium background blur" },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
             }
 
             SettingsField("Fonts") {
@@ -455,9 +611,14 @@ private fun XvoxSegmentedPill(
         modifier = modifier
             .fillMaxWidth()
             .height(pillHeight)
-            .clip(shape)
-            .background(colors.cardElevated)
-            .border(0.8.dp, colors.cardBorder.copy(alpha = 0.7f), shape)
+            // Active selections stay solid below; only the surrounding option lane uses the
+            // lighter glass level so the selected pill remains immediately recognizable.
+            .xvoxLiveBlur(
+                shape = shape,
+                level = XvoxBlurLevel.Selection,
+                baseColor = colors.cardElevated,
+                borderAlpha = .70f
+            )
     ) {
         val horizontalInset = if (compact) 2.dp else 3.dp
         val verticalInset = if (compact) 2.dp else 3.dp
@@ -957,9 +1118,13 @@ private fun SettingsCardFrame(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .clip(shape)
-            .background(colors.card)
-            .border(1.dp, colors.cardBorder.copy(alpha = if (colors.isLight) 0.8f else 0.72f), shape)
+            .xvoxLiveBlur(
+                shape = shape,
+                level = XvoxBlurLevel.Card,
+                baseColor = colors.card,
+                borderAlpha = if (colors.isLight) .80f else .72f,
+                borderWidth = 1.dp
+            )
             .padding(
                 horizontal = if (isLandscape) 10.dp else 14.dp,
                 vertical = if (isLandscape) 11.dp else 16.dp

@@ -31,6 +31,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.ui.blur.XvoxBlurLevel
+import com.xvox.music.core.ui.blur.xvoxLiveBlur
 import com.xvox.music.core.ui.components.XvoxLikedHeartBadge
 import com.xvox.music.core.ui.effects.xvoxSongPress
 import com.xvox.music.features.home.XvoxSongArtwork
@@ -148,11 +150,13 @@ fun ArtistCircleItem(
             Box(
                 modifier = Modifier
                     .matchParentSize()
-                    .clip(CircleShape)
-                    .background(colors.background)
-                    .then(
-                        if (selected) Modifier.border(2.dp, colors.primaryAccent, CircleShape)
-                        else Modifier
+                    .xvoxLiveBlur(
+                        shape = CircleShape,
+                        level = if (selected) XvoxBlurLevel.Selection else XvoxBlurLevel.Card,
+                        baseColor = colors.background,
+                        borderColor = if (selected) colors.primaryAccent else colors.cardBorder,
+                        borderAlpha = if (selected) 1f else .64f,
+                        borderWidth = if (selected) 2.dp else .7.dp
                     ),
                 contentAlignment = Alignment.Center
             ) {

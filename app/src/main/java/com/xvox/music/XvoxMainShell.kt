@@ -66,6 +66,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil3.compose.AsyncImage
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
+import com.xvox.music.core.ui.blur.XvoxBlurLevel
+import com.xvox.music.core.ui.blur.xvoxLiveBlur
 import com.xvox.music.core.ui.miniplayer.XvoxMiniPlayer
 import com.xvox.music.core.ui.miniplayer.XvoxMiniPlayerPlacement
 import com.xvox.music.core.ui.navigation.LocalXvoxBottomInset
@@ -1168,16 +1170,15 @@ private fun ProfileSheetFooterButton(
     Box(
         modifier = modifier
             .requiredHeight(40.dp)
-            .clip(shape)
-            .background(
-                when {
+            .xvoxLiveBlur(
+                shape = shape,
+                level = XvoxBlurLevel.Selection,
+                baseColor = when {
                     primary && enabled -> colors.primaryAccent
                     else -> colors.cardElevated
-                }
-            )
-            .then(
-                if (primary && enabled) Modifier
-                else Modifier.border(.8.dp, colors.cardBorder.copy(alpha = .80f), shape)
+                },
+                borderColor = if (primary && enabled) Color.Transparent else colors.cardBorder,
+                borderAlpha = if (primary && enabled) 0f else .80f
             )
             .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center
@@ -1202,8 +1203,8 @@ private fun TabSurface(
     content: @Composable () -> Unit
 ) {
     Box(Modifier.fillMaxSize().background(XvoxTheme.colors.background)) {
-        // A normal selected background image remains local to the active tab; no captured or
-        // GPU-blurred app-wide backdrop is used by the default interface.
+        // The image remains the user's visible tab backdrop. XvoxAppRoot separately exposes the
+        // same wallpaper/photo as the Haze source for live-glass cards and root-hosted sheets.
         if (backgroundImage.isNotBlank()) {
             AsyncImage(
                 model = Uri.parse(backgroundImage),

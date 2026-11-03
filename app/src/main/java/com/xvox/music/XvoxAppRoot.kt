@@ -8,6 +8,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.matchParentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -27,6 +28,10 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -35,10 +40,14 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.Density
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil3.compose.AsyncImage
+import dev.chrisbanes.haze.hazeSource
+import dev.chrisbanes.haze.rememberHazeState
 import com.xvox.music.artwork.XvoxArtworkPreloader
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.design.theme.XvoxThemeMode
 import com.xvox.music.core.ui.XvoxStartupLoadingScreen
+import com.xvox.music.core.ui.blur.LocalXvoxOverlayHazeState
+import com.xvox.music.core.ui.blur.LocalXvoxSurfaceHazeState
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 import com.xvox.music.core.ui.haptics.rememberXvoxHaptics
 import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
@@ -207,78 +216,123 @@ fun XvoxAppRoot(
         uiFontFamily = selectedUiFont
     ) {
         val haptics = rememberXvoxHaptics(enabled = hapticFeedbackEnabled, strength = hapticIntensity)
+        // Keep normal surfaces and root-hosted overlays on separate capture layers. A glass card
+        // only samples the wallpaper/photo behind the app, while a sheet can blur the real live
+        // page it covers. Neither effect is nested inside its own Haze source.
+        val surfaceHazeState = rememberHazeState()
+        val overlayHazeState = rememberHazeState()
         CompositionLocalProvider(
             LocalDensity provides customDensity,
             LocalXvoxOverlayController provides overlays,
             com.xvox.music.core.ui.chrome.LocalXvoxBaseChromeStyle provides effectiveChrome,
             com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle provides effectiveChrome,
-            LocalXvoxHaptics provides haptics
+            LocalXvoxHaptics provides haptics,
+            LocalXvoxSurfaceHazeState provides surfaceHazeState,
+            LocalXvoxOverlayHazeState provides overlayHazeState
         ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(XvoxTheme.colors.background)
-            ) {
-                // The ordinary user-selected theme image remains a normal background with no
-                // root capture or app-wide effect processing.
-                if (backgroundImage.isNotBlank()) {
-                    AsyncImage(
-                        model = Uri.parse(backgroundImage),
-                        contentDescription = null,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                }
-
-                if (state == AppUiState.Setup) {
-                    SetupScreen(onSetupComplete = { viewModel.onSetupFinished() })
-                } else {
-                    if (shellMounted && homeVm != null && playerVm != null) {
-                        XvoxMainShell(homeVm, playerVm, backgroundBrightness = backgroundBrightness)
-                    }
-
-                    AnimatedVisibility(
-                        visible = state != AppUiState.Home,
-                        enter = fadeIn(tween(120)),
-                        exit = fadeOut(tween(260))
-                    ) {
-                        val loaderSequenceReady = state == AppUiState.Preparing && minimumReady
-                        XvoxStartupLoadingScreen(
-                            // The ring-to-bar clock starts on the original lightweight bootstrap
-                            // signal. Home is already loading behind it; only the final Home reveal
-                            // waits for that terminal readiness flag, never for noisy Home frames.
-                            readyToEnter = loaderSequenceReady,
-                            canEnterHome = loaderSequenceReady && homeStartupReady,
-                            progress = startupProgress,
-                            onSequenceComplete = {
-                                if (
-                                    !startupSequenceReleased &&
-                                    state == AppUiState.Preparing &&
-                                    minimumReady &&
-                                    homeStartupReady
-                                ) {
-                                    startupSequenceReleased = true
-                                    rootScope.launch {
-                                        // Give the first Home runway a short opportunity to warm,
-                                        // but always reveal the application promptly when artwork
-                                        // is unavailable or the cache is cold.
-                                        withTimeoutOrNull(700) {
-                                            snapshotFlow { artworkWarmDone }.first { it }
-                                        }
-                                        // Mount Home while the loader is still a static opaque
-                                        // frame, then wait for a few compose frames before the
-                                        // normal loader fade begins.
-                                        shellMounted = true
-                                        repeat(3) { withFrameNanos { } }
-                                        viewModel.report(1f, "Ready")
-                                        viewModel.onHomeReady()
-                                    }
-                                }
-                            }
+            val colors = XvoxTheme.colors
+            Box(modifier = Modifier.fillMaxSize()) {
+                // Source 1: a real wallpaper/photo plus restrained accent bloom. It gives live
+                // glass a meaningful moving/coloured input even when the user has not picked a
+                // custom background image. hazeSource deliberately comes before background work.
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .hazeSource(state = surfaceHazeState)
+                        .background(colors.background)
+                        .drawBehind {
+                            val radius = size.maxDimension * .68f
+                            drawRect(
+                                brush = Brush.radialGradient(
+                                    colors = listOf(colors.primaryAccent.copy(alpha = .24f), Color.Transparent),
+                                    center = Offset(size.width * .14f, size.height * .18f),
+                                    radius = radius
+                                )
+                            )
+                            drawRect(
+                                brush = Brush.radialGradient(
+                                    colors = listOf(colors.primaryAccent.copy(alpha = .15f), Color.Transparent),
+                                    center = Offset(size.width * .86f, size.height * .82f),
+                                    radius = radius
+                                )
+                            )
+                        }
+                ) {
+                    if (backgroundImage.isNotBlank()) {
+                        AsyncImage(
+                            model = Uri.parse(backgroundImage),
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                        // The image dimness is part of the source itself, so live-glass cards,
+                        // navbar, and sheets remain legible at the exact user-selected level.
+                        Box(
+                            Modifier
+                                .fillMaxSize()
+                                .background(Color.Black.copy(alpha = (1f - backgroundBrightness).coerceIn(0f, .95f)))
                         )
                     }
                 }
 
+                // Source 2: root-hosted sheets are siblings of this complete live app surface.
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .hazeSource(state = overlayHazeState)
+                ) {
+                    if (state == AppUiState.Setup) {
+                        SetupScreen(onSetupComplete = { viewModel.onSetupFinished() })
+                    } else {
+                        if (shellMounted && homeVm != null && playerVm != null) {
+                            XvoxMainShell(homeVm, playerVm, backgroundBrightness = backgroundBrightness)
+                        }
+
+                        AnimatedVisibility(
+                            visible = state != AppUiState.Home,
+                            enter = fadeIn(tween(120)),
+                            exit = fadeOut(tween(260))
+                        ) {
+                            val loaderSequenceReady = state == AppUiState.Preparing && minimumReady
+                            XvoxStartupLoadingScreen(
+                                // The ring-to-bar clock starts on the original lightweight bootstrap
+                                // signal. Home is already loading behind it; only the final Home reveal
+                                // waits for that terminal readiness flag, never for noisy Home frames.
+                                readyToEnter = loaderSequenceReady,
+                                canEnterHome = loaderSequenceReady && homeStartupReady,
+                                progress = startupProgress,
+                                onSequenceComplete = {
+                                    if (
+                                        !startupSequenceReleased &&
+                                        state == AppUiState.Preparing &&
+                                        minimumReady &&
+                                        homeStartupReady
+                                    ) {
+                                        startupSequenceReleased = true
+                                        rootScope.launch {
+                                            // Give the first Home runway a short opportunity to warm,
+                                            // but always reveal the application promptly when artwork
+                                            // is unavailable or the cache is cold.
+                                            withTimeoutOrNull(700) {
+                                                snapshotFlow { artworkWarmDone }.first { it }
+                                            }
+                                            // Mount Home while the loader is still a static opaque
+                                            // frame, then wait for a few compose frames before the
+                                            // normal loader fade begins.
+                                            shellMounted = true
+                                            repeat(3) { withFrameNanos { } }
+                                            viewModel.report(1f, "Ready")
+                                            viewModel.onHomeReady()
+                                        }
+                                    }
+                                }
+                            )
+                        }
+                    }
+                }
+
+                // A sheet/artist overlay is intentionally outside the app source, so it can
+                // sample the actual underlying page instead of recursively sampling itself.
                 XvoxOverlayHost(controller = overlays, modifier = Modifier.fillMaxSize())
             }
         }

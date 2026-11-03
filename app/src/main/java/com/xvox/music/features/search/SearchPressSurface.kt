@@ -19,6 +19,8 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.xvox.music.core.ui.blur.XvoxBlurLevel
+import com.xvox.music.core.ui.blur.xvoxLiveBlur
 import com.xvox.music.core.ui.effects.xvoxSongPress
 
 /**
@@ -58,9 +60,14 @@ internal fun SearchPressSurface(
                 scaleX = frameScale
                 scaleY = frameScale
             }
-            .clip(shape)
-            .background(fill)
-            .border(borderWidth, border, shape)
+            .xvoxLiveBlur(
+                shape = shape,
+                level = XvoxBlurLevel.Card,
+                baseColor = fill,
+                borderColor = border,
+                borderAlpha = 1f,
+                borderWidth = borderWidth
+            )
     ) {
         content()
     }

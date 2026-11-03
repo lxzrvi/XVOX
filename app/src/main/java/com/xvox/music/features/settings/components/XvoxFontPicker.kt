@@ -32,6 +32,8 @@ import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxFontOption
 import com.xvox.music.core.design.theme.XvoxFontOptions
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.ui.blur.XvoxBlurLevel
+import com.xvox.music.core.ui.blur.xvoxLiveBlur
 import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.core.ui.overlay.xvoxBoxScroll
 
@@ -95,9 +97,12 @@ fun XvoxFontPickerButton(
     Row(
         modifier = modifier
             .height(pillHeight)
-            .clip(shape)
-            .background(colors.cardElevated)
-            .border(.8.dp, colors.cardBorder, shape)
+            .xvoxLiveBlur(
+                shape = shape,
+                level = XvoxBlurLevel.Selection,
+                baseColor = colors.cardElevated,
+                borderAlpha = .78f
+            )
             .xvoxPressScale(onClick = onClick)
             .padding(horizontal = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -128,12 +133,13 @@ private fun XvoxFontSettingsRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(shape)
-            .background(if (selected) colors.accentSoft else colors.cardElevated)
-            .border(
-                width = if (selected) 1.dp else .8.dp,
-                color = if (selected) colors.primaryAccent.copy(alpha = .72f) else colors.cardBorder,
-                shape = shape
+            .xvoxLiveBlur(
+                shape = shape,
+                level = if (selected) XvoxBlurLevel.Selection else XvoxBlurLevel.Card,
+                baseColor = if (selected) colors.accentSoft else colors.cardElevated,
+                borderColor = if (selected) colors.primaryAccent else colors.cardBorder,
+                borderAlpha = if (selected) .72f else .78f,
+                borderWidth = if (selected) 1.dp else .8.dp
             )
             .xvoxPressScale(onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 10.dp),

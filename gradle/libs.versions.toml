@@ -1,0 +1,5 @@
+[versions]
+haze = "1.7.2"
+
+[libraries]
+haze = { module = "dev.chrisbanes.haze:haze", version.ref = "haze" }
