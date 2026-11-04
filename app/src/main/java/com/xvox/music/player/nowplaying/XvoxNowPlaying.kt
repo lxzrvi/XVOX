@@ -207,9 +207,13 @@ fun XvoxNowPlaying(
     val context = LocalContext.current
     val lyricsState by lyricsViewModel.state.collectAsState()
     val settingsState by settingsViewModel.state.collectAsState()
-    // The master Appearance switch governs artistic cover blur too, so "off" really removes
-    // every player blur rather than leaving an unrelated blurred cover behind.
-    val effectiveCoverBlur = if (chrome.glassBlurEnabled) settingsState.nowPlayingCoverBlur else 0f
+    // The master Appearance intensity also scales the cover backdrop. This makes one slider
+    // control the true expensive player blur, and lets low settings reduce GPU work immediately.
+    val effectiveCoverBlur = if (chrome.glassBlurEnabled) {
+        settingsState.nowPlayingCoverBlur * chrome.glassBlurIntensity.coerceIn(0f, 1f)
+    } else {
+        0f
+    }
     val paletteState = rememberXvoxNowPlayingPalette(song, queue, currentIndex)
     // Top controls sample this Now Playing backdrop source, not the app wallpaper or the shell
     // underneath the player. It is intentionally only the backdrop, never its own controls.
@@ -426,12 +430,15 @@ fun XvoxNowPlaying(
     }
 
     fun returnToRest() {
+        // A stale drag callback must not cancel an already intentional close animation.
+        if (dismissing) return
         animateScreen(0f) {
             if (!dismissing) dragDismissReady = true
         }
     }
 
     fun finishDragDismissal() {
+        if (dismissing) return
         if (!dragDismissReady) {
             // A header/lyrics touch arrived during the handoff. Recover to the settled player
             // rather than converting the handoff's travel distance into an unwanted close.

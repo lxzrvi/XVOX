@@ -76,6 +76,9 @@ class PlaybackController(
     private var installAnchor = -1
     private var installPrefix = 0
     private var installTail = -1
+    // Small grace after a Media3 timeline transaction. Some devices report one empty-current-item
+    // callback after the final list mutation, even though the audible occurrence never changed.
+    private var timelineUiHoldUntilMs = 0L
 
     private fun indexOfEntry(entryId: String?): Int = entryId?.let { entryPositions[it] } ?: -1
     private fun indexOfSong(songId: Long?): Int = songId?.let { id -> queue.indexOfFirst { it.id == id } } ?: -1
@@ -178,10 +181,10 @@ class PlaybackController(
                     progressJob = scope.launch {
                         while (isActive) {
                             publishState()
-                            // Now Playing smooths each controller sample locally.  Sampling at
-                            // 120 ms avoids rebuilding the entire artwork/pager/chrome tree at
-                            // 20 Hz while still keeping the rail visually continuous.
-                            delay(if (fastProgress && controller?.playWhenReady == true) 120L else 250L)
+                            // Now Playing interpolates each controller sample locally. A 160 ms
+                            // cadence avoids rebuilding the artwork/pager/chrome tree at 20 Hz,
+                            // while the progress rail remains visually continuous between samples.
+                            delay(if (fastProgress && controller?.playWhenReady == true) 160L else 250L)
                         }
                     }
                 }
@@ -263,6 +266,8 @@ class PlaybackController(
         val entrySnapshot = queueEntryIds
         val anchor = entrySnapshot.indexOf(anchorEntryId)
         if (anchor < 0 || released || controller !== p) return
+        // Cover both active mutation and the post-mutation callback delivery window.
+        timelineUiHoldUntilMs = SystemClock.uptimeMillis() + 900L
         installingQueue = snapshot
         installingEntryIds = entrySnapshot
         try {
@@ -560,6 +565,7 @@ class PlaybackController(
         restoredSongId = null
         pendingPlay = null
         queueJob?.cancel(); installedQueue = null; installingQueue = null; installingEntryIds = null
+        timelineUiHoldUntilMs = 0L
         nativeEntryIds.clear()
 
         controller?.let {
@@ -596,6 +602,22 @@ class PlaybackController(
                     )
                     return
                 }
+            }
+            // Media3 can emit a momentary no-current-item frame while installAround rebuilds the
+            // timeline around the audible occurrence. Treat that as a transport transaction, not
+            // as a request to tear down Mini/Now Playing UI. An explicit stop still publishes the
+            // empty PlaybackState directly from stop(), so intended dismissal remains unchanged.
+            val previous = _state.value
+            val rebuildingTimeline = installingQueue != null || queueJob?.isActive == true ||
+                SystemClock.uptimeMillis() < timelineUiHoldUntilMs
+            if (rebuildingTimeline && previous.currentSongId != null) {
+                _state.value = previous.copy(
+                    connected = true,
+                    queue = queue,
+                    queueOccurrenceIds = queueEntryIds,
+                    externalQueue = externalQueue
+                )
+                return
             }
             _state.value = PlaybackState(connected = true)
             return

@@ -22,8 +22,11 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import com.xvox.music.core.design.theme.XvoxTheme
-import com.xvox.music.features.home.XvoxNowPlayingArtworkSize
 import com.xvox.music.features.home.XvoxSongArtwork
+
+// A blurred full-screen backdrop never needs the original cover resolution. Keeping this bounded
+// avoids oversized bitmap decode/upload work while retaining a clean blur on large phones.
+private const val XvoxNowPlayingBackdropBlurSize = 512
 
 /** One stable cover occurrence in the controlled Now Playing backdrop swipe pair. */
 data class XvoxBackdropCover(
@@ -136,7 +139,7 @@ private fun PremiumBlurredCover(
 ) {
     XvoxSongArtwork(
         artwork = artwork,
-        requestSize = XvoxNowPlayingArtworkSize,
+        requestSize = XvoxNowPlayingBackdropBlurSize,
         contentScale = ContentScale.Crop,
         // Never retain an earlier song in this committed blur slot. The exact supplied fallback
         // is safer and more truthful than a stale next/previous cover while decoding completes.
@@ -152,7 +155,7 @@ private fun PremiumBlurredCover(
                 scaleY = 1.15f
             }
             .then(
-                if (blur > .01f) Modifier.blur(blur.coerceIn(12f, 50f).dp) else Modifier
+                if (blur > .01f) Modifier.blur(blur.coerceIn(0f, 50f).dp) else Modifier
             )
     )
 }

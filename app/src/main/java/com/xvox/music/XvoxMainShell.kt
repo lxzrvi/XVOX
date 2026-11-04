@@ -138,7 +138,12 @@ fun XvoxMainShell(
         }
     }
     LaunchedEffect(homeState.songs, homeState.loading) {
-        if (!homeState.loading) playerViewModel.setQueue(homeState.songs)
+        // A library refresh can expose an empty intermediate list. Never treat that UI-loading
+        // frame as a command to stop the currently audible player/close Now Playing; a completed
+        // non-empty library still reconciles real removals through setQueue as before.
+        if (!homeState.loading && homeState.songs.isNotEmpty()) {
+            playerViewModel.setQueue(homeState.songs)
+        }
     }
 
     var destination by rememberSaveable { mutableStateOf(XvoxDestination.HOME) }
@@ -168,9 +173,6 @@ fun XvoxMainShell(
     // scroll progress; they never recreate a page-local Header while route content changes.
     var homeHeaderScrollPx by rememberSaveable { mutableIntStateOf(0) }
     var searchHeaderScrollPx by rememberSaveable { mutableIntStateOf(0) }
-    // Header travel clamps after its own height, while the list keeps moving underneath fixed
-    // chrome. This revision keeps the shell source refreshing through that continued scroll.
-    var shellContentScrollRevision by remember { mutableIntStateOf(0) }
     // Now Playing is an overlay, not a route: never reset an underlying page's exact scroll or
     // Header translation when the player is closed. The shell remains composed below it.
     var hoistedSelectedPlaylistId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -726,7 +728,7 @@ fun XvoxMainShell(
     // The persistent Mini Player/navbar are siblings of this source. They therefore blur the
     // actual moving tab/header content beneath them instead of the static global wallpaper.
     val shellContentSky = rememberXvoxContentSky()
-    LaunchedEffect(homeHeaderScrollPx, searchHeaderScrollPx, shellContentScrollRevision, destination) {
+    LaunchedEffect(homeHeaderScrollPx, searchHeaderScrollPx, destination) {
         // Cloudy captures scrolling source layers on demand. Route/scroll updates keep the chrome
         // honest without coupling the source to playback-progress recompositions.
         shellContentSky.invalidate()
@@ -801,9 +803,10 @@ fun XvoxMainShell(
         val homeScrollProgressCallback = remember {
             { index: Int, offset: Int ->
                 if (latestHomeDestination == XvoxDestination.HOME) {
-                    // Continue invalidating the content Sky after Header translation has clamped;
-                    // Mini Player/navbar glass must still follow the scrolling cards below it.
-                    shellContentScrollRevision++
+                    // Continue refreshing the source after Header translation has clamped, but do
+                    // it directly instead of invalidating the full shell composition each frame.
+                    // This keeps Mini Player/navbar glass live without making scroll feel heavy.
+                    shellContentSky.invalidate()
                     val headerHeight = latestHomeHeaderHeightPx.roundToInt()
                     val nextHeaderScrollPx = if (index > 0) headerHeight
                     else offset.coerceIn(0, headerHeight)
@@ -816,7 +819,13 @@ fun XvoxMainShell(
         val homePlaylistSelectionCallback = remember {
             { playlistId: String? -> hoistedSelectedPlaylistId = playlistId }
         }
-        val queueReadyCallback = remember(playerViewModel) { { songs: List<Song> -> playerViewModel.setQueue(songs) } }
+        val queueReadyCallback = remember(playerViewModel) {
+            { songs: List<Song> ->
+                // Home may mount before MediaStore emits its first list. Ignore that empty UI
+                // placeholder so it cannot collapse an already-open Now Playing surface.
+                if (songs.isNotEmpty()) playerViewModel.setQueue(songs)
+            }
+        }
         val homePlayCallback = remember(playerViewModel) { { nextSong: Song -> playerViewModel.play(nextSong) } }
 
         val tabState = rememberSaveableStateHolder()
@@ -877,6 +886,9 @@ fun XvoxMainShell(
                                     },
                                     onScrollProgress = { _, travelledPx ->
                                         if (destination == XvoxDestination.SEARCH) {
+                                            // Refresh the shared capture directly with Search's
+                                            // scrolling list; no extra shell state is needed.
+                                            shellContentSky.invalidate()
                                             searchHeaderScrollPx = travelledPx
                                         }
                                     }

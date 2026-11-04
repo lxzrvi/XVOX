@@ -102,7 +102,9 @@ fun Modifier.xvoxLiveBlur(
     val clipped = clip(shape)
     val liveBlurEnabled = chrome.glassBlurEnabled && configuredBlur > .001f && sky != null
     val surface = when {
-        !chrome.glassBlurEnabled -> clipped.background(baseColor)
+        // Master off and zero intensity both keep the exact transparency selected by the user.
+        !chrome.glassBlurEnabled || configuredBlur <= .001f -> clipped.background(baseColor)
+        // A surface with no valid source receives the established readable material fallback.
         !liveBlurEnabled -> clipped.background(baseColor.copy(alpha = baseColor.alpha * level.fallbackAlpha))
         else -> clipped.cloudy(sky = sky!!, radius = radiusPx, tint = tint, shape = shape)
     }
