@@ -52,7 +52,6 @@ import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
 import com.xvox.music.data.preferences.XvoxPlaylist
 import com.xvox.music.features.home.XvoxSongArtwork
-import com.xvox.music.core.ui.blur.xvoxGlassFill
 
 @Composable
 fun XvoxPlaylistCoverEditor(
@@ -148,7 +147,7 @@ fun XvoxPlaylistCoverEditor(
                     modifier = Modifier
                         .aspectRatio(1f)
                         .clip(shape)
-                        .xvoxGlassFill()
+                        .background(colors.card)
                         .border(
                             width = if (active) 2.dp else 0.6.dp,
                             color = if (active) colors.primaryAccent else colors.cardBorder,
@@ -208,7 +207,7 @@ fun XvoxPlaylistCoverEditor(
                             .fillMaxWidth()
                             .aspectRatio(1f)
                             .clip(shape)
-                            .xvoxGlassFill()
+                            .background(colors.card)
                             .border(
                                 width = if (active) 2.dp else 0.6.dp,
                                 color = if (active) colors.primaryAccent else colors.cardBorder,
@@ -254,7 +253,7 @@ fun XvoxPlaylistCoverEditor(
                     modifier = Modifier
                         .aspectRatio(1f)
                         .clip(shape)
-                        .xvoxGlassFill()
+                        .background(colors.card)
                         .border(0.6.dp, colors.cardBorder, shape)
                         .xvoxPressScale {
                             picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))

@@ -24,7 +24,6 @@ import com.xvox.music.features.home.HomeSections
 import com.xvox.music.features.home.allsongs.*
 import com.xvox.music.features.settings.SettingsState
 import kotlin.random.Random
-import com.xvox.music.core.ui.blur.xvoxGlassFill
 
 /**
  * Scrollable Home Layout preview: user can scroll through the entire Home screen preview
@@ -91,9 +90,9 @@ fun HomeSettingsPreview(state: SettingsState) {
                 ) {
                     Box(Modifier.size(24.dp).clip(RoundedCornerShape(12.dp)).background(colors.primaryAccent.copy(alpha = 0.3f)))
                     Spacer(Modifier.width(8.dp))
-                    Box(Modifier.width(64.dp).height(8.dp).clip(RoundedCornerShape(4.dp)).xvoxGlassFill(baseColor = colors.cardElevated))
+                    Box(Modifier.width(64.dp).height(8.dp).clip(RoundedCornerShape(4.dp)).background(colors.cardElevated))
                     Spacer(Modifier.weight(1f))
-                    Box(Modifier.size(width = 54.dp, height = 20.dp).clip(RoundedCornerShape(10.dp)).xvoxGlassFill())
+                    Box(Modifier.size(width = 54.dp, height = 20.dp).clip(RoundedCornerShape(10.dp)).background(colors.card))
                 }
 
                 sections.forEach { section ->
@@ -154,7 +153,7 @@ private fun PreviewRecentRow() {
     val colors = XvoxTheme.colors
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         repeat(3) {
-            Box(Modifier.weight(1f).height(50.dp).clip(RoundedCornerShape(8.dp)).xvoxGlassFill())
+            Box(Modifier.weight(1f).height(50.dp).clip(RoundedCornerShape(8.dp)).background(colors.card))
         }
     }
 }
@@ -164,7 +163,7 @@ private fun PreviewSongRows(count: Int) {
     val colors = XvoxTheme.colors
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         repeat(count) {
-            Box(Modifier.fillMaxWidth().height(28.dp).clip(RoundedCornerShape(6.dp)).xvoxGlassFill())
+            Box(Modifier.fillMaxWidth().height(28.dp).clip(RoundedCornerShape(6.dp)).background(colors.card))
         }
     }
 }
@@ -185,7 +184,7 @@ private fun PreviewPlaylists(state: SettingsState) {
                                 .weight(1f)
                                 .height(height)
                                 .clip(RoundedCornerShape(8.dp))
-                                .xvoxGlassFill()
+                                .background(colors.card)
                         )
                     }
                 }
@@ -202,7 +201,7 @@ private fun PreviewPlaylists(state: SettingsState) {
                                 .weight(1f)
                                 .height(height)
                                 .clip(RoundedCornerShape(8.dp))
-                                .xvoxGlassFill()
+                                .background(colors.card)
                         )
                     }
                 }

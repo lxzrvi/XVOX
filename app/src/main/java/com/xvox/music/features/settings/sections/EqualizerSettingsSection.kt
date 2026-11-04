@@ -43,13 +43,13 @@ import com.xvox.music.audio.EqBands
 import com.xvox.music.audio.ReverbPresets
 import com.xvox.music.core.design.theme.XvoxRed
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.ui.blur.xvoxGlassFill
 import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.core.ui.overlay.xvoxBoxScroll
 import com.xvox.music.features.settings.SettingsState
 import com.xvox.music.features.settings.SettingsViewModel
 import kotlin.math.abs
 import kotlin.math.roundToInt
-import com.xvox.music.core.ui.blur.xvoxGlassFill
 
 /**
  * Compact live Equalizer editor modeled on the supplied reference. Every toggle, preset, and

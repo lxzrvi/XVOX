@@ -18,7 +18,6 @@ import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.core.ui.overlay.xvoxBoxScroll
-import com.xvox.music.core.ui.blur.xvoxGlassFill
 
 /**
  * One confirmation shape for the whole app: exit, delete a song, delete a playlist.
@@ -62,7 +61,7 @@ fun XvoxConfirmBox(
         }
         Row(Modifier.fillMaxWidth().padding(top = 18.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Box(
-                Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).xvoxGlassFill()
+                Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(colors.card)
                     .xvoxPressScale(onClick = onCancel).padding(14.dp),
                 contentAlignment = Alignment.Center
             ) { Text(cancelLabel, color = colors.primaryText, fontWeight = FontWeight.Bold, fontSize = 13.sp) }

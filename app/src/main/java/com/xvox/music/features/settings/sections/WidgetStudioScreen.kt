@@ -55,12 +55,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.ui.blur.xvoxGlassFill
 import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.features.settings.SettingsState
 import com.xvox.music.features.settings.SettingsViewModel
 import com.xvox.music.features.settings.components.UniformPreview
 import com.xvox.music.widget.XvoxWidgetHelper
-import com.xvox.music.core.ui.blur.xvoxGlassFill
 
 /**
  * A dedicated settings page for the home-screen widget.  The preview is deliberately outside the
@@ -115,7 +115,7 @@ fun WidgetStudioScreen(
                 modifier = Modifier
                     .size(38.dp)
                     .clip(CircleShape)
-                    .xvoxGlassFill(baseColor = colors.cardElevated)
+                    .background(colors.cardElevated)
                     .border(0.8.dp, colors.cardBorder.copy(alpha = 0.75f), CircleShape)
                     .xvoxPressScale(onClick = onBack),
                 contentAlignment = Alignment.Center

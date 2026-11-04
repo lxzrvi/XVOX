@@ -97,16 +97,72 @@ fun MiniPlayerSettingsBoxContent(
             )
         }
 
-        MiniPlayerSliderSection("Navigation glass") {
+        Spacer(Modifier.height(4.dp))
+        Text("Glass border", color = colors.secondaryText, fontSize = 11.sp)
+        MiniPlayerSliderSection("Borders") {
             SettingsToggle(
-                title = "Liquid glass navbar",
-                subtitle = "Reflective glass pill and rim on the navbar and header buttons",
-                checked = chrome.navLiquidGlass,
-                onChange = { on -> onChromeChange(chrome.copy(navLiquidGlass = on)) }
+                title = "Show borders",
+                subtitle = "Off removes the border from every blurred surface",
+                checked = chrome.glassBorderEnabled,
+                onChange = { on -> onChromeChange(chrome.copy(glassBorderEnabled = on)) }
             )
         }
 
-        Spacer(Modifier.height(4.dp))
+        if (chrome.glassBorderEnabled) {
+            val width = chrome.glassBorderWidth.coerceIn(0f, 4f)
+            MiniPlayerSliderSection("Border width · ${"%.1f".format(width)} dp") {
+                XvoxSlider(
+                    value = width,
+                    onValueChange = { v -> onChromeChange(chrome.copy(glassBorderWidth = v.coerceIn(0f, 4f))) },
+                    valueRange = 0f..4f,
+                    defaultValue = .8f,
+                    valueLabel = { v -> "%.1f dp".format(v) }
+                )
+            }
+
+            val borderTransparency = 1f - chrome.glassBorderAlpha.coerceIn(0f, 1f)
+            MiniPlayerSliderSection("Border transparency · ${(borderTransparency * 100).roundToInt()}%") {
+                XvoxSlider(
+                    value = borderTransparency,
+                    onValueChange = { t -> onChromeChange(chrome.copy(glassBorderAlpha = 1f - t.coerceIn(0f, 1f))) },
+                    valueRange = 0f..1f,
+                    defaultValue = .38f,
+                    valueLabel = { t -> "${(t.coerceIn(0f, 1f) * 100).roundToInt()}%" }
+                )
+            }
+
+            val soft = chrome.glassBorderBlur.coerceIn(0f, 12f)
+            MiniPlayerSliderSection("Border blur (soft edge) · ${"%.1f".format(soft)} dp") {
+                XvoxSlider(
+                    value = soft,
+                    onValueChange = { v -> onChromeChange(chrome.copy(glassBorderBlur = v.coerceIn(0f, 12f))) },
+                    valueRange = 0f..12f,
+                    defaultValue = 0f,
+                    valueLabel = { v -> "%.1f dp".format(v) }
+                )
+            }
+
+            SettingsChoiceRow(
+                options = listOf("theme" to "Theme colour", "custom" to "Custom colour"),
+                selected = if (chrome.glassBorderColor.isBlank()) "theme" else "custom",
+                onSelect = { choice ->
+                    onChromeChange(
+                        chrome.copy(glassBorderColor = if (choice == "theme") "" else "#FFFFFF")
+                    )
+                }
+            )
+            if (chrome.glassBorderColor.isNotBlank()) {
+                ColorPickerRow(
+                    label = "Border colour",
+                    hex = chrome.glassBorderColor,
+                    onColorChange = { hex -> onChromeChange(chrome.copy(glassBorderColor = hex)) },
+                    subtitle = "Applied to every blurred surface",
+                    showPreview = true,
+                    initiallyExpanded = false
+                )
+            }
+        }
+
         Text("Mini Player animation", color = colors.secondaryText, fontSize = 11.sp)
         SettingsChoiceRow(
             options = listOf(

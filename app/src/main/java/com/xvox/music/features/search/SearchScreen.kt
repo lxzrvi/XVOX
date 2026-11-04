@@ -72,6 +72,9 @@ import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
 import com.xvox.music.core.ui.blur.XvoxBlurLevel
+import com.xvox.music.core.ui.blur.rememberXvoxContentSky
+import com.xvox.music.core.ui.blur.xvoxBarBlur
+import com.xvox.music.core.ui.blur.xvoxBlurSource
 import com.xvox.music.core.ui.blur.xvoxLiveBlur
 import com.xvox.music.core.ui.effects.xvoxSongPress
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
@@ -88,7 +91,6 @@ import com.xvox.music.features.home.showSongOptionsOverlay
 import com.xvox.music.features.playlist.XvoxPlaylistCover
 import com.xvox.music.features.sourcemode.XvoxSourceMode
 import com.xvox.music.player.playback.MainPlayerViewModel
-import com.xvox.music.core.ui.blur.xvoxGlassFill
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -117,6 +119,9 @@ fun SearchScreen(
     var query by remember { mutableStateOf("") }
     val focusRequester = remember { FocusRequester() }
     val listState = rememberLazyListState()
+    // Search's fixed field/status strips are siblings of this captured scrolling content, so they
+    // blur the actual list beneath rather than using opaque background bands.
+    val contentSky = rememberXvoxContentSky()
     val density = LocalDensity.current
     var searchScrollDistancePx by remember { mutableIntStateOf(0) }
     // The field begins just beneath the Header and tracks its full upward travel. Once Header has
@@ -351,7 +356,7 @@ fun SearchScreen(
             ) {
                 LazyColumn(
                     state = listState,
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier.fillMaxSize().xvoxBlurSource(contentSky),
                     contentPadding = PaddingValues(start = 0.dp, end = 0.dp, top = topInset + 2.dp, bottom = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
@@ -367,7 +372,7 @@ fun SearchScreen(
                                     modifier = Modifier
                                         .size(34.dp)
                                         .clip(CircleShape)
-                                        .xvoxGlassFill()
+                                        .background(colors.card)
                                         .clickable { drillDownPlaylist = null },
                                     contentAlignment = Alignment.Center
                                 ) {
@@ -413,7 +418,7 @@ fun SearchScreen(
                                     modifier = Modifier
                                         .size(34.dp)
                                         .clip(CircleShape)
-                                        .xvoxGlassFill()
+                                        .background(colors.card)
                                         .clickable { drillDownArtist = null },
                                     contentAlignment = Alignment.Center
                                 ) {
@@ -512,7 +517,7 @@ fun SearchScreen(
         Box(Modifier.fillMaxSize()) {
             LazyColumn(
                 state = listState,
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize().xvoxBlurSource(contentSky),
                 contentPadding = PaddingValues(
                     top = topInset + 56.dp,
                     bottom = bottomInset + 16.dp
@@ -547,7 +552,7 @@ fun SearchScreen(
                                 modifier = Modifier
                                     .size(36.dp)
                                     .clip(CircleShape)
-                                    .xvoxGlassFill()
+                                    .background(colors.card)
                                     .clickable {
                                         drillDownPlaylist = null
                                         drillDownArtist = null
@@ -679,7 +684,7 @@ fun SearchScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .offset(y = searchFieldTop)
-                    .background(colors.background)
+                    .xvoxBarBlur(contentSky)
                     .padding(start = 6.dp, end = 6.dp, bottom = 4.dp)
             ) {
                 SearchBarComponent(
@@ -707,7 +712,7 @@ fun SearchScreen(
                     // Cover the full status-safe lane, including Search's small clamp gap, so
                     // fractional-pixel edges cannot leave a visible horizontal hairline.
                     .height(statusSafeSearchTop)
-                    .background(colors.background)
+                    .xvoxBarBlur(contentSky)
                     .zIndex(10f)
             )
         }
@@ -1190,7 +1195,7 @@ private fun SearchPlaylistCompactItem(
                     .size(56.dp)
                     // Keep the cover on the card's exact corner language.
                     .clip(coverShape)
-                    .xvoxGlassFill(baseColor = colors.cardElevated),
+                    .background(colors.cardElevated),
                 contentAlignment = Alignment.Center
             ) {
                 // Use the shared playlist renderer even in compact Search results. A stale custom URI

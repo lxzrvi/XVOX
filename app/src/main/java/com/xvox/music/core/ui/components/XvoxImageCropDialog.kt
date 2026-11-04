@@ -52,12 +52,12 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.ui.blur.xvoxGlassFill
 import com.xvox.music.core.ui.effects.xvoxPressScale
 import kotlinx.coroutines.launch
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
-import com.xvox.music.core.ui.blur.xvoxGlassFill
 
 /**
  * Aspect-constrained image cropper used by artwork/profile/playlist flows. GIF inputs stay GIFs:

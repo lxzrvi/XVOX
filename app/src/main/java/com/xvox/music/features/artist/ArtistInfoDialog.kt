@@ -41,7 +41,6 @@ import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 import com.xvox.music.core.ui.overlay.xvoxBoxScroll
 import com.xvox.music.features.home.XvoxSongArtwork
-import com.xvox.music.core.ui.blur.xvoxGlassFill
 
 
 /** Header artwork used by the application-wide artist options sheet. */
@@ -52,7 +51,7 @@ fun ArtistInfoHeaderArtwork(artist: XvoxArtist) {
         modifier = Modifier
             .size(36.dp)
             .clip(CircleShape)
-            .xvoxGlassFill(baseColor = colors.cardElevated),
+            .background(colors.cardElevated),
         contentAlignment = Alignment.Center
     ) {
         XvoxSongArtwork(
@@ -121,7 +120,7 @@ fun ArtistInfoBox(
                         .weight(1f)
                         .height(40.dp)
                         .clip(RoundedCornerShape(20.dp))
-                        .xvoxGlassFill(baseColor = colors.cardElevated)
+                        .background(colors.cardElevated)
                         .xvoxPressScale {
                             haptics.tap()
                             showDeleteConfirm = false
@@ -170,7 +169,7 @@ fun ArtistInfoBox(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(12.dp))
-                    .xvoxGlassFill()
+                    .background(colors.card)
                     .xvoxPressScale {
                         haptics.tap()
                         onPlayNext()
@@ -206,7 +205,7 @@ fun ArtistInfoBox(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(12.dp))
-                    .xvoxGlassFill()
+                    .background(colors.card)
                     .xvoxPressScale {
                         haptics.tap()
                         onDismiss()
@@ -243,7 +242,7 @@ fun ArtistInfoBox(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(12.dp))
-                        .xvoxGlassFill()
+                        .background(colors.card)
                         .xvoxPressScale {
                             haptics.tap()
                             onDismiss()
@@ -281,7 +280,7 @@ fun ArtistInfoBox(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(12.dp))
-                    .xvoxGlassFill()
+                    .background(colors.card)
                     .xvoxPressScale {
                         haptics.tap()
                         onToggleLiked()
@@ -311,7 +310,7 @@ fun ArtistInfoBox(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(12.dp))
-                    .xvoxGlassFill()
+                    .background(colors.card)
                     .padding(horizontal = 14.dp, vertical = 11.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
@@ -363,7 +362,7 @@ fun ArtistInfoBox(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(12.dp))
-                    .xvoxGlassFill()
+                    .background(colors.card)
                     .xvoxPressScale {
                         haptics.tap()
                         showDeleteConfirm = true

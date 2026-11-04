@@ -25,7 +25,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
-import com.xvox.music.core.ui.blur.xvoxGlassFill
 
 @Composable
 fun AppResetSettingsSection() {
@@ -89,7 +88,7 @@ fun AppResetSettingsSection() {
                                 .width(110.dp)
                                 .height(38.dp)
                                 .clip(RoundedCornerShape(19.dp))
-                                .xvoxGlassFill(baseColor = colors.cardElevated)
+                                .background(colors.cardElevated)
                                 .xvoxPressScale {
                                     haptics.tap()
                                     showResetConfirm = false
@@ -142,7 +141,7 @@ fun AppResetSettingsSection() {
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
-            .xvoxGlassFill(baseColor = colors.cardElevated)
+            .background(colors.cardElevated)
             .xvoxPressScale {
                 haptics.heavy()
                 showResetConfirm = true

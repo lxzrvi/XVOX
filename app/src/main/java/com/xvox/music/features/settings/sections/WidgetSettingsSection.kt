@@ -34,7 +34,6 @@ import com.xvox.music.widget.XvoxAppWidgetProvider
 import com.xvox.music.widget.XvoxWidgetHelper
 import kotlin.math.abs
 import kotlin.math.roundToInt
-import com.xvox.music.core.ui.blur.xvoxGlassFill
 
 @Composable
 fun WidgetSettingsSection(
@@ -91,7 +90,7 @@ fun WidgetSettingsSection(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(12.dp))
-                .xvoxGlassFill(baseColor = colors.cardElevated)
+                .background(colors.cardElevated)
                 .xvoxPressScale {
                     haptics.tap()
                     val manager = context.getSystemService(AppWidgetManager::class.java)

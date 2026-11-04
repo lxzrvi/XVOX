@@ -23,7 +23,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.effects.xvoxPressScale
-import com.xvox.music.core.ui.blur.xvoxGlassFill
 
 /** In-card feature guide with expandable contact and sharing actions. */
 @Composable
@@ -132,7 +131,7 @@ private fun AboutActionToggle(expanded: Boolean, onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(shape)
-            .xvoxGlassFill(baseColor = colors.cardElevated)
+            .background(colors.cardElevated)
             .border(.8.dp, colors.cardBorder.copy(alpha = .72f), shape)
             .xvoxPressScale(onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 10.dp),

@@ -30,7 +30,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
-import com.xvox.music.core.ui.blur.xvoxGlassFill
 
 /**
  * Misc settings:
@@ -90,7 +89,7 @@ fun MiscSettingsSection(
                             .width(110.dp)
                             .height(38.dp)
                             .clip(RoundedCornerShape(19.dp))
-                            .xvoxGlassFill(baseColor = colors.cardElevated)
+                            .background(colors.cardElevated)
                             .xvoxPressScale {
                                 haptics.tap()
                                 showResetConfirm = false
@@ -170,7 +169,7 @@ fun MiscSettingsSection(
                             .width(110.dp)
                             .height(38.dp)
                             .clip(RoundedCornerShape(19.dp))
-                            .xvoxGlassFill(baseColor = colors.cardElevated)
+                            .background(colors.cardElevated)
                             .xvoxPressScale {
                                 haptics.tap()
                                 showClearDataConfirm = false
@@ -214,7 +213,7 @@ fun MiscSettingsSection(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(14.dp))
-                .xvoxGlassFill(baseColor = colors.cardElevated)
+                .background(colors.cardElevated)
                 .padding(14.dp)
         ) {
             Row(
@@ -262,7 +261,7 @@ fun MiscSettingsSection(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(14.dp))
-                .xvoxGlassFill(baseColor = colors.cardElevated)
+                .background(colors.cardElevated)
                 .xvoxPressScale {
                     haptics.tap()
                     showClearDataConfirm = true
@@ -281,7 +280,7 @@ fun MiscSettingsSection(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(14.dp))
-                .xvoxGlassFill(baseColor = colors.cardElevated)
+                .background(colors.cardElevated)
                 .xvoxPressScale {
                     haptics.heavy()
                     showResetConfirm = true

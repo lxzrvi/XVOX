@@ -32,7 +32,6 @@ import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 import com.xvox.music.core.ui.overlay.xvoxBoxScroll
 import com.xvox.music.features.settings.components.SettingsChoiceRow
-import com.xvox.music.core.ui.blur.xvoxGlassFill
 
 @Composable
 fun AllSongsLayoutBoxContent(
@@ -199,7 +198,7 @@ fun HomeSectionReorderControls(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(10.dp))
-                    .xvoxGlassFill()
+                    .background(colors.card)
                     .padding(horizontal = 12.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {

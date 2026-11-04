@@ -31,7 +31,6 @@ import coil3.size.Precision
 import com.xvox.music.artwork.XvoxArtworkCache
 import com.xvox.music.artwork.XvoxImageWork
 import com.xvox.music.core.design.theme.XvoxTheme
-import com.xvox.music.core.ui.blur.xvoxGlassFill
 
 const val XvoxGridArtworkSize = 256
 const val XvoxRecentArtworkSize = 512
@@ -266,7 +265,7 @@ fun XvoxSongArtwork(
     val keepColdPlayerFrameTransparent = artwork != null && keepPreviousOnLoading &&
         !renderFallbackAsBitmap && visibleImageBitmap == null && !artworkFailed
     Box(
-        modifier = if (keepColdPlayerFrameTransparent) modifier else modifier.xvoxGlassFill(baseColor = colors.cardElevated),
+        modifier = if (keepColdPlayerFrameTransparent) modifier else modifier.background(colors.cardElevated),
         contentAlignment = Alignment.Center
     ) {
         val activeMorph = keepPreviousOnLoading &&
@@ -501,7 +500,7 @@ fun XvoxGridArtwork(
                     // A lower-size cached bridge remains visible until the requested exact image
                     // arrives; otherwise Coil draws the real cover itself over the card surface.
                     modifier = if (visibleImage == null) {
-                        Modifier.fillMaxSize().xvoxGlassFill(baseColor = colors.cardElevated)
+                        Modifier.fillMaxSize().background(colors.cardElevated)
                     } else {
                         Modifier.fillMaxSize().graphicsLayer { alpha = 0f }
                     }

@@ -10,7 +10,6 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -74,7 +73,6 @@ fun XvoxMiniPlayerCard(
 ) {
     val colors = XvoxTheme.colors
     val chrome = com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle.current
-    val miniEdge = com.xvox.music.core.ui.chrome.parseHexColor(chrome.miniBorder) ?: colors.cardBorder
     // Keep the Mini Player entirely palette-derived.  The editor's transparency range maps to
     // this real alpha (rather than silently clamping it to a different-looking hard-coded tint).
     val miniAlpha = chrome.miniBgAlpha.coerceIn(0f, 1f)
@@ -123,22 +121,17 @@ fun XvoxMiniPlayerCard(
                         shape = cardShape,
                         level = XvoxBlurLevel.Chrome,
                         baseColor = colors.background.copy(alpha = miniAlpha),
-                        borderColor = miniEdge,
-                        borderAlpha = chrome.miniBorderAlpha.coerceIn(.34f, 1f) * miniAlpha * miniBorderVisibility,
-                        borderWidth = chrome.miniBorderWidth.coerceIn(0f, 4f).dp
+                        // The global Glass border controls replace the former Mini Player edge
+                        // knobs; this only gates the default-to-cover mode handoff.
+                        borderColor = colors.cardBorder,
+                        borderAlpha = miniBorderVisibility,
+                        borderWidth = .8.dp
                     )
                 } else {
                     // Cover-led modes retain their chosen artwork as the real background.
                     Modifier
                         .clip(cardShape)
                         .background(colors.background.copy(alpha = miniAlpha))
-                        .border(
-                            chrome.miniBorderWidth.coerceIn(0f, 4f).dp,
-                            miniEdge.copy(
-                                alpha = chrome.miniBorderAlpha.coerceIn(.34f, 1f) * miniAlpha * miniBorderVisibility
-                            ),
-                            cardShape
-                        )
                 }
             )
             .drawWithContent {
@@ -205,7 +198,7 @@ fun XvoxMiniPlayerCard(
                     }
                 }
                 "blur" -> {
-                    // This is local artwork-derived blur only; no app-wide blur/Haze surface.
+                    // This is local artwork-derived blur only; no app-wide Cloudy sky surface.
                     XvoxSongArtwork(
                         artwork = song.artworkUri,
                         fallbackSeed = song.id.hashCode(),

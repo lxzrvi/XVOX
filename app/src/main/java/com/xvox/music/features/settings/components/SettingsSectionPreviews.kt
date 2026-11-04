@@ -52,7 +52,6 @@ import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.chrome.parseHexColor
 import com.xvox.music.features.settings.SettingsState
 import com.xvox.music.widget.XvoxWidgetHelper
-import com.xvox.music.core.ui.blur.xvoxGlassFill
 
 @Composable
 fun SettingsSectionPreview(title: String, state: SettingsState, modifier: Modifier = Modifier) {
@@ -89,10 +88,15 @@ fun AppearancePreview(state: SettingsState) {
     val colors = XvoxTheme.colors
     val chrome = state.chromeStyle
     val accent = parseHexColor(state.accentColor) ?: colors.primaryAccent
-    val headerEdge = parseHexColor(chrome.headerBorder) ?: colors.cardBorder
-    val miniEdge = parseHexColor(chrome.miniBorder) ?: colors.cardBorder
-    val navEdge = parseHexColor(chrome.navBorder) ?: colors.cardBorder
-    val cardEdge = parseHexColor(chrome.cardBorder) ?: colors.cardBorder
+    val glassEdgeBase = parseHexColor(chrome.glassBorderColor) ?: colors.cardBorder
+    val glassEdge = glassEdgeBase.copy(
+        alpha = glassEdgeBase.alpha * chrome.glassBorderAlpha.coerceIn(0f, 1f)
+    )
+    val glassEdgeWidth = if (chrome.glassBorderEnabled) {
+        chrome.glassBorderWidth.coerceIn(0f, 4f).dp
+    } else {
+        0.dp
+    }
     val photo = state.headerImageUri
 
     Column(
@@ -110,7 +114,7 @@ fun AppearancePreview(state: SettingsState) {
                 .height(34.dp)
                 .clip(RoundedCornerShape(8.dp))
                 .background(colors.surface.copy(alpha = chrome.headerBgAlpha.coerceIn(0f, 1f)))
-                .border(0.7.dp, headerEdge.copy(alpha = chrome.headerBorderAlpha.coerceIn(0f, 1f)), RoundedCornerShape(8.dp))
+                .border(glassEdgeWidth, glassEdge, RoundedCornerShape(8.dp))
                 .padding(horizontal = 8.dp),
             contentAlignment = Alignment.CenterStart
         ) {
@@ -130,7 +134,7 @@ fun AppearancePreview(state: SettingsState) {
                     Modifier
                         .size(16.dp)
                         .clip(CircleShape)
-                        .xvoxGlassFill(baseColor = colors.cardElevated)
+                        .background(colors.cardElevated)
                 )
             }
         }
@@ -150,7 +154,7 @@ fun AppearancePreview(state: SettingsState) {
                         .height(36.dp)
                         .clip(RoundedCornerShape(6.dp))
                         .background(colors.card.copy(alpha = (1f - state.cardTransparency).coerceIn(0.2f, 1f)))
-                        .border(0.6.dp, cardEdge.copy(alpha = chrome.cardBorderAlpha.coerceIn(0f, 1f)), RoundedCornerShape(6.dp))
+                        .border(glassEdgeWidth, glassEdge, RoundedCornerShape(6.dp))
                         .padding(4.dp)
                 ) {
                     Box(Modifier.size(14.dp).clip(RoundedCornerShape(3.dp)).background(accent.copy(alpha = 0.4f)))
@@ -161,7 +165,7 @@ fun AppearancePreview(state: SettingsState) {
                         .height(36.dp)
                         .clip(RoundedCornerShape(6.dp))
                         .background(colors.card.copy(alpha = (1f - state.cardTransparency).coerceIn(0.2f, 1f)))
-                        .border(0.6.dp, cardEdge.copy(alpha = chrome.cardBorderAlpha.coerceIn(0f, 1f)), RoundedCornerShape(6.dp))
+                        .border(glassEdgeWidth, glassEdge, RoundedCornerShape(6.dp))
                         .padding(4.dp)
                 ) {
                     Box(Modifier.size(14.dp).clip(RoundedCornerShape(3.dp)).background(accent.copy(alpha = 0.4f)))
@@ -174,7 +178,7 @@ fun AppearancePreview(state: SettingsState) {
                         .height(26.dp)
                         .clip(RoundedCornerShape(6.dp))
                         .background(colors.card.copy(alpha = (1f - state.cardTransparency).coerceIn(0.2f, 1f)))
-                        .border(0.6.dp, cardEdge.copy(alpha = chrome.cardBorderAlpha.coerceIn(0f, 1f)), RoundedCornerShape(6.dp))
+                        .border(glassEdgeWidth, glassEdge, RoundedCornerShape(6.dp))
                 )
                 Box(
                     Modifier
@@ -182,7 +186,7 @@ fun AppearancePreview(state: SettingsState) {
                         .height(26.dp)
                         .clip(RoundedCornerShape(6.dp))
                         .background(colors.card.copy(alpha = (1f - state.cardTransparency).coerceIn(0.2f, 1f)))
-                        .border(0.6.dp, cardEdge.copy(alpha = chrome.cardBorderAlpha.coerceIn(0f, 1f)), RoundedCornerShape(6.dp))
+                        .border(glassEdgeWidth, glassEdge, RoundedCornerShape(6.dp))
                 )
             }
         }
@@ -194,7 +198,7 @@ fun AppearancePreview(state: SettingsState) {
                 .height(28.dp)
                 .clip(RoundedCornerShape(8.dp))
                 .background(colors.cardElevated.copy(alpha = chrome.miniBgAlpha.coerceIn(0f, 1f)))
-                .border(0.7.dp, miniEdge.copy(alpha = chrome.miniBorderAlpha.coerceIn(0f, 1f)), RoundedCornerShape(8.dp))
+                .border(glassEdgeWidth, glassEdge, RoundedCornerShape(8.dp))
                 .padding(horizontal = 8.dp),
             contentAlignment = Alignment.CenterStart
         ) {
@@ -220,7 +224,7 @@ fun AppearancePreview(state: SettingsState) {
                 .height(30.dp)
                 .clip(RoundedCornerShape(10.dp))
                 .background(colors.cardElevated.copy(alpha = chrome.navBgAlpha.coerceIn(0f, 1f)))
-                .border(0.7.dp, navEdge.copy(alpha = chrome.navBorderAlpha.coerceIn(0f, 1f)), RoundedCornerShape(10.dp)),
+                .border(glassEdgeWidth, glassEdge, RoundedCornerShape(10.dp)),
             contentAlignment = Alignment.Center
         ) {
             Row(
@@ -386,7 +390,7 @@ fun HeadsetPreview(state: SettingsState) {
             .fillMaxWidth()
             .height(86.dp)
             .clip(RoundedCornerShape(12.dp))
-            .xvoxGlassFill(baseColor = colors.cardElevated)
+            .background(colors.cardElevated)
             .padding(horizontal = 24.dp),
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically
@@ -457,7 +461,7 @@ fun NotifyPreview(state: SettingsState) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
-            .xvoxGlassFill(baseColor = colors.cardElevated)
+            .background(colors.cardElevated)
             .border(1.dp, colors.cardBorder, RoundedCornerShape(14.dp))
             .padding(12.dp)
     ) {

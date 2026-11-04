@@ -129,8 +129,14 @@ data class XvoxChromeStyle(
     val nowPlayingRepeatOffsetY: Float = 0f,
     /** Local artwork blur used only by the Mini Player's explicit Blur background mode. */
     val miniCoverBlur: Float = 26.25f,
-    /** Liquid-glass navbar (bar + selector pill) and header buttons. Off = classic blur. */
-    val navLiquidGlass: Boolean = true
+    /** Global glass border: off = no border on any blurred surface. */
+    val glassBorderEnabled: Boolean = true,
+    val glassBorderWidth: Float = .8f,
+    /** "#RRGGBB" or empty for each surface's own theme colour. */
+    val glassBorderColor: String = "",
+    val glassBorderAlpha: Float = .62f,
+    /** Edge softness in dp (0 = crisp line). */
+    val glassBorderBlur: Float = 0f
 ) {
     fun encode(): String = listOf(
         optionBoxBgAlpha, optionBoxBorder, optionBoxBorderAlpha,
@@ -171,7 +177,7 @@ data class XvoxChromeStyle(
         miniExitOvershootDp, nowPlayingExitOvershootDp, miniToNowPlayingDelayMillis,
         miniMotionDuration, nowPlayingMotionDuration, miniMotionEase, nowPlayingMotionEase,
         miniCoverBlur,
-        navLiquidGlass
+        glassBorderEnabled, glassBorderWidth, glassBorderColor, glassBorderAlpha, glassBorderBlur
     ).joinToString("|")
 
     fun resetNowPlayingLayout(): XvoxChromeStyle = copy(
@@ -288,7 +294,11 @@ data class XvoxChromeStyle(
                 miniMotionEase = motionEase(74, .55f),
                 nowPlayingMotionEase = motionEase(75, .55f),
                 miniCoverBlur = number(76, 26.25f).coerceIn(12f, 50f),
-                navLiquidGlass = parts.getOrNull(77)?.trim()?.toBooleanStrictOrNull() ?: true,
+                glassBorderEnabled = parts.getOrNull(77)?.trim()?.toBooleanStrictOrNull() ?: true,
+                glassBorderWidth = number(78, .8f).coerceIn(0f, 4f),
+                glassBorderColor = str(79),
+                glassBorderAlpha = flt(80, .62f),
+                glassBorderBlur = number(81, 0f).coerceIn(0f, 12f),
                 nowPlayingSeekStyle = seekStyle(31),
                 nowPlayingPillSide = side(32, "left"),
                 nowPlayingChangingActionsSide = side(33, "right"),

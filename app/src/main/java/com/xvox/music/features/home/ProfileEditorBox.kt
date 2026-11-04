@@ -61,7 +61,6 @@ import com.xvox.music.features.settings.components.XvoxContinuousSlider
 import com.xvox.music.features.setup.PfpType
 import com.xvox.music.features.setup.XvoxAvatarPicker
 import kotlinx.coroutines.launch
-import com.xvox.music.core.ui.blur.xvoxGlassFill
 
 /**
  * All profile/header changes are held here until the fixed sheet footer chooses Save.  Asset
@@ -242,7 +241,7 @@ fun ProfileEditorBox(
                     .fillMaxWidth()
                     .height(46.dp)
                     .clip(RoundedCornerShape(12.dp))
-                    .xvoxGlassFill(baseColor = colors.cardElevated),
+                    .background(colors.cardElevated),
                 decorationBox = { field ->
                     Box(
                         modifier = Modifier
@@ -434,7 +433,7 @@ private fun HeaderImageChoice(
         modifier = modifier
             .height(42.dp)
             .clip(shape)
-            .xvoxGlassFill(baseColor = colors.cardElevated)
+            .background(colors.cardElevated)
             // Selected Default and Custom choices use the same thin accent outline rather than a
             // filled accent pill, so the header preview remains visible and calm.
             .border(.9.dp, if (active) colors.primaryAccent else colors.cardBorder.copy(alpha = .65f), shape)

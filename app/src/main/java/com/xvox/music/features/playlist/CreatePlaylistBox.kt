@@ -44,7 +44,6 @@ import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
 import com.xvox.music.core.ui.overlay.xvoxBoxScroll
 import com.xvox.music.features.home.XvoxSongArtwork
-import com.xvox.music.core.ui.blur.xvoxGlassFill
 
 @Composable
 fun CreatePlaylistBox(
@@ -121,7 +120,7 @@ fun CreatePlaylistBox(
                     modifier = Modifier
                         .size(54.dp)
                         .clip(RoundedCornerShape(12.dp))
-                        .xvoxGlassFill(),
+                        .background(colors.card),
                     contentAlignment = Alignment.Center
                 ) {
                     XvoxPlaylistCover(
@@ -147,7 +146,7 @@ fun CreatePlaylistBox(
                     .weight(1f)
                     .height(48.dp)
                     .clip(RoundedCornerShape(12.dp))
-                    .xvoxGlassFill(),
+                    .background(colors.card),
                 decorationBox = { field ->
                     Box(
                         modifier = Modifier

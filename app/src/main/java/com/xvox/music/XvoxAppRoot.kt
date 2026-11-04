@@ -39,14 +39,14 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.Density
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil3.compose.AsyncImage
-import dev.chrisbanes.haze.hazeSource
-import dev.chrisbanes.haze.rememberHazeState
+import com.skydoves.cloudy.rememberSky
+import com.skydoves.cloudy.sky
 import com.xvox.music.artwork.XvoxArtworkPreloader
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.design.theme.XvoxThemeMode
 import com.xvox.music.core.ui.XvoxStartupLoadingScreen
-import com.xvox.music.core.ui.blur.LocalXvoxOverlayHazeState
-import com.xvox.music.core.ui.blur.LocalXvoxSurfaceHazeState
+import com.xvox.music.core.ui.blur.LocalXvoxOverlaySky
+import com.xvox.music.core.ui.blur.LocalXvoxSurfaceSky
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 import com.xvox.music.core.ui.haptics.rememberXvoxHaptics
 import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
@@ -216,61 +216,66 @@ fun XvoxAppRoot(
     ) {
         val haptics = rememberXvoxHaptics(enabled = hapticFeedbackEnabled, strength = hapticIntensity)
         // Keep normal surfaces and root-hosted overlays on separate capture layers. A glass card
-        // only samples the wallpaper/photo behind the app, while a sheet can blur the real live
-        // page it covers. Neither effect is nested inside its own Haze source.
-        val surfaceHazeState = rememberHazeState()
-        val overlayHazeState = rememberHazeState()
+        // samples the wallpaper/photo behind the app, while a sheet can blur the real live page it
+        // covers. Neither effect is nested inside the Sky it samples.
+        val surfaceSky = rememberSky()
+        val overlaySky = rememberSky()
         CompositionLocalProvider(
             LocalDensity provides customDensity,
             LocalXvoxOverlayController provides overlays,
             com.xvox.music.core.ui.chrome.LocalXvoxBaseChromeStyle provides effectiveChrome,
             com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle provides effectiveChrome,
             LocalXvoxHaptics provides haptics,
-            LocalXvoxSurfaceHazeState provides surfaceHazeState,
-            LocalXvoxOverlayHazeState provides overlayHazeState
+            LocalXvoxSurfaceSky provides surfaceSky,
+            LocalXvoxOverlaySky provides overlaySky
         ) {
             val colors = XvoxTheme.colors
+            // Theme, accent, wallpaper, and dimness changes all alter the captured source. Ask
+            // Cloudy to refresh immediately rather than letting a previous backdrop linger.
+            LaunchedEffect(backgroundImage, backgroundBrightness, colors.background, colors.primaryAccent) {
+                surfaceSky.invalidate()
+            }
             Box(modifier = Modifier.fillMaxSize()) {
-                // Source 1: a real wallpaper/photo plus restrained accent bloom. It gives live
-                // glass a meaningful moving/coloured input even when the user has not picked a
-                // custom background image. hazeSource deliberately comes before background work.
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .hazeSource(state = surfaceHazeState)
-                        .background(colors.background)
-                        .drawBehind {
-                            val radius = size.maxDimension * .68f
-                            drawRect(
-                                brush = Brush.radialGradient(
-                                    colors = listOf(colors.primaryAccent.copy(alpha = .24f), Color.Transparent),
-                                    center = Offset(size.width * .14f, size.height * .18f),
-                                    radius = radius
+                // Source 1: wallpaper/photo + accent bloom. Background is INSIDE the sky node,
+                // so the captured source always contains it.
+                Box(modifier = Modifier.fillMaxSize().sky(surfaceSky)) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(colors.background)
+                            .drawBehind {
+                                val radius = size.maxDimension * .68f
+                                drawRect(
+                                    brush = Brush.radialGradient(
+                                        colors = listOf(colors.primaryAccent.copy(alpha = .24f), Color.Transparent),
+                                        center = Offset(size.width * .14f, size.height * .18f),
+                                        radius = radius
+                                    )
                                 )
+                                drawRect(
+                                    brush = Brush.radialGradient(
+                                        colors = listOf(colors.primaryAccent.copy(alpha = .15f), Color.Transparent),
+                                        center = Offset(size.width * .86f, size.height * .82f),
+                                        radius = radius
+                                    )
+                                )
+                            }
+                    ) {
+                        if (backgroundImage.isNotBlank()) {
+                            AsyncImage(
+                                model = Uri.parse(backgroundImage),
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                // Re-capture the blur source once the photo has loaded.
+                                onSuccess = { surfaceSky.invalidate() },
+                                modifier = Modifier.fillMaxSize()
                             )
-                            drawRect(
-                                brush = Brush.radialGradient(
-                                    colors = listOf(colors.primaryAccent.copy(alpha = .15f), Color.Transparent),
-                                    center = Offset(size.width * .86f, size.height * .82f),
-                                    radius = radius
-                                )
+                            Box(
+                                Modifier
+                                    .fillMaxSize()
+                                    .background(Color.Black.copy(alpha = (1f - backgroundBrightness).coerceIn(0f, .95f)))
                             )
                         }
-                ) {
-                    if (backgroundImage.isNotBlank()) {
-                        AsyncImage(
-                            model = Uri.parse(backgroundImage),
-                            contentDescription = null,
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                        // The image dimness is part of the source itself, so live-glass cards,
-                        // navbar, and sheets remain legible at the exact user-selected level.
-                        Box(
-                            Modifier
-                                .fillMaxSize()
-                                .background(Color.Black.copy(alpha = (1f - backgroundBrightness).coerceIn(0f, .95f)))
-                        )
                     }
                 }
 
@@ -278,7 +283,7 @@ fun XvoxAppRoot(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .hazeSource(state = overlayHazeState)
+                        .sky(overlaySky)
                 ) {
                     if (state == AppUiState.Setup) {
                         SetupScreen(onSetupComplete = { viewModel.onSetupFinished() })

@@ -35,7 +35,6 @@ import com.xvox.music.features.settings.components.SettingsChoiceRow
 import com.xvox.music.features.settings.components.SettingsFlexChoiceRow
 import com.xvox.music.features.settings.components.SettingsPreviewFrame
 import kotlin.math.roundToInt
-import com.xvox.music.core.ui.blur.xvoxGlassFill
 
 @Composable
 fun LibraryFilterSettingsSection(state: SettingsState, viewModel: SettingsViewModel, homeViewModel: HomeViewModel) {
@@ -62,7 +61,7 @@ fun LibraryFilterSettingsSection(state: SettingsState, viewModel: SettingsViewMo
                 }
             } else viewModel.setIgnoreBelowKb(value.toInt())
         }
-        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).xvoxGlassFill()
+        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(colors.card)
             .xvoxPressScale {
                 overlays.showBox("Exclude folders") {
                     val liveFolders by homeViewModel.folders.collectAsState()
@@ -161,7 +160,7 @@ private fun FolderBrowserBox(folders: List<FolderInfo>, initial: Set<String>, on
                 val matching = folders.filter { FolderPaths.contains(child, it.path) }
                 val checked = selected.any { FolderPaths.contains(it, child) || it == child.substringAfterLast('/') }
                 val parentSelection = selected.firstOrNull { it != child && FolderPaths.contains(it, child) }
-                Row(Modifier.fillMaxWidth().padding(vertical = 3.dp).clip(RoundedCornerShape(12.dp)).xvoxGlassFill()
+                Row(Modifier.fillMaxWidth().padding(vertical = 3.dp).clip(RoundedCornerShape(12.dp)).background(colors.card)
                     .clickable { path = child }.padding(end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(checked = checked, enabled = parentSelection == null, onCheckedChange = { value ->
                         selected = if (value) selected.filterNot { FolderPaths.contains(child, it) }.toSet() + child

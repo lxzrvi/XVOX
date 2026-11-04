@@ -1,5 +1,5 @@
 [versions]
-haze = "1.7.2"
+cloudy = "1.0.0-alpha01"
 
 [libraries]
-haze = { module = "dev.chrisbanes.haze:haze", version.ref = "haze" }
+cloudy = { module = "com.github.skydoves:cloudy", version.ref = "cloudy" }

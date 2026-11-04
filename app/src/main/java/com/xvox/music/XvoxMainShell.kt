@@ -1204,7 +1204,7 @@ private fun TabSurface(
 ) {
     Box(Modifier.fillMaxSize().background(XvoxTheme.colors.background)) {
         // The image remains the user's visible tab backdrop. XvoxAppRoot separately exposes the
-        // same wallpaper/photo as the Haze source for live-glass cards and root-hosted sheets.
+        // same wallpaper/photo as the Cloudy sky source for live-glass cards and root-hosted sheets.
         if (backgroundImage.isNotBlank()) {
             AsyncImage(
                 model = Uri.parse(backgroundImage),

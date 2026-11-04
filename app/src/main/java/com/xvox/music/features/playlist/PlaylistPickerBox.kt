@@ -42,7 +42,6 @@ import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 import com.xvox.music.core.ui.overlay.xvoxBoxScroll
 import com.xvox.music.data.preferences.XvoxPlaylist
-import com.xvox.music.core.ui.blur.xvoxGlassFill
 
 @Composable
 fun PlaylistPickerBox(
@@ -110,7 +109,7 @@ fun PlaylistPickerBox(
                             .weight(1f)
                             .height(40.dp)
                             .clip(RoundedCornerShape(20.dp))
-                            .xvoxGlassFill(baseColor = colors.cardElevated)
+                            .background(colors.cardElevated)
                             .xvoxPressScale {
                                 haptics.tap()
                                 singleSongToRemoveFrom = null
@@ -174,7 +173,7 @@ fun PlaylistPickerBox(
                                 .fillMaxWidth()
                                 .height(40.dp)
                                 .clip(RoundedCornerShape(20.dp))
-                                .xvoxGlassFill(baseColor = colors.cardElevated)
+                                .background(colors.cardElevated)
                                 .xvoxPressScale {
                                     haptics.tap()
                                     batchConflictPlaylist = null
@@ -225,7 +224,7 @@ fun PlaylistPickerBox(
                             .fillMaxWidth()
                             .height(38.dp)
                             .clip(RoundedCornerShape(20.dp))
-                            .xvoxGlassFill()
+                            .background(colors.card)
                             .xvoxPressScale {
                                 haptics.tap()
                                 batchConflictPlaylist = null
@@ -255,7 +254,7 @@ fun PlaylistPickerBox(
                     modifier = Modifier
                         .size(36.dp)
                         .clip(CircleShape)
-                        .xvoxGlassFill()
+                        .background(colors.card)
                         .clickable {
                             haptics.tap()
                             onCreate()
@@ -289,7 +288,7 @@ fun PlaylistPickerBox(
                         modifier = Modifier
                             .size(46.dp)
                             .clip(CircleShape)
-                            .xvoxGlassFill(baseColor = colors.cardElevated),
+                            .background(colors.cardElevated),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(

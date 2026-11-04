@@ -35,7 +35,6 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.blur.XvoxBlurLevel
-import com.xvox.music.core.ui.blur.xvoxLiquidGlass
 import com.xvox.music.core.ui.blur.xvoxLiveBlur
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 import kotlinx.coroutines.launch
@@ -62,7 +61,6 @@ fun XvoxBottomBar(
     val selectorHeight = (navBarHeight - 8.dp).coerceAtLeast(44.dp)
     val destinations = XvoxDestination.entries
     val selectedIndex = destinations.indexOf(selected)
-    val liquidGlass = chrome.navLiquidGlass
 
     val scope = rememberCoroutineScope()
     val latestSelect by rememberUpdatedState(onSelected)
@@ -115,24 +113,12 @@ fun XvoxBottomBar(
     // Navbar and Mini Player retain independent transparency sliders in both themes. Coupling the
     // dark navbar to miniBgAlpha made the navbar slider appear broken and kept its selector heavy.
     val navSurfaceAlpha = chrome.navBgAlpha.coerceIn(0f, 1f)
-    val navEdgeBase = com.xvox.music.core.ui.chrome.parseHexColor(chrome.navBorder) ?: colors.cardBorder
-    val navBorderAlpha = chrome.navBorderAlpha.coerceIn(.42f, 1f)
-    val navEdge = navEdgeBase.copy(
-        alpha = navEdgeBase.alpha * navBorderAlpha * navSurfaceAlpha
-    )
     // Match Settings' Appearance option-pill material (for example the Font choice box), not
     // the larger section-card material. The selector deliberately follows the existing navbar
     // transparency control without adding a separate slider: its transparency is always one half
     // of the navbar transparency (6% -> 3%, 100% -> 50%).
     val navbarTransparency = 1f - navSurfaceAlpha
     val selectorSurfaceAlpha = (1f - navbarTransparency * .5f).coerceIn(.5f, 1f)
-    val pillEdgeBase = com.xvox.music.core.ui.chrome.parseHexColor(chrome.pillBorder) ?: navEdgeBase
-    // The active selector has the same option-pill surface as Settings, while its edge remains a
-    // quiet outline.
-    val pillEdgeStrength = if (!colors.isLight && chrome.pillBorder.isBlank()) .14f else 1f
-    val pillEdge = pillEdgeBase.copy(
-        alpha = pillEdgeBase.alpha * navBorderAlpha * selectorSurfaceAlpha * pillEdgeStrength
-    )
     val defaultNavSurface = colors.background
     val appliedNavSurfaceAlpha = navSurfaceAlpha
     // Override only the material's opacity here. `colors.cardElevated` is the Settings option
@@ -163,25 +149,14 @@ fun XvoxBottomBar(
                 .align(Alignment.TopCenter)
                 .offset(y = topOffset)
                 .size(navBarWidth, navBarHeight)
-                .then(
-                    if (liquidGlass) {
-                        Modifier.xvoxLiquidGlass(
-                            shape = parentShape,
-                            tint = defaultNavSurface,
-                            blurRadius = 20.dp,
-                            tintAlpha = (appliedNavSurfaceAlpha * .5f).coerceIn(.10f, .55f),
-                            strength = .5f
-                        )
-                    } else {
-                        Modifier.xvoxLiveBlur(
-                            shape = parentShape,
-                            level = XvoxBlurLevel.Chrome,
-                            baseColor = defaultNavSurface.copy(alpha = appliedNavSurfaceAlpha),
-                            borderColor = navEdge,
-                            borderAlpha = 1f,
-                            borderWidth = chrome.navBorderWidth.coerceIn(0f, 4f).dp
-                        )
-                    }
+                .xvoxLiveBlur(
+                    shape = parentShape,
+                    level = XvoxBlurLevel.Chrome,
+                    baseColor = defaultNavSurface.copy(alpha = appliedNavSurfaceAlpha),
+                    // Normal chrome remains eligible for the one global Glass border setting.
+                    borderColor = colors.cardBorder,
+                    borderAlpha = 1f,
+                    borderWidth = .8.dp
                 )
         ) {
             if (chrome.navigationImageUri.isNotBlank()) {
@@ -191,7 +166,7 @@ fun XvoxBottomBar(
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .matchParentSize()
-                        // Let the Haze surface remain visible under a custom image, rather than
+                        // Let the Cloudy surface remain visible under a custom image, rather than
                         // turning the navigation bar into an opaque photo strip.
                         .graphicsLayer { alpha = (navSurfaceAlpha * .72f).coerceIn(0f, .72f) }
                 )
@@ -215,26 +190,13 @@ fun XvoxBottomBar(
                     clip = true
                 }
                 .size(selectorWidth, selectorHeight)
-                .then(
-                    if (liquidGlass) {
-                        Modifier.xvoxLiquidGlass(
-                            shape = selectorShape,
-                            tint = com.xvox.music.core.ui.chrome.parseHexColor(chrome.pillColor)
-                                ?: colors.primaryAccent,
-                            blurRadius = 5.dp,
-                            tintAlpha = .20f * chrome.pillAlpha.coerceIn(0f, 1f) + .06f,
-                            strength = 1f
-                        )
-                    } else {
-                        Modifier.xvoxLiveBlur(
-                            shape = selectorShape,
-                            level = XvoxBlurLevel.Selection,
-                            baseColor = pillFill,
-                            borderColor = pillEdge,
-                            borderAlpha = 1f,
-                            borderWidth = chrome.pillBorderWidth.coerceIn(0f, 4f).dp
-                        )
-                    }
+                .xvoxLiveBlur(
+                    shape = selectorShape,
+                    level = XvoxBlurLevel.Selection,
+                    baseColor = pillFill,
+                    borderColor = colors.cardBorder,
+                    borderAlpha = 1f,
+                    borderWidth = .8.dp
                 )
         )
 

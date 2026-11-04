@@ -35,7 +35,6 @@ import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxPersonalFont
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.blur.XvoxBlurLevel
-import com.xvox.music.core.ui.blur.xvoxLiquidGlass
 import com.xvox.music.core.ui.blur.xvoxLiveBlur
 import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.core.ui.navigation.XvoxDestination
@@ -223,23 +222,11 @@ fun XvoxShellTopHeader(
                         Box(
                             modifier = Modifier
                                 .size(42.dp)
-                                .then(
-                                    if (chrome.navLiquidGlass) {
-                                        Modifier.xvoxLiquidGlass(
-                                            shape = CircleShape,
-                                            tint = controlSurface,
-                                            blurRadius = 14.dp,
-                                            tintAlpha = .30f,
-                                            strength = .6f
-                                        )
-                                    } else {
-                                        Modifier.xvoxLiveBlur(
-                                            shape = CircleShape,
-                                            level = XvoxBlurLevel.Chrome,
-                                            baseColor = controlSurface,
-                                            borderAlpha = .58f
-                                        )
-                                    }
+                                .xvoxLiveBlur(
+                                    shape = CircleShape,
+                                    level = XvoxBlurLevel.Chrome,
+                                    baseColor = controlSurface,
+                                    borderAlpha = .58f
                                 )
                                 .xvoxPressScale(pressedScale = .90f, onClick = onRefreshClick),
                             contentAlignment = Alignment.Center
@@ -257,23 +244,11 @@ fun XvoxShellTopHeader(
                             modifier = Modifier
                                 .height(42.dp)
                                 .width(actionPillWidth)
-                                .then(
-                                    if (chrome.navLiquidGlass) {
-                                        Modifier.xvoxLiquidGlass(
-                                            shape = actionShape,
-                                            tint = controlSurface,
-                                            blurRadius = 14.dp,
-                                            tintAlpha = .30f,
-                                            strength = .6f
-                                        )
-                                    } else {
-                                        Modifier.xvoxLiveBlur(
-                                            shape = actionShape,
-                                            level = XvoxBlurLevel.Chrome,
-                                            baseColor = controlSurface,
-                                            borderAlpha = .58f
-                                        )
-                                    }
+                                .xvoxLiveBlur(
+                                    shape = actionShape,
+                                    level = XvoxBlurLevel.Chrome,
+                                    baseColor = controlSurface,
+                                    borderAlpha = .58f
                                 )
                         ) {
                             Row(

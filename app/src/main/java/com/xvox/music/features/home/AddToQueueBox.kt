@@ -28,7 +28,6 @@ import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 import com.xvox.music.core.ui.overlay.xvoxBoxScroll
 import com.xvox.music.player.playback.XvoxSavedQueue
-import com.xvox.music.core.ui.blur.xvoxGlassFill
 
 @Composable
 fun AddToQueueBox(
@@ -65,7 +64,7 @@ fun AddToQueueBox(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(12.dp))
-                .xvoxGlassFill()
+                .background(colors.card)
                 .xvoxPressScale {
                     haptics.tap()
                     onAddToCurrent()
@@ -108,7 +107,7 @@ fun AddToQueueBox(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(12.dp))
-                    .xvoxGlassFill()
+                    .background(colors.card)
                     .xvoxPressScale {
                         haptics.tap()
                         onAddToSaved(saved)
@@ -145,7 +144,7 @@ fun AddToQueueBox(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(12.dp))
-                .xvoxGlassFill()
+                .background(colors.card)
                 .xvoxPressScale {
                     haptics.tap()
                     onAddToNew()
