@@ -49,6 +49,7 @@ import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.roundToInt
 import kotlin.math.sin
+import com.xvox.music.core.ui.blur.xvoxGlassFill
 
 @Composable
 fun ThreeDSoundSettingsSection(state: SettingsState, viewModel: SettingsViewModel) {
@@ -275,7 +276,7 @@ fun ThreeDSoundPreview(
             .fillMaxWidth()
             .height(145.dp)
             .clip(RoundedCornerShape(16.dp))
-            .background(colors.card)
+            .xvoxGlassFill()
             .border(1.dp, colors.cardBorder, RoundedCornerShape(16.dp)),
         contentAlignment = Alignment.Center
     ) {

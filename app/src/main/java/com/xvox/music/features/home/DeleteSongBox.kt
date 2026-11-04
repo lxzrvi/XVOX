@@ -27,6 +27,7 @@ import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 import com.xvox.music.core.ui.overlay.xvoxBoxScroll
+import com.xvox.music.core.ui.blur.xvoxGlassFill
 
 @Composable
 fun DeleteSongBox(
@@ -98,7 +99,7 @@ private fun DeleteChoice(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .background(colors.card)
+            .xvoxGlassFill()
             .clickable(onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 10.dp)
     ) {

@@ -52,6 +52,7 @@ import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.chrome.parseHexColor
 import com.xvox.music.features.settings.SettingsState
 import com.xvox.music.widget.XvoxWidgetHelper
+import com.xvox.music.core.ui.blur.xvoxGlassFill
 
 @Composable
 fun SettingsSectionPreview(title: String, state: SettingsState, modifier: Modifier = Modifier) {
@@ -129,7 +130,7 @@ fun AppearancePreview(state: SettingsState) {
                     Modifier
                         .size(16.dp)
                         .clip(CircleShape)
-                        .background(colors.cardElevated)
+                        .xvoxGlassFill(baseColor = colors.cardElevated)
                 )
             }
         }
@@ -385,7 +386,7 @@ fun HeadsetPreview(state: SettingsState) {
             .fillMaxWidth()
             .height(86.dp)
             .clip(RoundedCornerShape(12.dp))
-            .background(colors.cardElevated)
+            .xvoxGlassFill(baseColor = colors.cardElevated)
             .padding(horizontal = 24.dp),
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically
@@ -456,7 +457,7 @@ fun NotifyPreview(state: SettingsState) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
-            .background(colors.cardElevated)
+            .xvoxGlassFill(baseColor = colors.cardElevated)
             .border(1.dp, colors.cardBorder, RoundedCornerShape(14.dp))
             .padding(12.dp)
     ) {

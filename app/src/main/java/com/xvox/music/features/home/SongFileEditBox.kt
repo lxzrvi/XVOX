@@ -57,6 +57,7 @@ import com.xvox.music.media.SongFileEditOutcome
 import com.xvox.music.media.SongFileEditRequest
 import com.xvox.music.media.SongFileEditor
 import kotlinx.coroutines.launch
+import com.xvox.music.core.ui.blur.xvoxGlassFill
 
 /**
  * A single edit surface for a song title and embedded artwork. The header pencil always opens
@@ -198,7 +199,7 @@ fun SongFileEditBox(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(14.dp))
-                .background(colors.cardElevated)
+                .xvoxGlassFill(baseColor = colors.cardElevated)
                 .border(.8.dp, colors.cardBorder, RoundedCornerShape(14.dp))
                 .padding(horizontal = 12.dp, vertical = 10.dp)
         ) {
@@ -283,7 +284,7 @@ private fun SongEditIdentityCard(song: Song, previewCover: Uri?, onPickCover: ()
         modifier = Modifier
             .fillMaxWidth()
             .clip(shape)
-            .background(colors.cardElevated)
+            .xvoxGlassFill(baseColor = colors.cardElevated)
             .border(.8.dp, colors.cardBorder, shape)
             .padding(7.dp),
         verticalAlignment = Alignment.CenterVertically

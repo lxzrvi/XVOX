@@ -97,6 +97,15 @@ fun MiniPlayerSettingsBoxContent(
             )
         }
 
+        MiniPlayerSliderSection("Navigation glass") {
+            SettingsToggle(
+                title = "Liquid glass navbar",
+                subtitle = "Reflective glass pill and rim on the navbar and header buttons",
+                checked = chrome.navLiquidGlass,
+                onChange = { on -> onChromeChange(chrome.copy(navLiquidGlass = on)) }
+            )
+        }
+
         Spacer(Modifier.height(4.dp))
         Text("Mini Player animation", color = colors.secondaryText, fontSize = 11.sp)
         SettingsChoiceRow(

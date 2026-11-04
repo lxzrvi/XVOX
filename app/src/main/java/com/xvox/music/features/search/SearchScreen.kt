@@ -88,6 +88,7 @@ import com.xvox.music.features.home.showSongOptionsOverlay
 import com.xvox.music.features.playlist.XvoxPlaylistCover
 import com.xvox.music.features.sourcemode.XvoxSourceMode
 import com.xvox.music.player.playback.MainPlayerViewModel
+import com.xvox.music.core.ui.blur.xvoxGlassFill
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -366,7 +367,7 @@ fun SearchScreen(
                                     modifier = Modifier
                                         .size(34.dp)
                                         .clip(CircleShape)
-                                        .background(colors.card)
+                                        .xvoxGlassFill()
                                         .clickable { drillDownPlaylist = null },
                                     contentAlignment = Alignment.Center
                                 ) {
@@ -412,7 +413,7 @@ fun SearchScreen(
                                     modifier = Modifier
                                         .size(34.dp)
                                         .clip(CircleShape)
-                                        .background(colors.card)
+                                        .xvoxGlassFill()
                                         .clickable { drillDownArtist = null },
                                     contentAlignment = Alignment.Center
                                 ) {
@@ -546,7 +547,7 @@ fun SearchScreen(
                                 modifier = Modifier
                                     .size(36.dp)
                                     .clip(CircleShape)
-                                    .background(colors.card)
+                                    .xvoxGlassFill()
                                     .clickable {
                                         drillDownPlaylist = null
                                         drillDownArtist = null
@@ -1189,7 +1190,7 @@ private fun SearchPlaylistCompactItem(
                     .size(56.dp)
                     // Keep the cover on the card's exact corner language.
                     .clip(coverShape)
-                    .background(colors.cardElevated),
+                    .xvoxGlassFill(baseColor = colors.cardElevated),
                 contentAlignment = Alignment.Center
             ) {
                 // Use the shared playlist renderer even in compact Search results. A stale custom URI

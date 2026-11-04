@@ -29,6 +29,7 @@ import com.xvox.music.features.settings.components.SettingsToggle
 import com.xvox.music.features.settings.components.XvoxContinuousSlider
 import com.xvox.music.features.settings.components.XvoxSlider
 import kotlin.math.roundToInt
+import com.xvox.music.core.ui.blur.xvoxGlassFill
 
 @Composable
 fun HomeSettingsSection(
@@ -273,7 +274,7 @@ fun HomeSettingsSection(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(10.dp))
-                                .background(colors.cardElevated)
+                                .xvoxGlassFill(baseColor = colors.cardElevated)
                                 .padding(horizontal = 10.dp, vertical = 6.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {

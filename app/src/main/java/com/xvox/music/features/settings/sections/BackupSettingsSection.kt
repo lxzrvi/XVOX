@@ -47,6 +47,7 @@ import java.util.Locale
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
+import com.xvox.music.core.ui.blur.xvoxGlassFill
 
 @Composable
 fun BackupSettingsSection(
@@ -121,7 +122,7 @@ fun BackupSettingsSection(
                 modifier = Modifier
                     .weight(1f)
                     .clip(RoundedCornerShape(50))
-                    .background(colors.cardElevated)
+                    .xvoxGlassFill(baseColor = colors.cardElevated)
                     .border(0.8.dp, colors.cardBorder.copy(alpha = 0.7f), RoundedCornerShape(50))
                     .xvoxPressScale {
                         haptics.tap()
@@ -145,7 +146,7 @@ fun BackupSettingsSection(
                 modifier = Modifier
                     .weight(1f)
                     .clip(RoundedCornerShape(50))
-                    .background(colors.cardElevated)
+                    .xvoxGlassFill(baseColor = colors.cardElevated)
                     .border(0.8.dp, colors.cardBorder.copy(alpha = 0.7f), RoundedCornerShape(50))
                     .xvoxPressScale {
                         haptics.tap()

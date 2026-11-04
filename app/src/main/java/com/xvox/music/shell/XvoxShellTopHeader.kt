@@ -25,6 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -34,6 +35,7 @@ import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxPersonalFont
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.blur.XvoxBlurLevel
+import com.xvox.music.core.ui.blur.xvoxLiquidGlass
 import com.xvox.music.core.ui.blur.xvoxLiveBlur
 import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.core.ui.navigation.XvoxDestination
@@ -138,11 +140,20 @@ fun XvoxShellTopHeader(
                 indication = null,
                 onClick = { /* consume backdrop touch */ }
             )
-            // The Header itself is the page canvas in every theme. Only its controls use the
-            // subtle themed-gray material, so light mode never grows a white header strip.
-            .background(
-                if (hasCustomHeader) Color.Transparent
-                else colors.background
+            // A custom header image remains unobscured. Without one, use the live app background
+            // behind this top surface instead of introducing a flat strip.
+            .then(
+                if (hasCustomHeader) {
+                    Modifier
+                } else {
+                    Modifier.xvoxLiveBlur(
+                        shape = RectangleShape,
+                        level = XvoxBlurLevel.Chrome,
+                        baseColor = colors.background,
+                        borderAlpha = 0f,
+                        borderWidth = 0.dp
+                    )
+                }
             )
     ) {
         if (hasCustomHeader) {
@@ -212,11 +223,23 @@ fun XvoxShellTopHeader(
                         Box(
                             modifier = Modifier
                                 .size(42.dp)
-                                .xvoxLiveBlur(
-                                    shape = CircleShape,
-                                    level = XvoxBlurLevel.Chrome,
-                                    baseColor = controlSurface,
-                                    borderAlpha = .58f
+                                .then(
+                                    if (chrome.navLiquidGlass) {
+                                        Modifier.xvoxLiquidGlass(
+                                            shape = CircleShape,
+                                            tint = controlSurface,
+                                            blurRadius = 14.dp,
+                                            tintAlpha = .30f,
+                                            strength = .6f
+                                        )
+                                    } else {
+                                        Modifier.xvoxLiveBlur(
+                                            shape = CircleShape,
+                                            level = XvoxBlurLevel.Chrome,
+                                            baseColor = controlSurface,
+                                            borderAlpha = .58f
+                                        )
+                                    }
                                 )
                                 .xvoxPressScale(pressedScale = .90f, onClick = onRefreshClick),
                             contentAlignment = Alignment.Center
@@ -234,11 +257,23 @@ fun XvoxShellTopHeader(
                             modifier = Modifier
                                 .height(42.dp)
                                 .width(actionPillWidth)
-                                .xvoxLiveBlur(
-                                    shape = actionShape,
-                                    level = XvoxBlurLevel.Chrome,
-                                    baseColor = controlSurface,
-                                    borderAlpha = .58f
+                                .then(
+                                    if (chrome.navLiquidGlass) {
+                                        Modifier.xvoxLiquidGlass(
+                                            shape = actionShape,
+                                            tint = controlSurface,
+                                            blurRadius = 14.dp,
+                                            tintAlpha = .30f,
+                                            strength = .6f
+                                        )
+                                    } else {
+                                        Modifier.xvoxLiveBlur(
+                                            shape = actionShape,
+                                            level = XvoxBlurLevel.Chrome,
+                                            baseColor = controlSurface,
+                                            borderAlpha = .58f
+                                        )
+                                    }
                                 )
                         ) {
                             Row(

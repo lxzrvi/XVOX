@@ -22,6 +22,7 @@ import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.data.preferences.XvoxPlaylist
 import com.xvox.music.features.playlist.XvoxLikedSongRow
 import com.xvox.music.features.playlist.XvoxPlaylistCard
+import com.xvox.music.core.ui.blur.xvoxGlassFill
 
 @Composable
 fun XvoxHomeSectionHeading(
@@ -94,7 +95,7 @@ fun HomeCollectionHeader(
                     modifier = Modifier
                         .size(38.dp)
                         .clip(androidx.compose.foundation.shape.CircleShape)
-                        .background(colors.cardElevated),
+                        .xvoxGlassFill(baseColor = colors.cardElevated),
                     contentAlignment = Alignment.Center
                 ) {
                     XvoxSongArtwork(

@@ -57,6 +57,7 @@ import kotlin.math.cos
 import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlin.math.sqrt
+import com.xvox.music.core.ui.blur.xvoxGlassFill
 
 fun colorToHsv(color: Color): FloatArray {
     val r = color.red; val g = color.green; val b = color.blue
@@ -210,7 +211,7 @@ fun ColorPickerRow(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(12.dp))
-                    .background(colors.cardElevated)
+                    .xvoxGlassFill(baseColor = colors.cardElevated)
                     .xvoxPressScale { expanded = !expanded }
                     .padding(horizontal = 12.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -413,7 +414,7 @@ private fun ColorPickerEditor(
                 modifier = Modifier
                     .weight(1f)
                     .clip(RoundedCornerShape(10.dp))
-                    .background(colors.cardElevated)
+                    .xvoxGlassFill(baseColor = colors.cardElevated)
                     .border(
                         .8.dp,
                         if (hexIsValid) colors.cardBorder else colors.primaryAccent.copy(alpha = .75f),
@@ -432,7 +433,7 @@ private fun ColorPickerEditor(
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(10.dp))
-                    .background(colors.cardElevated)
+                    .xvoxGlassFill(baseColor = colors.cardElevated)
                     .xvoxPressScale(onClick = onResetAuto)
                     .padding(horizontal = 11.dp, vertical = 8.dp),
                 contentAlignment = Alignment.Center
@@ -498,7 +499,7 @@ fun XvoxPill(text: String, modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
             .clip(CircleShape)
-            .background(colors.cardElevated)
+            .xvoxGlassFill(baseColor = colors.cardElevated)
             .border(.7.dp, colors.primaryAccent.copy(alpha = .60f), CircleShape)
             .padding(horizontal = 9.dp, vertical = 4.dp),
         contentAlignment = Alignment.Center

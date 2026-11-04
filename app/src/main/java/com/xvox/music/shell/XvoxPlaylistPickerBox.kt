@@ -41,6 +41,7 @@ import com.xvox.music.core.model.Song
 import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.core.ui.overlay.xvoxBoxScroll
 import com.xvox.music.data.preferences.XvoxPlaylist
+import com.xvox.music.core.ui.blur.xvoxGlassFill
 
 /**
  * Add to playlist (also used from Now Playing).
@@ -72,7 +73,7 @@ fun XvoxPlaylistPickerBoxContent(
                 Text(song.title, color = colors.secondaryText, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             Box(
-                modifier = Modifier.size(34.dp).clip(CircleShape).background(colors.card)
+                modifier = Modifier.size(34.dp).clip(CircleShape).xvoxGlassFill()
                     .border(0.9.dp, colors.cardBorder, CircleShape)
                     .xvoxPressScale(onClick = onCreatePlaylist),
                 contentAlignment = Alignment.Center
@@ -168,7 +169,7 @@ fun XvoxPlaylistPickerBoxContent(
         ) {
             Box(
                 modifier = Modifier.weight(1f).height(44.dp).clip(RoundedCornerShape(22.dp))
-                    .background(colors.card).border(0.9.dp, colors.cardBorder, RoundedCornerShape(22.dp))
+                    .xvoxGlassFill().border(0.9.dp, colors.cardBorder, RoundedCornerShape(22.dp))
                     .xvoxPressScale(onClick = onCancel),
                 contentAlignment = Alignment.Center
             ) {

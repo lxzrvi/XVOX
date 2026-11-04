@@ -60,6 +60,7 @@ import com.xvox.music.features.settings.SettingsState
 import com.xvox.music.features.settings.SettingsViewModel
 import com.xvox.music.features.settings.components.UniformPreview
 import com.xvox.music.widget.XvoxWidgetHelper
+import com.xvox.music.core.ui.blur.xvoxGlassFill
 
 /**
  * A dedicated settings page for the home-screen widget.  The preview is deliberately outside the
@@ -114,7 +115,7 @@ fun WidgetStudioScreen(
                 modifier = Modifier
                     .size(38.dp)
                     .clip(CircleShape)
-                    .background(colors.cardElevated)
+                    .xvoxGlassFill(baseColor = colors.cardElevated)
                     .border(0.8.dp, colors.cardBorder.copy(alpha = 0.75f), CircleShape)
                     .xvoxPressScale(onClick = onBack),
                 contentAlignment = Alignment.Center
@@ -324,7 +325,7 @@ private fun WidgetStudioLivePreview(
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(20.dp))
-            .background(colors.cardElevated)
+            .xvoxGlassFill(baseColor = colors.cardElevated)
             .border(0.8.dp, colors.cardBorder.copy(alpha = 0.75f), RoundedCornerShape(20.dp))
     ) {
         when (previewBackground) {

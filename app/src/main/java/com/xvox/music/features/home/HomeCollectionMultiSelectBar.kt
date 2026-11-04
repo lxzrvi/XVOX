@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.sp
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
+import com.xvox.music.core.ui.blur.xvoxGlassFill
 
 /** One icon-only entity action exposed in the Artist/Playlist outer-selection rail. */
 data class XvoxCollectionSelectionAction(
@@ -134,7 +135,7 @@ fun HomeCollectionMultiSelectBar(
                         modifier = modifier
                             .width(70.dp)
                             .clip(railShape)
-                            .background(colors.cardElevated)
+                            .xvoxGlassFill(baseColor = colors.cardElevated)
                             .border(.8.dp, colors.cardBorder, railShape)
                             .padding(start = 3.dp, top = 7.dp, end = 3.dp, bottom = 7.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,

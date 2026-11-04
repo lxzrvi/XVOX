@@ -34,6 +34,7 @@ import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxPersonalFont
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.effects.xvoxPressScale
+import com.xvox.music.core.ui.blur.xvoxGlassFill
 
 /**
  * The one avatar strip used by both the setup screen and the profile editor.
@@ -168,7 +169,7 @@ private fun AvatarSlot(size: Dp, selected: Boolean, onClick: () -> Unit, content
         modifier = Modifier
             .size(size)
             .clip(CircleShape)
-            .background(colors.cardElevated)
+            .xvoxGlassFill(baseColor = colors.cardElevated)
             .border(width, if (selected) colors.primaryAccent else colors.cardBorder, CircleShape)
             .xvoxPressScale(onClick = onClick),
         contentAlignment = Alignment.Center

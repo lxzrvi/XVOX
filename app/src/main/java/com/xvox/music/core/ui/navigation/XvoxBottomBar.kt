@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.blur.XvoxBlurLevel
+import com.xvox.music.core.ui.blur.xvoxLiquidGlass
 import com.xvox.music.core.ui.blur.xvoxLiveBlur
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 import kotlinx.coroutines.launch
@@ -61,6 +62,7 @@ fun XvoxBottomBar(
     val selectorHeight = (navBarHeight - 8.dp).coerceAtLeast(44.dp)
     val destinations = XvoxDestination.entries
     val selectedIndex = destinations.indexOf(selected)
+    val liquidGlass = chrome.navLiquidGlass
 
     val scope = rememberCoroutineScope()
     val latestSelect by rememberUpdatedState(onSelected)
@@ -161,13 +163,25 @@ fun XvoxBottomBar(
                 .align(Alignment.TopCenter)
                 .offset(y = topOffset)
                 .size(navBarWidth, navBarHeight)
-                .xvoxLiveBlur(
-                    shape = parentShape,
-                    level = XvoxBlurLevel.Chrome,
-                    baseColor = defaultNavSurface.copy(alpha = appliedNavSurfaceAlpha),
-                    borderColor = navEdge,
-                    borderAlpha = 1f,
-                    borderWidth = chrome.navBorderWidth.coerceIn(0f, 4f).dp
+                .then(
+                    if (liquidGlass) {
+                        Modifier.xvoxLiquidGlass(
+                            shape = parentShape,
+                            tint = defaultNavSurface,
+                            blurRadius = 20.dp,
+                            tintAlpha = (appliedNavSurfaceAlpha * .5f).coerceIn(.10f, .55f),
+                            strength = .5f
+                        )
+                    } else {
+                        Modifier.xvoxLiveBlur(
+                            shape = parentShape,
+                            level = XvoxBlurLevel.Chrome,
+                            baseColor = defaultNavSurface.copy(alpha = appliedNavSurfaceAlpha),
+                            borderColor = navEdge,
+                            borderAlpha = 1f,
+                            borderWidth = chrome.navBorderWidth.coerceIn(0f, 4f).dp
+                        )
+                    }
                 )
         ) {
             if (chrome.navigationImageUri.isNotBlank()) {
@@ -201,15 +215,26 @@ fun XvoxBottomBar(
                     clip = true
                 }
                 .size(selectorWidth, selectorHeight)
-                // Selection is deliberately the lightest blur level: it remains a clear active
-                // tab marker over the more strongly frosted navigation material.
-                .xvoxLiveBlur(
-                    shape = selectorShape,
-                    level = XvoxBlurLevel.Selection,
-                    baseColor = pillFill,
-                    borderColor = pillEdge,
-                    borderAlpha = 1f,
-                    borderWidth = chrome.pillBorderWidth.coerceIn(0f, 4f).dp
+                .then(
+                    if (liquidGlass) {
+                        Modifier.xvoxLiquidGlass(
+                            shape = selectorShape,
+                            tint = com.xvox.music.core.ui.chrome.parseHexColor(chrome.pillColor)
+                                ?: colors.primaryAccent,
+                            blurRadius = 5.dp,
+                            tintAlpha = .20f * chrome.pillAlpha.coerceIn(0f, 1f) + .06f,
+                            strength = 1f
+                        )
+                    } else {
+                        Modifier.xvoxLiveBlur(
+                            shape = selectorShape,
+                            level = XvoxBlurLevel.Selection,
+                            baseColor = pillFill,
+                            borderColor = pillEdge,
+                            borderAlpha = 1f,
+                            borderWidth = chrome.pillBorderWidth.coerceIn(0f, 4f).dp
+                        )
+                    }
                 )
         )
 

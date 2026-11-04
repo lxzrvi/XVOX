@@ -128,7 +128,9 @@ data class XvoxChromeStyle(
     val nowPlayingRepeatOffsetX: Float = 0f,
     val nowPlayingRepeatOffsetY: Float = 0f,
     /** Local artwork blur used only by the Mini Player's explicit Blur background mode. */
-    val miniCoverBlur: Float = 26.25f
+    val miniCoverBlur: Float = 26.25f,
+    /** Liquid-glass navbar (bar + selector pill) and header buttons. Off = classic blur. */
+    val navLiquidGlass: Boolean = true
 ) {
     fun encode(): String = listOf(
         optionBoxBgAlpha, optionBoxBorder, optionBoxBorderAlpha,
@@ -168,7 +170,8 @@ data class XvoxChromeStyle(
         miniBorderWidth, navBorderWidth, pillBorder, pillBorderWidth,
         miniExitOvershootDp, nowPlayingExitOvershootDp, miniToNowPlayingDelayMillis,
         miniMotionDuration, nowPlayingMotionDuration, miniMotionEase, nowPlayingMotionEase,
-        miniCoverBlur
+        miniCoverBlur,
+        navLiquidGlass
     ).joinToString("|")
 
     fun resetNowPlayingLayout(): XvoxChromeStyle = copy(
@@ -285,6 +288,7 @@ data class XvoxChromeStyle(
                 miniMotionEase = motionEase(74, .55f),
                 nowPlayingMotionEase = motionEase(75, .55f),
                 miniCoverBlur = number(76, 26.25f).coerceIn(12f, 50f),
+                navLiquidGlass = parts.getOrNull(77)?.trim()?.toBooleanStrictOrNull() ?: true,
                 nowPlayingSeekStyle = seekStyle(31),
                 nowPlayingPillSide = side(32, "left"),
                 nowPlayingChangingActionsSide = side(33, "right"),

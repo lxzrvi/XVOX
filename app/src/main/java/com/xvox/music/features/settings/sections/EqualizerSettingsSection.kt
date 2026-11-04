@@ -49,6 +49,7 @@ import com.xvox.music.features.settings.SettingsState
 import com.xvox.music.features.settings.SettingsViewModel
 import kotlin.math.abs
 import kotlin.math.roundToInt
+import com.xvox.music.core.ui.blur.xvoxGlassFill
 
 /**
  * Compact live Equalizer editor modeled on the supplied reference. Every toggle, preset, and
@@ -260,7 +261,7 @@ private fun EqualizerCard(content: @Composable ColumnScope.() -> Unit) {
             .fillMaxWidth()
             // Match the Settings-page cards exactly in both light and dark palettes.
             .clip(shape)
-            .background(colors.cardElevated)
+            .xvoxGlassFill(baseColor = colors.cardElevated)
             .border(0.8.dp, colors.cardBorder.copy(alpha = if (colors.isLight) .80f else .72f), shape)
             .padding(horizontal = 14.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),

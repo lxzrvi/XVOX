@@ -62,6 +62,7 @@ import com.xvox.music.features.home.XvoxSongActions
 import com.xvox.music.features.settings.components.*
 import com.xvox.music.features.settings.sections.*
 import kotlin.math.abs
+import com.xvox.music.core.ui.blur.xvoxGlassFill
 
 /** Shared compact height for every full-width choice surface in Appearance. */
 private val XvoxAppearancePillHeight = 42.dp
@@ -751,7 +752,7 @@ private fun SupportDeveloperCard(modifier: Modifier = Modifier) {
             Row(
                 modifier = Modifier
                     .clip(CircleShape)
-                    .background(colors.cardElevated)
+                    .xvoxGlassFill(baseColor = colors.cardElevated)
                     .border(0.8.dp, colors.cardBorder.copy(alpha = 0.7f), CircleShape)
                     .xvoxPressScale { copyUpiId() }
                     .padding(horizontal = 16.dp, vertical = 8.dp),
@@ -1004,7 +1005,7 @@ private fun SettingsLandingActionRow(
         modifier = Modifier
             .fillMaxWidth()
             .clip(shape)
-            .background(colors.cardElevated)
+            .xvoxGlassFill(baseColor = colors.cardElevated)
             .border(.8.dp, colors.cardBorder.copy(alpha = .72f), shape)
             .xvoxPressScale(onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 10.dp),
@@ -1053,7 +1054,7 @@ private fun DeletedItemsSectionCard(onOpen: () -> Unit, modifier: Modifier = Mod
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(shape)
-                    .background(colors.cardElevated)
+                    .xvoxGlassFill(baseColor = colors.cardElevated)
                     .border(.8.dp, colors.cardBorder.copy(alpha = .72f), shape)
                     .xvoxPressScale(onClick = onOpen)
                     .padding(horizontal = 13.dp, vertical = 11.dp),

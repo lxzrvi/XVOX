@@ -57,6 +57,7 @@ import kotlinx.coroutines.launch
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
+import com.xvox.music.core.ui.blur.xvoxGlassFill
 
 /**
  * Aspect-constrained image cropper used by artwork/profile/playlist flows. GIF inputs stay GIFs:
@@ -107,7 +108,7 @@ fun XvoxImageCropDialog(
                 .fillMaxHeight(.92f)
                 .padding(horizontal = 12.dp)
                 .clip(RoundedCornerShape(24.dp))
-                .background(colors.card)
+                .xvoxGlassFill()
                 .border(1.dp, colors.cardBorder.copy(alpha = .86f), RoundedCornerShape(24.dp))
                 .padding(16.dp)
         ) {
