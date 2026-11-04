@@ -2,7 +2,6 @@
 
 package com.xvox.music
 
-import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
@@ -54,7 +53,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -63,11 +61,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.viewmodel.compose.viewModel
-import coil3.compose.AsyncImage
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
-import com.xvox.music.core.ui.blur.XvoxBlurLevel
-import com.xvox.music.core.ui.blur.xvoxLiveBlur
+import com.xvox.music.core.ui.blur.LocalXvoxShellContentSky
+import com.xvox.music.core.ui.blur.rememberXvoxContentSky
+import com.xvox.music.core.ui.blur.xvoxBlurSource
 import com.xvox.music.core.ui.miniplayer.XvoxMiniPlayer
 import com.xvox.music.core.ui.miniplayer.XvoxMiniPlayerPlacement
 import com.xvox.music.core.ui.navigation.LocalXvoxBottomInset
@@ -108,10 +106,8 @@ import kotlin.math.roundToInt
 fun XvoxMainShell(
     homeViewModel: HomeViewModel = viewModel(),
     playerViewModel: MainPlayerViewModel = viewModel(),
-    settingsViewModel: com.xvox.music.features.settings.SettingsViewModel = viewModel(),
-    backgroundBrightness: Float = 0.8f
+    settingsViewModel: com.xvox.music.features.settings.SettingsViewModel = viewModel()
 ) {
-    val colors = XvoxTheme.colors
     // Editors operate on the durable chrome values used by the default UI.
     val chrome = com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle.current
     val baseChrome = com.xvox.music.core.ui.chrome.LocalXvoxBaseChromeStyle.current
@@ -119,7 +115,6 @@ fun XvoxMainShell(
     val homeState by homeViewModel.state.collectAsState()
     val player by playerViewModel.state.collectAsState()
     val homePreferences = remember { com.xvox.music.data.preferences.UserPreferencesRepository(homeViewModel.getApplication<android.app.Application>()) }
-    val backgroundImage by homePreferences.themeBackgroundImage.collectAsState(initial = "")
     val overlays = LocalXvoxOverlayController.current
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -173,6 +168,9 @@ fun XvoxMainShell(
     // scroll progress; they never recreate a page-local Header while route content changes.
     var homeHeaderScrollPx by rememberSaveable { mutableIntStateOf(0) }
     var searchHeaderScrollPx by rememberSaveable { mutableIntStateOf(0) }
+    // Header travel clamps after its own height, while the list keeps moving underneath fixed
+    // chrome. This revision keeps the shell source refreshing through that continued scroll.
+    var shellContentScrollRevision by remember { mutableIntStateOf(0) }
     // Now Playing is an overlay, not a route: never reset an underlying page's exact scroll or
     // Header translation when the player is closed. The shell remains composed below it.
     var hoistedSelectedPlaylistId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -725,11 +723,18 @@ fun XvoxMainShell(
         }
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(colors.background)
-    ) {
+    // The persistent Mini Player/navbar are siblings of this source. They therefore blur the
+    // actual moving tab/header content beneath them instead of the static global wallpaper.
+    val shellContentSky = rememberXvoxContentSky()
+    LaunchedEffect(homeHeaderScrollPx, searchHeaderScrollPx, shellContentScrollRevision, destination) {
+        // Cloudy captures scrolling source layers on demand. Route/scroll updates keep the chrome
+        // honest without coupling the source to playback-progress recompositions.
+        shellContentSky.invalidate()
+    }
+    CompositionLocalProvider(LocalXvoxShellContentSky provides shellContentSky) {
+        Box(
+            modifier = Modifier.fillMaxSize()
+        ) {
         val density = LocalDensity.current
         val bottomInset = with(density) { WindowInsets.navigationBars.getBottom(this).toDp() } +
             if (isLandscape) navigationBarHeight + 20.dp
@@ -783,6 +788,10 @@ fun XvoxMainShell(
             destination != XvoxDestination.SETTINGS && settledHeaderRoute == destination -> targetHeaderTranslationY
             else -> sharedHeaderTranslation.value
         }
+        LaunchedEffect(sharedHeaderTranslationY) {
+            // Route/header animation is another real movement behind fixed chrome.
+            shellContentSky.invalidate()
+        }
         // Keep Home's callback identities stable while the fast playback state drives other
         // shell surfaces. Without this boundary a position-tick could recompose every visible
         // four-column card through freshly captured lambdas, even though artwork quality and the
@@ -792,6 +801,9 @@ fun XvoxMainShell(
         val homeScrollProgressCallback = remember {
             { index: Int, offset: Int ->
                 if (latestHomeDestination == XvoxDestination.HOME) {
+                    // Continue invalidating the content Sky after Header translation has clamped;
+                    // Mini Player/navbar glass must still follow the scrolling cards below it.
+                    shellContentScrollRevision++
                     val headerHeight = latestHomeHeaderHeightPx.roundToInt()
                     val nextHeaderScrollPx = if (index > 0) headerHeight
                     else offset.coerceIn(0, headerHeight)
@@ -808,13 +820,16 @@ fun XvoxMainShell(
         val homePlayCallback = remember(playerViewModel) { { nextSong: Song -> playerViewModel.play(nextSong) } }
 
         val tabState = rememberSaveableStateHolder()
-        // Keep the shell inset stable through AnimatedContent so the outgoing page and Header
-        // remain locked together during a route motion. Settings itself intentionally consumes
-        // only the status-bar inset and therefore never reserves a duplicate Header.
-        CompositionLocalProvider(
-            LocalXvoxTopInset provides sharedHeaderHeight,
-            LocalXvoxBottomInset provides bottomInset
-        ) {
+        // This source holds only the true moving page and Header. Persistent chrome is painted
+        // later as a sibling, so its blur cannot recursively sample itself.
+        Box(Modifier.fillMaxSize().xvoxBlurSource(shellContentSky)) {
+            // Keep the shell inset stable through AnimatedContent so the outgoing page and Header
+            // remain locked together during a route motion. Settings itself intentionally consumes
+            // only the status-bar inset and therefore never reserves a duplicate Header.
+            CompositionLocalProvider(
+                LocalXvoxTopInset provides sharedHeaderHeight,
+                LocalXvoxBottomInset provides bottomInset
+            ) {
             AnimatedContent(
                 targetState = destination,
                 transitionSpec = {
@@ -832,7 +847,7 @@ fun XvoxMainShell(
                 modifier = Modifier.fillMaxSize()
             ) { targetDestination ->
                 tabState.SaveableStateProvider(targetDestination.name) {
-                    TabSurface(backgroundImage = backgroundImage, backgroundBrightness = backgroundBrightness) {
+                    TabSurface {
                         when (targetDestination) {
                             XvoxDestination.HOME -> {
                                 HomeScreen(
@@ -894,7 +909,7 @@ fun XvoxMainShell(
         ) {
             sharedShellHeader()
         }
-
+        }
 
         val currentSongId = player.currentSongId
         // Keep both player surfaces measured below the bottom boundary during a handoff. Their
@@ -1151,6 +1166,7 @@ fun XvoxMainShell(
             }
         }
     }
+    }
 }
 
 
@@ -1170,15 +1186,19 @@ private fun ProfileSheetFooterButton(
     Box(
         modifier = modifier
             .requiredHeight(40.dp)
-            .xvoxLiveBlur(
-                shape = shape,
-                level = XvoxBlurLevel.Selection,
-                baseColor = when {
+            // Sheet/footer actions remain ordinary material buttons. They deliberately never
+            // sample a live Sky, even when the surrounding box is glass.
+            .clip(shape)
+            .background(
+                when {
                     primary && enabled -> colors.primaryAccent
                     else -> colors.cardElevated
-                },
-                borderColor = if (primary && enabled) Color.Transparent else colors.cardBorder,
-                borderAlpha = if (primary && enabled) 0f else .80f
+                }
+            )
+            .border(
+                width = .8.dp,
+                color = if (primary && enabled) Color.Transparent else colors.cardBorder.copy(alpha = .80f),
+                shape = shape
             )
             .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center
@@ -1197,27 +1217,9 @@ private fun ProfileSheetFooterButton(
 }
 
 @Composable
-private fun TabSurface(
-    backgroundImage: String,
-    backgroundBrightness: Float,
-    content: @Composable () -> Unit
-) {
-    Box(Modifier.fillMaxSize().background(XvoxTheme.colors.background)) {
-        // The image remains the user's visible tab backdrop. XvoxAppRoot separately exposes the
-        // same wallpaper/photo as the Cloudy sky source for live-glass cards and root-hosted sheets.
-        if (backgroundImage.isNotBlank()) {
-            AsyncImage(
-                model = Uri.parse(backgroundImage),
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize()
-            )
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = (1f - backgroundBrightness).coerceIn(0f, 0.95f)))
-            )
-        }
-        content()
-    }
+private fun TabSurface(content: @Composable () -> Unit) {
+    // The root source paints the one true visible app backdrop. Keeping tab bodies transparent
+    // avoids drawing/decoding a second wallpaper, keeps page cards tied to the real background,
+    // and lets the shell-content Sky see the same moving surface the user sees.
+    Box(Modifier.fillMaxSize()) { content() }
 }

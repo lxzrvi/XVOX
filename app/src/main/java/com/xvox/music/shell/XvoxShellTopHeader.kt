@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -24,7 +25,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
@@ -34,7 +34,11 @@ import androidx.compose.ui.unit.sp
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxPersonalFont
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.ui.blur.LocalXvoxHeaderSky
+import com.xvox.music.core.ui.blur.LocalXvoxSurfaceSky
 import com.xvox.music.core.ui.blur.XvoxBlurLevel
+import com.xvox.music.core.ui.blur.rememberXvoxContentSky
+import com.xvox.music.core.ui.blur.xvoxBlurSource
 import com.xvox.music.core.ui.blur.xvoxLiveBlur
 import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.core.ui.navigation.XvoxDestination
@@ -105,7 +109,9 @@ fun XvoxShellTopHeader(
     // refresh/library-pill outlines were intentionally removed.
     val chrome = com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle.current
     // Header controls are translucent palette materials, never white placeholders in light mode.
-    val controlSurface = colors.cardElevated.copy(alpha = if (colors.isLight) .72f else .64f)
+    val controlSurface = colors.cardElevated.copy(
+        alpha = colors.cardElevated.alpha * if (colors.isLight) .72f else .64f
+    )
     val density = LocalDensity.current
     val statusBarHeight = with(density) {
         if (useSystemInsets) WindowInsets.statusBars.getTop(this).toDp() else 0.dp
@@ -129,6 +135,12 @@ fun XvoxShellTopHeader(
     // Use a palette-owned dark tone rather than a hard-coded overlay colour.
     val headerDimColor = if (colors.isLight) colors.primaryText else colors.background
     val hasCustomHeader = !visibleHeaderImage.isNullOrBlank()
+    // The avatar and Header action pills must read this Header's own artwork/material—not the
+    // global wallpaper. The source below is a sibling of those controls, avoiding a self-capture.
+    val headerSky = rememberXvoxContentSky()
+    LaunchedEffect(visibleHeaderImage, headerDimAlpha, chrome.headerBgAlpha, colors.background, colors.isLight) {
+        headerSky.invalidate()
+    }
 
     Box(
         modifier = Modifier
@@ -139,36 +151,44 @@ fun XvoxShellTopHeader(
                 indication = null,
                 onClick = { /* consume backdrop touch */ }
             )
-            // A custom header image remains unobscured. Without one, use the live app background
-            // behind this top surface instead of introducing a flat strip.
-            .then(
-                if (hasCustomHeader) {
-                    Modifier
-                } else {
-                    Modifier.xvoxLiveBlur(
-                        shape = RectangleShape,
-                        level = XvoxBlurLevel.Chrome,
-                        baseColor = colors.background,
-                        borderAlpha = 0f,
-                        borderWidth = 0.dp
-                    )
-                }
-            )
     ) {
-        if (hasCustomHeader) {
-            coil3.compose.AsyncImage(
-                model = visibleHeaderImage,
-                contentDescription = null,
-                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                modifier = Modifier
-                    .matchParentSize()
-            )
-        }
-        // Apply the persisted-or-live-preview Header dim style to artwork and the default palette.
-        if (headerDimAlpha > .001f) {
-            Box(Modifier.matchParentSize().background(headerDimColor.copy(alpha = headerDimAlpha)))
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .xvoxBlurSource(headerSky)
+        ) {
+            if (hasCustomHeader) {
+                coil3.compose.AsyncImage(
+                    model = visibleHeaderImage,
+                    contentDescription = null,
+                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                    // A completed photo replaces the source pixels asynchronously.
+                    onSuccess = { headerSky.invalidate() },
+                    modifier = Modifier.matchParentSize()
+                )
+            } else {
+                // The Header itself retains its ordinary live backdrop using the real root source.
+                // Its avatar/action controls still read this captured Header layer, not the root.
+                Box(
+                    Modifier
+                        .matchParentSize()
+                        .xvoxLiveBlur(
+                            shape = RectangleShape,
+                            level = XvoxBlurLevel.Chrome,
+                            baseColor = colors.background.copy(alpha = chrome.headerBgAlpha.coerceIn(0f, 1f)),
+                            sky = LocalXvoxSurfaceSky.current,
+                            borderAlpha = 0f,
+                            borderWidth = 0.dp
+                        )
+                )
+            }
+            // Apply the persisted-or-live-preview Header dim style to artwork and the default palette.
+            if (headerDimAlpha > .001f) {
+                Box(Modifier.matchParentSize().background(headerDimColor.copy(alpha = headerDimAlpha)))
+            }
         }
 
+        CompositionLocalProvider(LocalXvoxHeaderSky provides headerSky) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -226,6 +246,7 @@ fun XvoxShellTopHeader(
                                     shape = CircleShape,
                                     level = XvoxBlurLevel.Chrome,
                                     baseColor = controlSurface,
+                                    sky = headerSky,
                                     borderAlpha = .58f
                                 )
                                 .xvoxPressScale(pressedScale = .90f, onClick = onRefreshClick),
@@ -248,6 +269,7 @@ fun XvoxShellTopHeader(
                                     shape = actionShape,
                                     level = XvoxBlurLevel.Chrome,
                                     baseColor = controlSurface,
+                                    sky = headerSky,
                                     borderAlpha = .58f
                                 )
                         ) {
@@ -299,6 +321,7 @@ fun XvoxShellTopHeader(
                     }
                 }
 
+        }
         }
     }
 }

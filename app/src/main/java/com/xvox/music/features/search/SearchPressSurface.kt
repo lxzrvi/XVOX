@@ -19,6 +19,7 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.xvox.music.core.ui.blur.LocalXvoxSurfaceSky
 import com.xvox.music.core.ui.blur.XvoxBlurLevel
 import com.xvox.music.core.ui.blur.xvoxLiveBlur
 import com.xvox.music.core.ui.effects.xvoxSongPress
@@ -39,6 +40,9 @@ internal fun SearchPressSurface(
     onLongClick: () -> Unit,
     content: @Composable BoxScope.() -> Unit
 ) {
+    // Result cards are over the page backdrop. Do not borrow Search's list-capture Sky here:
+    // that Sky is reserved for sibling bars and including a card in its own source would recurse.
+    val pageSky = LocalXvoxSurfaceSky.current
     var framePressed by remember { mutableStateOf(false) }
     val frameScale by animateFloatAsState(
         targetValue = if (framePressed) .96f else 1f,
@@ -64,6 +68,7 @@ internal fun SearchPressSurface(
                 shape = shape,
                 level = XvoxBlurLevel.Card,
                 baseColor = fill,
+                sky = pageSky,
                 borderColor = border,
                 borderAlpha = 1f,
                 borderWidth = borderWidth

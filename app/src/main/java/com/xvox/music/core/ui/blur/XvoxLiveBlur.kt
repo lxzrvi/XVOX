@@ -27,14 +27,23 @@ import com.xvox.music.core.ui.chrome.parseHexColor
 import kotlin.math.roundToInt
 
 /**
- * Blur layers (bottom to top):
- *  0  Surface sky : wallpaper / photo + accent bloom. Header, cards, navbar, mini player blur this.
- *  1  Overlay sky : the whole live app. Sheets and boxes blur the real page beneath them.
- *  2  Content sky : an optional scrolling list that a bar sits above (see rememberXvoxContentSky).
+ * Blur layers are deliberately source-local.  The root surface is only the real app backdrop;
+ * chrome which sits above moving page content, Header controls, and Now Playing each receive a
+ * nearer sibling source instead of sampling a decorative or unrelated wallpaper layer.
  * A blurred surface is never placed inside the Sky it samples.
  */
 val LocalXvoxSurfaceSky = staticCompositionLocalOf<Sky?> { null }
 val LocalXvoxOverlaySky = staticCompositionLocalOf<Sky?> { null }
+/** Actual tab/body content used by the persistent Mini Player, navbar, and active tab pill. */
+val LocalXvoxShellContentSky = staticCompositionLocalOf<Sky?> { null }
+/** Header artwork/material used only by the avatar and Header action controls. */
+val LocalXvoxHeaderSky = staticCompositionLocalOf<Sky?> { null }
+/** Now Playing's live backdrop, used by its top controls. */
+val LocalXvoxNowPlayingSky = staticCompositionLocalOf<Sky?> { null }
+/** The separate painted bottom-box layer used by Now Playing's bottom controls. */
+val LocalXvoxNowPlayingBottomSky = staticCompositionLocalOf<Sky?> { null }
+/** Global page-card transparency drives opacity everywhere and blur strength while blur is on. */
+val LocalXvoxGlassTransparency = staticCompositionLocalOf { 0f }
 
 enum class XvoxBlurLevel(
     val radius: Dp,
@@ -59,7 +68,7 @@ enum class XvoxBlurLevel(
  * Clean blur surface: clip + Cloudy backdrop blur + flat tint. No shadow, no gloss.
  * Radius is converted dp -> px for Cloudy, and everything is remembered so playback ticks and
  * scrolling never rebuild it (that is what causes flicker).
- * The border follows Settings > Mini Player > Glass border (see xvoxGlassBorder).
+ * The border follows Settings > Appearance > Glass border (see xvoxGlassBorder).
  */
 @Composable
 fun Modifier.xvoxLiveBlur(
@@ -72,15 +81,30 @@ fun Modifier.xvoxLiveBlur(
     borderWidth: Dp = .8.dp
 ): Modifier {
     val density = LocalDensity.current
-    val radiusPx = remember(level, density.density) {
-        (level.radius.value * density.density).roundToInt().coerceAtLeast(1)
+    val chrome = LocalXvoxChromeStyle.current
+    // The existing transparency slider changes the real material alpha. While live blur is on,
+    // it also increases the blur reach so a more transparent card remains visibly frosted rather
+    // than merely looking faint. With blur off we deliberately skip Cloudy entirely: the slider
+    // then controls only the ordinary material transparency.
+    val globalTransparency = LocalXvoxGlassTransparency.current.coerceIn(0f, .60f)
+    val surfaceTransparency = (1f - baseColor.alpha).coerceIn(0f, 1f)
+    val transparencyDrive = maxOf(globalTransparency, surfaceTransparency)
+    val configuredBlur = chrome.glassBlurIntensity.coerceIn(0f, 1f)
+    val radiusScale = configuredBlur * (.72f + transparencyDrive * .78f)
+    val radiusPx = remember(level, density.density, radiusScale) {
+        (level.radius.value * density.density * radiusScale).roundToInt().coerceAtLeast(1)
     }
-    val tint = remember(baseColor, level) { baseColor.copy(alpha = level.tintAlpha) }
+    // Preserve the material's alpha. Previously `.copy(alpha = level.tintAlpha)` accidentally
+    // discarded the user-controlled transparency and made the slider appear ineffective.
+    val tint = remember(baseColor, level) {
+        baseColor.copy(alpha = (baseColor.alpha * level.tintAlpha).coerceIn(0f, 1f))
+    }
     val clipped = clip(shape)
-    val surface = if (sky == null) {
-        clipped.background(baseColor.copy(alpha = level.fallbackAlpha))
-    } else {
-        clipped.cloudy(sky = sky, radius = radiusPx, tint = tint, shape = shape)
+    val liveBlurEnabled = chrome.glassBlurEnabled && configuredBlur > .001f && sky != null
+    val surface = when {
+        !chrome.glassBlurEnabled -> clipped.background(baseColor)
+        !liveBlurEnabled -> clipped.background(baseColor.copy(alpha = baseColor.alpha * level.fallbackAlpha))
+        else -> clipped.cloudy(sky = sky!!, radius = radiusPx, tint = tint, shape = shape)
     }
     return surface.xvoxGlassBorder(shape, borderColor, borderAlpha, borderWidth)
 }
@@ -142,7 +166,7 @@ fun Modifier.xvoxBarBlur(
 )
 
 /**
- * Global glass border (Settings > Mini Player > Glass border):
+ * Global glass border (Settings > Appearance > Glass border):
  *  - off        : no border on any blurred surface
  *  - width      : 0 - 4 dp
  *  - colour     : custom hex, or the surface's own theme colour when empty

@@ -20,6 +20,8 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.xvox.music.core.design.theme.XvoxPersonalFont
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.ui.blur.LocalXvoxHeaderSky
+import com.xvox.music.core.ui.blur.LocalXvoxSurfaceSky
 import com.xvox.music.core.ui.blur.XvoxBlurLevel
 import com.xvox.music.core.ui.blur.xvoxLiveBlur
 import com.xvox.music.data.preferences.UserPreferences
@@ -33,12 +35,17 @@ fun HomeProfileAvatar(
     onClick: (() -> Unit)? = null
 ) {
     val colors = XvoxTheme.colors
+    // In the shell this is the Header-only Sky; legacy/local callers safely fall back to the
+    // real app backdrop instead of inventing a coloured surface.
+    val avatarSky = LocalXvoxHeaderSky.current ?: LocalXvoxSurfaceSky.current
 
     val type = runCatching {
         PfpType.valueOf(profile.selectedPfp)
     }.getOrDefault(PfpType.DEFAULT)
 
-    val avatarSurface = colors.cardElevated.copy(alpha = if (colors.isLight) .72f else .64f)
+    val avatarSurface = colors.cardElevated.copy(
+        alpha = colors.cardElevated.alpha * if (colors.isLight) .72f else .64f
+    )
     Box(
         modifier = modifier
             // The default PFP is a small live-glass circle. A custom image remains the visible
@@ -47,6 +54,7 @@ fun HomeProfileAvatar(
                 shape = CircleShape,
                 level = XvoxBlurLevel.Selection,
                 baseColor = avatarSurface,
+                sky = avatarSky,
                 borderAlpha = .56f
             )
             .then(

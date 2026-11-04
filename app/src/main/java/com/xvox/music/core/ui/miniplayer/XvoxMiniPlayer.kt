@@ -49,6 +49,8 @@ import androidx.compose.material3.Icon
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
+import com.xvox.music.core.ui.blur.LocalXvoxShellContentSky
+import com.xvox.music.core.ui.blur.LocalXvoxSurfaceSky
 import com.xvox.music.core.ui.blur.XvoxBlurLevel
 import com.xvox.music.core.ui.blur.xvoxLiveBlur
 import com.xvox.music.player.playback.RepeatMode
@@ -443,6 +445,7 @@ private fun XvoxMiniQuickActionPill(
     onDismiss: () -> Unit
 ) {
     val colors = XvoxTheme.colors
+    val contentSky = LocalXvoxShellContentSky.current ?: LocalXvoxSurfaceSky.current
     val shape = RoundedCornerShape(24.dp)
     Row(
         modifier = Modifier
@@ -452,6 +455,7 @@ private fun XvoxMiniQuickActionPill(
                 shape = shape,
                 level = XvoxBlurLevel.Chrome,
                 baseColor = colors.background.copy(alpha = .94f),
+                sky = contentSky,
                 borderAlpha = .56f
             )
             .padding(horizontal = 5.dp),

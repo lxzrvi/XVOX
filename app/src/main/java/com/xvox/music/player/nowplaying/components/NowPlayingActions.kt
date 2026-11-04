@@ -52,6 +52,8 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.ui.blur.LocalXvoxNowPlayingBottomSky
+import com.xvox.music.core.ui.blur.LocalXvoxNowPlayingSky
 import com.xvox.music.core.ui.blur.XvoxBlurLevel
 import com.xvox.music.core.ui.blur.xvoxLiveBlur
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
@@ -106,6 +108,9 @@ fun NowPlayingActions(
 ) {
     val colors = XvoxTheme.colors
     val haptics = LocalXvoxHaptics.current
+    // Portrait action buttons sit above the painted bottom-box source. Landscape has no separate
+    // bottom box, so it falls back to the actual Now Playing backdrop.
+    val bottomBoxSky = LocalXvoxNowPlayingBottomSky.current ?: LocalXvoxNowPlayingSky.current
     // Do not clamp at the first/last action page: the pager is a three-stop ring.
     var pageIndex by remember { mutableIntStateOf(((actionPageIndex % 3) + 3) % 3) }
     var showIndicator by remember { mutableStateOf(true) }
@@ -208,7 +213,8 @@ fun NowPlayingActions(
                     .xvoxLiveBlur(
                         shape = RoundedCornerShape(21.dp),
                         level = XvoxBlurLevel.Chrome,
-                        baseColor = colors.card.copy(alpha = surfaceAlpha.coerceIn(0f, 1f)),
+                        baseColor = colors.card.copy(alpha = colors.card.alpha * surfaceAlpha.coerceIn(0f, 1f)),
+                        sky = bottomBoxSky,
                         borderAlpha = .50f
                     )
                     .padding(horizontal = 6.dp),
@@ -632,9 +638,10 @@ fun NowPlayingCircleAction(
 ) {
     val colors = XvoxTheme.colors
     val haptics = LocalXvoxHaptics.current
+    val bottomBoxSky = LocalXvoxNowPlayingBottomSky.current ?: LocalXvoxNowPlayingSky.current
     // An active option keeps exactly the same surface as every other option. Only its icon
     // changes to the accent, so toggling one never flashes or recolours the six-pill area.
-    val bgColor = colors.card.copy(alpha = surfaceAlpha.coerceIn(0f, 1f))
+    val bgColor = colors.card.copy(alpha = colors.card.alpha * surfaceAlpha.coerceIn(0f, 1f))
     val effectiveTint = if (active) colors.primaryAccent else {
         if (colors.isLight) Color.Black else colors.primaryText.copy(alpha = 0.85f)
     }
@@ -646,6 +653,7 @@ fun NowPlayingCircleAction(
                 shape = CircleShape,
                 level = XvoxBlurLevel.Selection,
                 baseColor = bgColor,
+                sky = bottomBoxSky,
                 borderAlpha = .44f
             )
             .combinedClickable(

@@ -27,16 +27,16 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil3.compose.AsyncImage
 import com.skydoves.cloudy.rememberSky
@@ -45,6 +45,7 @@ import com.xvox.music.artwork.XvoxArtworkPreloader
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.design.theme.XvoxThemeMode
 import com.xvox.music.core.ui.XvoxStartupLoadingScreen
+import com.xvox.music.core.ui.blur.LocalXvoxGlassTransparency
 import com.xvox.music.core.ui.blur.LocalXvoxOverlaySky
 import com.xvox.music.core.ui.blur.LocalXvoxSurfaceSky
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
@@ -227,48 +228,60 @@ fun XvoxAppRoot(
             com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle provides effectiveChrome,
             LocalXvoxHaptics provides haptics,
             LocalXvoxSurfaceSky provides surfaceSky,
-            LocalXvoxOverlaySky provides overlaySky
+            LocalXvoxOverlaySky provides overlaySky,
+            LocalXvoxGlassTransparency provides effectiveCardTransparency
         ) {
             val colors = XvoxTheme.colors
-            // Theme, accent, wallpaper, and dimness changes all alter the captured source. Ask
-            // Cloudy to refresh immediately rather than letting a previous backdrop linger.
-            LaunchedEffect(backgroundImage, backgroundBrightness, colors.background, colors.primaryAccent) {
+            // Theme, wallpaper, dimness, and the real background blur all alter the captured
+            // source. No accent bloom is injected here: a plain black/white/solid background
+            // stays plain, and every glass surface reflects exactly what is truly behind it.
+            LaunchedEffect(
+                backgroundImage,
+                backgroundBrightness,
+                colors.background,
+                effectiveChrome.glassBlurEnabled,
+                effectiveChrome.glassBlurIntensity,
+                effectiveCardTransparency
+            ) {
                 surfaceSky.invalidate()
             }
             Box(modifier = Modifier.fillMaxSize()) {
-                // Source 1: wallpaper/photo + accent bloom. Background is INSIDE the sky node,
-                // so the captured source always contains it.
+                // Source 1: the literal app backdrop.  It contains no synthetic accent/radial
+                // layer, so blur on a plain background remains faithful instead of turning red.
+                // The image is blurred only when the master blur setting is enabled; scaling it
+                // slightly avoids hard image edges during the platform blur and keeps this static
+                // source cheap while page/chrome motion uses its own local Sky layers.
                 Box(modifier = Modifier.fillMaxSize().sky(surfaceSky)) {
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
                             .background(colors.background)
-                            .drawBehind {
-                                val radius = size.maxDimension * .68f
-                                drawRect(
-                                    brush = Brush.radialGradient(
-                                        colors = listOf(colors.primaryAccent.copy(alpha = .24f), Color.Transparent),
-                                        center = Offset(size.width * .14f, size.height * .18f),
-                                        radius = radius
-                                    )
-                                )
-                                drawRect(
-                                    brush = Brush.radialGradient(
-                                        colors = listOf(colors.primaryAccent.copy(alpha = .15f), Color.Transparent),
-                                        center = Offset(size.width * .86f, size.height * .82f),
-                                        radius = radius
-                                    )
-                                )
-                            }
                     ) {
                         if (backgroundImage.isNotBlank()) {
+                            val photoBlur = (
+                                5f + 23f * effectiveChrome.glassBlurIntensity.coerceIn(0f, 1f) +
+                                    effectiveCardTransparency.coerceIn(0f, .60f) * 10f
+                                ).coerceIn(0f, 32f)
                             AsyncImage(
                                 model = Uri.parse(backgroundImage),
                                 contentDescription = null,
                                 contentScale = ContentScale.Crop,
                                 // Re-capture the blur source once the photo has loaded.
                                 onSuccess = { surfaceSky.invalidate() },
-                                modifier = Modifier.fillMaxSize()
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .then(
+                                        if (effectiveChrome.glassBlurEnabled && photoBlur > .01f) {
+                                            Modifier
+                                                .graphicsLayer {
+                                                    scaleX = 1.04f
+                                                    scaleY = 1.04f
+                                                }
+                                                .blur(photoBlur.dp)
+                                        } else {
+                                            Modifier
+                                        }
+                                    )
                             )
                             Box(
                                 Modifier
@@ -289,7 +302,7 @@ fun XvoxAppRoot(
                         SetupScreen(onSetupComplete = { viewModel.onSetupFinished() })
                     } else {
                         if (shellMounted && homeVm != null && playerVm != null) {
-                            XvoxMainShell(homeVm, playerVm, backgroundBrightness = backgroundBrightness)
+                            XvoxMainShell(homeVm, playerVm)
                         }
 
                         AnimatedVisibility(

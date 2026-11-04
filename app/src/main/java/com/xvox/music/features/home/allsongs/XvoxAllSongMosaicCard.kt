@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
+import com.xvox.music.core.ui.blur.LocalXvoxSurfaceSky
 import com.xvox.music.core.ui.blur.XvoxBlurLevel
 import com.xvox.music.core.ui.blur.xvoxLiveBlur
 import com.xvox.music.core.ui.effects.xvoxSongPress
@@ -44,6 +45,7 @@ fun XvoxAllSongMosaicCard(
     dense: Boolean = false
 ) {
     val colors = XvoxTheme.colors
+    val pageSky = LocalXvoxSurfaceSky.current
     val background = rememberSongCardColor(song, current, selected)
     val corners = if (classic) CardCorners(12.dp, 12.dp, 12.dp, 12.dp) else when ((styleIndex / 4) % 6) {
         0 -> CardCorners(8.dp, 8.dp, 8.dp, 8.dp)
@@ -114,6 +116,7 @@ fun XvoxAllSongMosaicCard(
                 shape = shape,
                 level = if (selected) XvoxBlurLevel.Selection else XvoxBlurLevel.Card,
                 baseColor = background,
+                sky = pageSky,
                 borderAlpha = .78f
             )
     ) {

@@ -1,10 +1,7 @@
 package com.xvox.music.features.settings.components
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -14,7 +11,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
@@ -97,71 +93,8 @@ fun MiniPlayerSettingsBoxContent(
             )
         }
 
-        Spacer(Modifier.height(4.dp))
-        Text("Glass border", color = colors.secondaryText, fontSize = 11.sp)
-        MiniPlayerSliderSection("Borders") {
-            SettingsToggle(
-                title = "Show borders",
-                subtitle = "Off removes the border from every blurred surface",
-                checked = chrome.glassBorderEnabled,
-                onChange = { on -> onChromeChange(chrome.copy(glassBorderEnabled = on)) }
-            )
-        }
-
-        if (chrome.glassBorderEnabled) {
-            val width = chrome.glassBorderWidth.coerceIn(0f, 4f)
-            MiniPlayerSliderSection("Border width · ${"%.1f".format(width)} dp") {
-                XvoxSlider(
-                    value = width,
-                    onValueChange = { v -> onChromeChange(chrome.copy(glassBorderWidth = v.coerceIn(0f, 4f))) },
-                    valueRange = 0f..4f,
-                    defaultValue = .8f,
-                    valueLabel = { v -> "%.1f dp".format(v) }
-                )
-            }
-
-            val borderTransparency = 1f - chrome.glassBorderAlpha.coerceIn(0f, 1f)
-            MiniPlayerSliderSection("Border transparency · ${(borderTransparency * 100).roundToInt()}%") {
-                XvoxSlider(
-                    value = borderTransparency,
-                    onValueChange = { t -> onChromeChange(chrome.copy(glassBorderAlpha = 1f - t.coerceIn(0f, 1f))) },
-                    valueRange = 0f..1f,
-                    defaultValue = .38f,
-                    valueLabel = { t -> "${(t.coerceIn(0f, 1f) * 100).roundToInt()}%" }
-                )
-            }
-
-            val soft = chrome.glassBorderBlur.coerceIn(0f, 12f)
-            MiniPlayerSliderSection("Border blur (soft edge) · ${"%.1f".format(soft)} dp") {
-                XvoxSlider(
-                    value = soft,
-                    onValueChange = { v -> onChromeChange(chrome.copy(glassBorderBlur = v.coerceIn(0f, 12f))) },
-                    valueRange = 0f..12f,
-                    defaultValue = 0f,
-                    valueLabel = { v -> "%.1f dp".format(v) }
-                )
-            }
-
-            SettingsChoiceRow(
-                options = listOf("theme" to "Theme colour", "custom" to "Custom colour"),
-                selected = if (chrome.glassBorderColor.isBlank()) "theme" else "custom",
-                onSelect = { choice ->
-                    onChromeChange(
-                        chrome.copy(glassBorderColor = if (choice == "theme") "" else "#FFFFFF")
-                    )
-                }
-            )
-            if (chrome.glassBorderColor.isNotBlank()) {
-                ColorPickerRow(
-                    label = "Border colour",
-                    hex = chrome.glassBorderColor,
-                    onColorChange = { hex -> onChromeChange(chrome.copy(glassBorderColor = hex)) },
-                    subtitle = "Applied to every blurred surface",
-                    showPreview = true,
-                    initiallyExpanded = false
-                )
-            }
-        }
+        // Global glass-border controls live in Settings → Appearance because they affect every
+        // blurred surface, not only this Mini Player editor.
 
         Text("Mini Player animation", color = colors.secondaryText, fontSize = 11.sp)
         SettingsChoiceRow(

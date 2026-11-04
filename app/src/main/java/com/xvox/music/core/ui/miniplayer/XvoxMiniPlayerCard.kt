@@ -52,6 +52,8 @@ import androidx.compose.ui.unit.sp
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
+import com.xvox.music.core.ui.blur.LocalXvoxShellContentSky
+import com.xvox.music.core.ui.blur.LocalXvoxSurfaceSky
 import com.xvox.music.core.ui.blur.XvoxBlurLevel
 import com.xvox.music.core.ui.blur.xvoxLiveBlur
 import com.xvox.music.features.home.XvoxFallbackBrand
@@ -73,6 +75,8 @@ fun XvoxMiniPlayerCard(
 ) {
     val colors = XvoxTheme.colors
     val chrome = com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle.current
+    // Default Mini Player glass follows the real moving shell content behind its fixed lane.
+    val contentSky = LocalXvoxShellContentSky.current ?: LocalXvoxSurfaceSky.current
     // Keep the Mini Player entirely palette-derived.  The editor's transparency range maps to
     // this real alpha (rather than silently clamping it to a different-looking hard-coded tint).
     val miniAlpha = chrome.miniBgAlpha.coerceIn(0f, 1f)
@@ -121,6 +125,7 @@ fun XvoxMiniPlayerCard(
                         shape = cardShape,
                         level = XvoxBlurLevel.Chrome,
                         baseColor = colors.background.copy(alpha = miniAlpha),
+                        sky = contentSky,
                         // The global Glass border controls replace the former Mini Player edge
                         // knobs; this only gates the default-to-cover mode handoff.
                         borderColor = colors.cardBorder,
@@ -211,7 +216,7 @@ fun XvoxMiniPlayerCard(
                                 scaleY = 1.16f
                                 alpha = (.70f + .24f * miniAlpha).coerceIn(0f, 1f)
                             }
-                            .blur(miniBlur)
+                            .then(if (chrome.glassBlurEnabled) Modifier.blur(miniBlur) else Modifier)
                     )
                     Box(
                         modifier = Modifier
@@ -370,7 +375,8 @@ fun XvoxMiniPlayerCard(
                     .xvoxLiveBlur(
                         shape = CircleShape,
                         level = XvoxBlurLevel.Selection,
-                        baseColor = colors.cardElevated.copy(alpha = .50f * miniAlpha),
+                        baseColor = colors.cardElevated.copy(alpha = colors.cardElevated.alpha * .50f * miniAlpha),
+                        sky = contentSky,
                         borderAlpha = .42f
                     )
                     .clickable(
@@ -395,7 +401,8 @@ fun XvoxMiniPlayerCard(
                     .xvoxLiveBlur(
                         shape = CircleShape,
                         level = XvoxBlurLevel.Selection,
-                        baseColor = colors.cardElevated.copy(alpha = .50f * miniAlpha),
+                        baseColor = colors.cardElevated.copy(alpha = colors.cardElevated.alpha * .50f * miniAlpha),
+                        sky = contentSky,
                         borderAlpha = .42f
                     )
                     .clickable(

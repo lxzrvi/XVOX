@@ -178,7 +178,10 @@ class PlaybackController(
                     progressJob = scope.launch {
                         while (isActive) {
                             publishState()
-                            delay(if (fastProgress && controller?.playWhenReady == true) 50L else 250L)
+                            // Now Playing smooths each controller sample locally.  Sampling at
+                            // 120 ms avoids rebuilding the entire artwork/pager/chrome tree at
+                            // 20 Hz while still keeping the rail visually continuous.
+                            delay(if (fastProgress && controller?.playWhenReady == true) 120L else 250L)
                         }
                     }
                 }

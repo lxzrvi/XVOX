@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.ui.blur.LocalXvoxNowPlayingSky
 import com.xvox.music.core.ui.blur.XvoxBlurLevel
 import com.xvox.music.core.ui.blur.xvoxLiveBlur
 import com.xvox.music.core.ui.effects.xvoxPressScale
@@ -58,6 +59,8 @@ fun XvoxNowPlayingHeader(
 ) {
     val colors = XvoxTheme.colors
     val haptics = LocalXvoxHaptics.current
+    // Collapse, share, and overflow sit over the Now Playing backdrop, never the app/root Sky.
+    val nowPlayingSky = LocalXvoxNowPlayingSky.current
 
     Box(
         modifier = modifier
@@ -75,7 +78,8 @@ fun XvoxNowPlayingHeader(
                 .xvoxLiveBlur(
                     shape = CircleShape,
                     level = XvoxBlurLevel.Selection,
-                    baseColor = colors.card.copy(alpha = surfaceAlpha.coerceIn(0f, 1f)),
+                    baseColor = colors.card.copy(alpha = colors.card.alpha * surfaceAlpha.coerceIn(0f, 1f)),
+                    sky = nowPlayingSky,
                     borderAlpha = .46f
                 )
                 .clickable(
@@ -172,7 +176,8 @@ fun XvoxNowPlayingHeader(
                     .xvoxLiveBlur(
                         shape = RoundedCornerShape(20.dp),
                         level = XvoxBlurLevel.Chrome,
-                        baseColor = colors.card.copy(alpha = surfaceAlpha.coerceIn(0f, 1f)),
+                        baseColor = colors.card.copy(alpha = colors.card.alpha * surfaceAlpha.coerceIn(0f, 1f)),
+                        sky = nowPlayingSky,
                         borderAlpha = .50f
                     )
                     .padding(horizontal = 5.dp),
@@ -208,7 +213,8 @@ fun XvoxNowPlayingHeader(
                     .xvoxLiveBlur(
                         shape = RoundedCornerShape(20.dp),
                         level = XvoxBlurLevel.Chrome,
-                        baseColor = colors.card.copy(alpha = surfaceAlpha.coerceIn(0f, 1f)),
+                        baseColor = colors.card.copy(alpha = colors.card.alpha * surfaceAlpha.coerceIn(0f, 1f)),
+                        sky = nowPlayingSky,
                         borderAlpha = .50f
                     )
                     .padding(horizontal = 2.dp),

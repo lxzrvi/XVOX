@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
+import com.xvox.music.core.ui.blur.LocalXvoxSurfaceSky
 import com.xvox.music.core.ui.blur.XvoxBlurLevel
 import com.xvox.music.core.ui.blur.xvoxLiveBlur
 import com.xvox.music.features.home.XvoxGridArtwork
@@ -43,6 +44,8 @@ fun XvoxAllSongCard(
     dense: Boolean = false
 ) {
     val colors = XvoxTheme.colors
+    // Song cards sample the real root page backdrop—never a decorative tint or their own list.
+    val pageSky = LocalXvoxSurfaceSky.current
     val cardColor = rememberSongCardColor(song, current, selected)
     val cardShape = remember { RoundedCornerShape(11.dp) }
     // A card with a real URI starts its exact-size load immediately. Coil's app-wide bounded
@@ -58,6 +61,7 @@ fun XvoxAllSongCard(
                 shape = cardShape,
                 level = if (selected) XvoxBlurLevel.Selection else XvoxBlurLevel.Card,
                 baseColor = cardColor,
+                sky = pageSky,
                 borderAlpha = .78f
             )
             .padding(3.dp)

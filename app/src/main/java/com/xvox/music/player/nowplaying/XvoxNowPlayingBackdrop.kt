@@ -151,6 +151,8 @@ private fun PremiumBlurredCover(
                 scaleX = 1.15f
                 scaleY = 1.15f
             }
-            .blur(blur.coerceIn(12f, 50f).dp)
+            .then(
+                if (blur > .01f) Modifier.blur(blur.coerceIn(12f, 50f).dp) else Modifier
+            )
     )
 }

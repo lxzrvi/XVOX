@@ -136,7 +136,11 @@ data class XvoxChromeStyle(
     val glassBorderColor: String = "",
     val glassBorderAlpha: Float = .62f,
     /** Edge softness in dp (0 = crisp line). */
-    val glassBorderBlur: Float = 0f
+    val glassBorderBlur: Float = 0f,
+    /** Master switch for every Cloudy-backed surface; off preserves only material transparency. */
+    val glassBlurEnabled: Boolean = true,
+    /** User-facing intensity for the actual backdrop and all live glass surfaces. */
+    val glassBlurIntensity: Float = .60f
 ) {
     fun encode(): String = listOf(
         optionBoxBgAlpha, optionBoxBorder, optionBoxBorderAlpha,
@@ -177,7 +181,9 @@ data class XvoxChromeStyle(
         miniExitOvershootDp, nowPlayingExitOvershootDp, miniToNowPlayingDelayMillis,
         miniMotionDuration, nowPlayingMotionDuration, miniMotionEase, nowPlayingMotionEase,
         miniCoverBlur,
-        glassBorderEnabled, glassBorderWidth, glassBorderColor, glassBorderAlpha, glassBorderBlur
+        glassBorderEnabled, glassBorderWidth, glassBorderColor, glassBorderAlpha, glassBorderBlur,
+        // Appended after the global-border record so earlier installations retain their values.
+        glassBlurEnabled, glassBlurIntensity
     ).joinToString("|")
 
     fun resetNowPlayingLayout(): XvoxChromeStyle = copy(
@@ -299,6 +305,10 @@ data class XvoxChromeStyle(
                 glassBorderColor = str(79),
                 glassBorderAlpha = flt(80, .62f),
                 glassBorderBlur = number(81, 0f).coerceIn(0f, 12f),
+                // These two values were appended after the global-border revision. Missing slots
+                // intentionally resolve to enabled + the balanced default for existing records.
+                glassBlurEnabled = parts.getOrNull(82)?.trim()?.toBooleanStrictOrNull() ?: true,
+                glassBlurIntensity = flt(83, .60f),
                 nowPlayingSeekStyle = seekStyle(31),
                 nowPlayingPillSide = side(32, "left"),
                 nowPlayingChangingActionsSide = side(33, "right"),

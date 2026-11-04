@@ -62,6 +62,7 @@ import com.xvox.music.features.home.XvoxSongActions
 import com.xvox.music.features.settings.components.*
 import com.xvox.music.features.settings.sections.*
 import kotlin.math.abs
+import kotlin.math.roundToInt
 
 /** Shared compact height for every full-width choice surface in Appearance. */
 private val XvoxAppearancePillHeight = 42.dp
@@ -343,7 +344,6 @@ private fun AppearanceSectionCard(
     modifier: Modifier = Modifier
 ) {
     val colors = XvoxTheme.colors
-    val overlays = LocalXvoxOverlayController.current
     // The repository copies this into app-private storage, so the selected app background remains
     // available after the document provider's transient permission disappears.
     val backgroundPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
@@ -491,49 +491,83 @@ private fun AppearanceSectionCard(
                 }
             }
 
-            SettingsField("Background blur") {
-                // No fake purchase state is inferred here. Until the app has a real supporter
-                // entitlement, this control stays visibly Premium and cannot silently charge or
-                // enable a paid feature. Live glass elsewhere remains available as requested.
-                val premiumShape = RoundedCornerShape(16.dp)
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .xvoxLiveBlur(
-                            shape = premiumShape,
-                            level = XvoxBlurLevel.Selection,
-                            baseColor = colors.cardElevated,
-                            borderAlpha = .58f
-                        )
-                        .xvoxPressScale { overlays.showP("Background blur is a Premium feature") }
-                        .padding(horizontal = 12.dp, vertical = 9.dp)
-                ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = "Photo blur",
-                                color = colors.primaryText,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.weight(1f)
-                            )
-                            Text(
-                                text = "PREMIUM",
-                                color = colors.primaryAccent,
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.ExtraBold
-                            )
+            SettingsField("Live blur") {
+                val blurEnabled = state.chromeStyle.glassBlurEnabled
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    SettingsToggle(
+                        title = "Enable live blur",
+                        subtitle = if (blurEnabled) {
+                            "Background, cards, and chrome blur their real source layers"
+                        } else {
+                            "Blur is off; transparency still applies to every glass material"
+                        },
+                        checked = blurEnabled,
+                        onChange = { enabled ->
+                            viewModel.setChromeStyle { it.copy(glassBlurEnabled = enabled) }
                         }
+                    )
+                    if (blurEnabled) {
+                        val intensity = state.chromeStyle.glassBlurIntensity.coerceIn(0f, 1f)
+                        Text(
+                            text = "Background blur intensity · ${(intensity * 100f).roundToInt()}%",
+                            color = colors.secondaryText,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(start = 4.dp)
+                        )
                         XvoxSlider(
-                            value = .52f,
-                            onValueChange = {},
+                            value = intensity,
+                            onValueChange = { value ->
+                                viewModel.setChromeStyle {
+                                    it.copy(glassBlurIntensity = value.coerceIn(0f, 1f))
+                                }
+                            },
                             valueRange = 0f..1f,
-                            enabled = false,
-                            valueLabel = { "Premium background blur" },
+                            defaultValue = .60f,
+                            valueLabel = { value -> "${(value.coerceIn(0f, 1f) * 100f).roundToInt()} percent background blur intensity" },
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
                 }
+            }
+
+            val cardTransparency = state.cardTransparency.coerceIn(0f, .60f)
+            SettingsField(if (state.chromeStyle.glassBlurEnabled) "Glass transparency & blur" else "Glass transparency") {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = if (state.chromeStyle.glassBlurEnabled) {
+                            "${(cardTransparency * 100f).roundToInt()}% · also adjusts live blur reach"
+                        } else {
+                            "${(cardTransparency * 100f).roundToInt()}%"
+                        },
+                        color = colors.secondaryText,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(start = 4.dp)
+                    )
+                    XvoxSlider(
+                        value = cardTransparency,
+                        onValueChange = viewModel::setCardTransparency,
+                        valueRange = 0f..0.60f,
+                        defaultValue = 0f,
+                        valueLabel = { value ->
+                            val percentage = (value.coerceIn(0f, .60f) * 100f).roundToInt()
+                            if (state.chromeStyle.glassBlurEnabled) {
+                                "$percentage percent glass transparency and blur reach"
+                            } else {
+                                "$percentage percent glass transparency"
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+
+            SettingsField("Glass border") {
+                GlassBorderSettingsControls(
+                    chrome = state.chromeStyle,
+                    onChromeChange = { updated -> viewModel.setChromeStyle { updated } }
+                )
             }
 
             SettingsField("Fonts") {

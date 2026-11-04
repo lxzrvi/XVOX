@@ -34,6 +34,8 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.ui.blur.LocalXvoxShellContentSky
+import com.xvox.music.core.ui.blur.LocalXvoxSurfaceSky
 import com.xvox.music.core.ui.blur.XvoxBlurLevel
 import com.xvox.music.core.ui.blur.xvoxLiveBlur
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
@@ -52,6 +54,9 @@ fun XvoxBottomBar(
     val colors = XvoxTheme.colors
     val haptics = LocalXvoxHaptics.current
     val chrome = com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle.current
+    // The bar lives above the shell's moving page list, so both its base and active tab pill
+    // sample that sibling source rather than a static wallpaper capture.
+    val contentSky = LocalXvoxShellContentSky.current ?: LocalXvoxSurfaceSky.current
     val navBarHeight = chrome.navigationBarHeight.coerceIn(52f, 88f).dp
     val availableWidth = (androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp.dp - 24.dp)
         .coerceAtLeast(190.dp)
@@ -153,6 +158,7 @@ fun XvoxBottomBar(
                     shape = parentShape,
                     level = XvoxBlurLevel.Chrome,
                     baseColor = defaultNavSurface.copy(alpha = appliedNavSurfaceAlpha),
+                    sky = contentSky,
                     // Normal chrome remains eligible for the one global Glass border setting.
                     borderColor = colors.cardBorder,
                     borderAlpha = 1f,
@@ -194,6 +200,7 @@ fun XvoxBottomBar(
                     shape = selectorShape,
                     level = XvoxBlurLevel.Selection,
                     baseColor = pillFill,
+                    sky = contentSky,
                     borderColor = colors.cardBorder,
                     borderAlpha = 1f,
                     borderWidth = .8.dp

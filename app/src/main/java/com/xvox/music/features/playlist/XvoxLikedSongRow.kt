@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.sp
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
+import com.xvox.music.core.ui.blur.LocalXvoxSurfaceSky
 import com.xvox.music.core.ui.blur.XvoxBlurLevel
 import com.xvox.music.core.ui.blur.xvoxLiveBlur
 import com.xvox.music.features.home.XvoxSongArtwork
@@ -49,6 +50,7 @@ fun XvoxLikedSongRow(
     selected: Boolean = false
 ) {
     val colors = XvoxTheme.colors
+    val pageSky = LocalXvoxSurfaceSky.current
     val cardColor = rememberSongCardColor(song, current, selected)
     val shape = RoundedCornerShape(14.dp)
     // The artwork is inset by the shared 3dp frame, so 11dp preserves the card's visible curve.
@@ -63,6 +65,7 @@ fun XvoxLikedSongRow(
                 shape = shape,
                 level = if (selected) XvoxBlurLevel.Selection else XvoxBlurLevel.Card,
                 baseColor = cardColor,
+                sky = pageSky,
                 borderAlpha = .78f
             )
             .padding(3.dp),

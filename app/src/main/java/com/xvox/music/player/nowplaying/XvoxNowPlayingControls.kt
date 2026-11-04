@@ -34,6 +34,8 @@ import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.ui.blur.LocalXvoxNowPlayingBottomSky
+import com.xvox.music.core.ui.blur.LocalXvoxNowPlayingSky
 import com.xvox.music.core.ui.blur.XvoxBlurLevel
 import com.xvox.music.core.ui.blur.xvoxLiveBlur
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
@@ -339,9 +341,14 @@ private fun PlayControl(
     surfaceAlpha: Float
 ) {
     val colors = XvoxTheme.colors
+    val bottomBoxSky = LocalXvoxNowPlayingBottomSky.current ?: LocalXvoxNowPlayingSky.current
     val darkMode = colors.background.luminance() < 0.5f
     val surface = surfaceAlpha.coerceIn(0f, 1f)
-    val circleColor = if (darkMode) Color.Black.copy(alpha = surface) else colors.card.copy(alpha = surface)
+    val circleColor = if (darkMode) {
+        Color.Black.copy(alpha = colors.card.alpha * surface)
+    } else {
+        colors.card.copy(alpha = colors.card.alpha * surface)
+    }
 
     Box(
         modifier = Modifier
@@ -350,6 +357,7 @@ private fun PlayControl(
                 shape = CircleShape,
                 level = XvoxBlurLevel.Chrome,
                 baseColor = circleColor,
+                sky = bottomBoxSky,
                 borderAlpha = .46f
             )
             .clickable(

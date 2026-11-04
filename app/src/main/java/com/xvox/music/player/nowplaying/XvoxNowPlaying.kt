@@ -47,6 +47,10 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.xvox.music.core.design.theme.XvoxLogoFont
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.ui.blur.LocalXvoxNowPlayingBottomSky
+import com.xvox.music.core.ui.blur.LocalXvoxNowPlayingSky
+import com.xvox.music.core.ui.blur.rememberXvoxContentSky
+import com.xvox.music.core.ui.blur.xvoxBlurSource
 import com.xvox.music.core.ui.chrome.normalizedNowPlayingGrid
 import com.xvox.music.core.model.Song
 import com.xvox.music.core.ui.miniplayer.XvoxNowPlayingMs
@@ -203,13 +207,36 @@ fun XvoxNowPlaying(
     val context = LocalContext.current
     val lyricsState by lyricsViewModel.state.collectAsState()
     val settingsState by settingsViewModel.state.collectAsState()
+    // The master Appearance switch governs artistic cover blur too, so "off" really removes
+    // every player blur rather than leaving an unrelated blurred cover behind.
+    val effectiveCoverBlur = if (chrome.glassBlurEnabled) settingsState.nowPlayingCoverBlur else 0f
     val paletteState = rememberXvoxNowPlayingPalette(song, queue, currentIndex)
+    // Top controls sample this Now Playing backdrop source, not the app wallpaper or the shell
+    // underneath the player. It is intentionally only the backdrop, never its own controls.
+    val nowPlayingSky = rememberXvoxContentSky()
+    LaunchedEffect(
+        song.xvoxArtworkPaletteKey(),
+        paletteState.color,
+        settingsState.nowPlayingBackgroundStyle,
+        effectiveCoverBlur
+    ) {
+        nowPlayingSky.invalidate()
+    }
     // These reflect the pager's stable outgoing/incoming pair for the local Cover background.
     // They are intentionally separate from palette colour state so each blur layer can read the
     // live gesture fraction without depending on an image-ready callback.
     var coverSwipeBase by remember { mutableStateOf<Song?>(null) }
     var coverSwipeAdjacent by remember { mutableStateOf<Song?>(null) }
     var coverSwipeFraction by remember { mutableFloatStateOf(0f) }
+    LaunchedEffect(
+        coverSwipeBase?.xvoxArtworkPaletteKey(),
+        coverSwipeAdjacent?.xvoxArtworkPaletteKey(),
+        coverSwipeFraction
+    ) {
+        // A cover pager drag is a real moving Now Playing backdrop, so top control glass follows
+        // the stable outgoing/incoming pair in the same gesture rather than keeping a stale grab.
+        nowPlayingSky.invalidate()
+    }
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
     val screenHeight = with(density) {
@@ -226,6 +253,10 @@ fun XvoxNowPlaying(
     // below the viewport rather than restoring a prior open player's settled position.
     var screenY by remember { mutableFloatStateOf(belowBottomY) }
     var entered by remember { mutableStateOf(false) }
+    // Drag dismissal is intentionally armed only after the entrance has settled. A touch that
+    // lands while the prepared player is still travelling upward must never interpret its current
+    // in-flight Y as a user swipe and auto-close the player.
+    var dragDismissReady by remember { mutableStateOf(false) }
     var internalDisplayMode by rememberSaveable { mutableIntStateOf(0) }
     val currentMode = if (onDisplayModeChange != null) displayMode else internalDisplayMode
     val isLyricsShowing = currentMode >= 1
@@ -370,15 +401,19 @@ fun XvoxNowPlaying(
             // Precomposition lays the whole player out below the selected physical handoff point.
             // Its entrance remains held until the outgoing Mini Player has reached its own point.
             screenY = belowBottomY
+            dragDismissReady = false
             if (entranceEnabled) {
                 entered = true
-                animateScreen(target = 0f)
+                animateScreen(target = 0f) {
+                    if (!dismissing) dragDismissReady = true
+                }
             }
         }
     }
     fun dismiss() {
         if (dismissing) return
         dismissing = true
+        dragDismissReady = false
         previewCommitVersion++
         previewCommitJob?.cancel()
         previewCommitJob = null
@@ -391,7 +426,21 @@ fun XvoxNowPlaying(
     }
 
     fun returnToRest() {
-        animateScreen(0f)
+        animateScreen(0f) {
+            if (!dismissing) dragDismissReady = true
+        }
+    }
+
+    fun finishDragDismissal() {
+        if (!dragDismissReady) {
+            // A header/lyrics touch arrived during the handoff. Recover to the settled player
+            // rather than converting the handoff's travel distance into an unwanted close.
+            returnToRest()
+        } else if (screenY > screenHeight * 0.18f) {
+            dismiss()
+        } else {
+            returnToRest()
+        }
     }
 
     fun cancelPendingPreviewCommit() {
@@ -651,17 +700,27 @@ fun XvoxNowPlaying(
                 if (activeSettingsBox != "Customize") detectTapGestures { }
             }
     ) {
-        XvoxNowPlayingBackdropLayer(
-            song = song,
-            paletteState = paletteState,
-            style = settingsState.nowPlayingBackgroundStyle,
-            coverBlur = settingsState.nowPlayingCoverBlur,
-            swipeBase = coverSwipeBase,
-            swipeAdjacent = coverSwipeAdjacent,
-            swipeFraction = { coverSwipeFraction },
-            modifier = Modifier.fillMaxSize()
-        )
+        // This sibling is the sole capture source for Now Playing top chrome. It contains the
+        // literal player backdrop and responds to cover/palette changes, but never captures the
+        // controls that consume it.
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .xvoxBlurSource(nowPlayingSky)
+        ) {
+            XvoxNowPlayingBackdropLayer(
+                song = song,
+                paletteState = paletteState,
+                style = settingsState.nowPlayingBackgroundStyle,
+                coverBlur = effectiveCoverBlur,
+                swipeBase = coverSwipeBase,
+                swipeAdjacent = coverSwipeAdjacent,
+                swipeFraction = { coverSwipeFraction },
+                modifier = Modifier.fillMaxSize()
+            )
+        }
 
+        CompositionLocalProvider(LocalXvoxNowPlayingSky provides nowPlayingSky) {
         if (isCustomizing) {
             // Modal shield behind the real editable controls. The individual dotted targets and
             // header actions are drawn afterwards, while empty player/cover space cannot fall
@@ -730,7 +789,7 @@ fun XvoxNowPlaying(
                                     screenY = (screenY + delta).coerceAtLeast(0f)
                                 },
                                 onSwipeDownEnd = {
-                                    if (screenY > screenHeight * 0.18f) dismiss() else returnToRest()
+                                    finishDragDismissal()
                                 },
                                 backgroundColor = paletteState.color,
                                 textColor = lyricsTextColor,
@@ -804,7 +863,7 @@ fun XvoxNowPlaying(
                         modifier = Modifier
                             .fillMaxSize()
                             .clip(RoundedCornerShape(18.dp))
-                            .background(colors.cardElevated.copy(alpha = bottomPanelAlpha))
+                            .background(colors.cardElevated.copy(alpha = colors.cardElevated.alpha * bottomPanelAlpha))
                             .verticalScroll(landscapeScroll)
                             .padding(horizontal = 8.dp, vertical = 6.dp),
                         verticalArrangement = Arrangement.SpaceBetween
@@ -845,11 +904,7 @@ fun XvoxNowPlaying(
                                         screenY = (screenY + dragAmount).coerceAtLeast(0f)
                                     },
                                     onDragEnd = {
-                                        if (screenY > screenHeight * 0.18f) {
-                                            dismiss()
-                                        } else {
-                                            returnToRest()
-                                        }
+                                        finishDragDismissal()
                                     },
                                     onDragCancel = { returnToRest() }
                                 )
@@ -1041,11 +1096,7 @@ fun XvoxNowPlaying(
                                 screenY = (screenY + delta).coerceAtLeast(0f)
                             },
                             onSwipeDownEnd = {
-                                if (screenY > screenHeight * 0.18f) {
-                                    dismiss()
-                                } else {
-                                    returnToRest()
-                                }
+                                finishDragDismissal()
                             },
                             backgroundColor = paletteState.color,
                             textColor = lyricsTextColor,
@@ -1143,11 +1194,7 @@ fun XvoxNowPlaying(
                                 screenY = (screenY + dragAmount).coerceAtLeast(0f)
                             },
                             onDragEnd = {
-                                if (screenY > screenHeight * 0.18f) {
-                                    dismiss()
-                                } else {
-                                    returnToRest()
-                                }
+                                finishDragDismissal()
                             },
                             onDragCancel = { returnToRest() }
                         )
@@ -1165,7 +1212,14 @@ fun XvoxNowPlaying(
                 bottomEnd = 0.dp
             )
 
-            Column(
+            // Bottom controls have their own source: the painted bottom-box layer itself. This
+            // keeps the utility/play glass faithful to its panel rather than sampling wallpaper
+            // or the cover behind the entire player.
+            val bottomBoxSky = rememberXvoxContentSky()
+            LaunchedEffect(bottomPanelAlpha, colors.cardElevated, bottomBoxShape) {
+                bottomBoxSky.invalidate()
+            }
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .align(Alignment.BottomCenter)
@@ -1178,15 +1232,25 @@ fun XvoxNowPlaying(
                         translationY = fullscreenProgress * (bottomHeightDp + 8.dp).toPx()
                     }
                     .clip(bottomBoxShape)
-                    .background(colors.cardElevated.copy(alpha = bottomPanelAlpha))
-                    .windowInsetsPadding(WindowInsets.navigationBars)
-                    .padding(
-                        start = 14.dp,
-                        top = animBottomPadTop,
-                        end = 14.dp,
-                        bottom = animBottomPadBottom
-                    )
             ) {
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .xvoxBlurSource(bottomBoxSky)
+                        .background(colors.cardElevated.copy(alpha = colors.cardElevated.alpha * bottomPanelAlpha))
+                )
+                CompositionLocalProvider(LocalXvoxNowPlayingBottomSky provides bottomBoxSky) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .windowInsetsPadding(WindowInsets.navigationBars)
+                        .padding(
+                            start = 14.dp,
+                            top = animBottomPadTop,
+                            end = 14.dp,
+                            bottom = animBottomPadBottom
+                        )
+                ) {
                 AnimatedVisibility(
                     visible = !isCompact,
                     enter = expandVertically(tween(280, easing = XvoxSmoothEasing)) + fadeIn(tween(200)),
@@ -1342,6 +1406,8 @@ fun XvoxNowPlaying(
                 }
 
                 Spacer(Modifier.height(if (isCompact) 2.dp else 4.dp))
+                }
+                }
             }
         }
 
@@ -1534,5 +1600,6 @@ fun XvoxNowPlaying(
                 }
             }
         }
+    }
     }
 }
