@@ -39,8 +39,8 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil3.compose.AsyncImage
-import com.skydoves.cloudy.rememberSky
-import com.skydoves.cloudy.sky
+import com.xvox.music.core.ui.blur.rememberSky
+import com.xvox.music.core.ui.blur.sky
 import com.xvox.music.artwork.XvoxArtworkPreloader
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.design.theme.XvoxThemeMode
