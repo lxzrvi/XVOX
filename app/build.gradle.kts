@@ -84,7 +84,7 @@ composeCompiler {
 }
 
 dependencies {
-    val composeBom = platform("androidx.compose:compose-bom:2025.08.00")
+    val composeBom = platform("androidx.compose:compose-bom:2026.09.00")
     implementation(composeBom)
 
     implementation("androidx.activity:activity-compose:1.10.1")
@@ -97,6 +97,8 @@ dependencies {
     implementation("io.coil-kt.coil3:coil-compose:3.3.0")
     implementation("io.coil-kt.coil3:coil-gif:3.3.0")
     implementation("androidx.core:core-splashscreen:1.0.1")
+    // Live blur engine (same one KernelSU uses): layerBackdrop + textureBlur.
+    implementation("top.yukonga.miuix.kmp:miuix-blur-android:0.9.4")
     implementation("net.jthink:jaudiotagger:3.0.1")
     // Pure-Java Ogg/Opus packet writer used for standards-compliant OpusTags title/artwork edits.
     implementation("org.gagravarr:vorbis-java-core:0.8")
