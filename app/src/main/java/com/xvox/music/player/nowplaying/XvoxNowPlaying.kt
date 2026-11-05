@@ -207,12 +207,12 @@ fun XvoxNowPlaying(
     val context = LocalContext.current
     val lyricsState by lyricsViewModel.state.collectAsState()
     val settingsState by settingsViewModel.state.collectAsState()
-    // The master Appearance intensity also scales the cover backdrop. This makes one slider
-    // control the true expensive player blur, and lets low settings reduce GPU work immediately.
-    val effectiveCoverBlur = if (chrome.glassBlurEnabled) {
-        settingsState.nowPlayingCoverBlur * chrome.glassBlurIntensity.coerceIn(0f, 1f)
-    } else {
-        0f
+    val effectiveCoverBlur = settingsState.nowPlayingCoverBlur
+    val nowPlayingGlassChrome = remember(chrome, settingsState.nowPlayingCoverBlur) {
+        chrome.copy(
+            glassBlurEnabled = true,
+            glassBlurIntensity = (settingsState.nowPlayingCoverBlur / 30f).coerceIn(.4f, 1f)
+        )
     }
     val paletteState = rememberXvoxNowPlayingPalette(song, queue, currentIndex)
     // Top controls sample this Now Playing backdrop source, not the app wallpaper or the shell
@@ -727,7 +727,10 @@ fun XvoxNowPlaying(
             )
         }
 
-        CompositionLocalProvider(LocalXvoxNowPlayingSky provides nowPlayingSky) {
+        CompositionLocalProvider(
+            LocalXvoxNowPlayingSky provides nowPlayingSky,
+            com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle provides nowPlayingGlassChrome
+        ) {
         if (isCustomizing) {
             // Modal shield behind the real editable controls. The individual dotted targets and
             // header actions are drawn afterwards, while empty player/cover space cannot fall

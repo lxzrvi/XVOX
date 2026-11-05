@@ -258,30 +258,12 @@ fun XvoxAppRoot(
                             .background(colors.background)
                     ) {
                         if (backgroundImage.isNotBlank()) {
-                            val photoBlur = (
-                                5f + 23f * effectiveChrome.glassBlurIntensity.coerceIn(0f, 1f) +
-                                    effectiveCardTransparency.coerceIn(0f, .60f) * 10f
-                                ).coerceIn(0f, 32f)
                             AsyncImage(
                                 model = Uri.parse(backgroundImage),
                                 contentDescription = null,
                                 contentScale = ContentScale.Crop,
-                                // Re-capture the blur source once the photo has loaded.
                                 onSuccess = { surfaceSky.invalidate() },
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .then(
-                                        if (effectiveChrome.glassBlurEnabled && photoBlur > .01f) {
-                                            Modifier
-                                                .graphicsLayer {
-                                                    scaleX = 1.04f
-                                                    scaleY = 1.04f
-                                                }
-                                                .blur(photoBlur.dp)
-                                        } else {
-                                            Modifier
-                                        }
-                                    )
+                                modifier = Modifier.fillMaxSize()
                             )
                             Box(
                                 Modifier

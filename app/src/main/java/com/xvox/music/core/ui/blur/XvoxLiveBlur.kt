@@ -1,6 +1,11 @@
 package com.xvox.music.core.ui.blur
 
+import android.app.ActivityManager
+import android.content.Context
+import android.graphics.RuntimeShader
+import android.graphics.Shader
 import android.os.Build
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
@@ -10,13 +15,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlurEffect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.RenderEffect as ComposeRenderEffect
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.TileMode
+import androidx.compose.ui.graphics.asComposeRenderEffect
 import androidx.compose.ui.graphics.drawscope.ContentDrawScope
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -30,6 +38,7 @@ import androidx.compose.ui.node.DrawModifierNode
 import androidx.compose.ui.node.GlobalPositionAwareModifierNode
 import androidx.compose.ui.node.ModifierNodeElement
 import androidx.compose.ui.node.invalidateDraw
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
@@ -54,9 +63,53 @@ import kotlin.math.roundToInt
  */
 
 /** Gaussian sigma per "radius px" of the old API. Raise for a heavier frost, lower for lighter. */
-private const val SigmaPerRadius = 0.5f
+private const val SigmaPerRadius = 1.0f
 /** Hard GPU safety cap (px). Keeps extreme slider values from allocating oversized layers. */
-private const val MaxSigmaPx = 96f
+private const val MaxSigmaPx = 110f
+
+/** Vibrancy of the frosted glass (1 = none). Subtle, premium: 1.10 - 1.25. */
+private const val FrostSaturation = 1.15f
+/** Dither grain strength (removes blur banding). 0 = off, 0.01 - 0.02 is invisible but smooth. */
+private const val FrostGrain = 0.014f
+
+/**
+ * AGSL pass run AFTER the Gaussian blur, inside the same RenderEffect chain (one GPU pass):
+ *  vibrancy (saturation lift) + tiny dither grain. Android 13+ (minSdk 33) so always available.
+ */
+private const val FrostAgsl = """
+uniform shader content;
+uniform float sat;
+uniform float grain;
+half4 main(float2 p) {
+    half4 c = content.eval(p);
+    half l = dot(c.rgb, half3(0.2126, 0.7152, 0.0722));
+    c.rgb = mix(half3(l), c.rgb, half(sat));
+    float n = fract(sin(dot(p, float2(12.9898, 78.233))) * 43758.5453) - 0.5;
+    c.rgb = saturate(c.rgb + half3(half(n * grain)) * c.a);
+    return c;
+}
+"""
+
+/** Blur -> AGSL frost, chained into one RenderEffect. Falls back to plain blur if unavailable. */
+private fun buildGlassEffect(sigma: Float): ComposeRenderEffect {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        try {
+            val shader = RuntimeShader(FrostAgsl)
+            shader.setFloatUniform("sat", FrostSaturation)
+            shader.setFloatUniform("grain", FrostGrain)
+            val blur = android.graphics.RenderEffect.createBlurEffect(
+                sigma, sigma, Shader.TileMode.CLAMP
+            )
+            val frost = android.graphics.RenderEffect.createRuntimeShaderEffect(shader, "content")
+            // Chain: inner (blur) runs first, outer (frost shader) second.
+            return android.graphics.RenderEffect.createChainEffect(frost, blur)
+                .asComposeRenderEffect()
+        } catch (e: RuntimeException) {
+            Log.w("XvoxBlur", "AGSL frost unavailable, plain blur", e)
+        }
+    }
+    return BlurEffect(sigma, sigma, TileMode.Clamp)
+}
 
 /**
  * Blur layers are deliberately source-local.  The root surface is only the real app backdrop;
@@ -132,6 +185,10 @@ class Sky internal constructor(internal val layer: GraphicsLayer) {
             hasContent = false
             source?.requestRecord()
         }
+    }
+
+    internal fun forEachConsumer(block: (BackdropBlurNode) -> Unit) {
+        for (i in consumers.indices) consumers.getOrNull(i)?.let(block)
     }
 
     internal fun notifyConsumers() {
@@ -213,7 +270,8 @@ internal class SkySourceNode(private var sky: Sky) :
             drawLayer(target.layer)
             target.hasContent = true
             target.notifyConsumers()
-        } catch (_: RuntimeException) {
+        } catch (e: RuntimeException) {
+            Log.w("XvoxBlur", "sky record skipped", e)
             target.hasContent = false
             drawContent()
         }
@@ -249,11 +307,21 @@ internal class BackdropBlurNode(
     /** True while this surface sits inside the Sky it samples; it then stays flat (no recursion). */
     internal var nested = false
 
+    // Last drawn geometry in SOURCE coordinates: lets a smaller glass (layer C) find the bigger
+    // glass (layer B) it sits on, and sample B's finished frosted look instead of the wallpaper.
+    private var relX = 0f
+    private var relY = 0f
+    private var widthPx = 0
+    private var heightPx = 0
+    private var padPx = 0
+    private var ready = false
+
     override fun onAttach() {
         sky.addConsumer(this)
     }
 
     override fun onDetach() {
+        ready = false
         sky.removeConsumer(this)
         coords = null
         lastRel = Offset.Unspecified
@@ -288,7 +356,8 @@ internal class BackdropBlurNode(
     override fun onGloballyPositioned(coordinates: LayoutCoordinates) {
         coords = coordinates
         val rel = relativeOrigin()
-        if (rel != lastRel) {
+        // Unspecified = source not positioned yet: keep retrying until it is, never stay flat.
+        if (rel == Offset.Unspecified || rel != lastRel) {
             lastRel = rel
             invalidateDraw()
         }
@@ -327,21 +396,88 @@ internal class BackdropBlurNode(
             // Padding lets the blur read real pixels beyond the edges (no dark/clamped rim).
             val pad = ceil(sigma * 2.5f).toInt().coerceAtLeast(1)
             val source = sky.layer
+            // Layer A = sky (wallpaper/page). Layer B = glass over A. Layer C = glass over B:
+            // when a bigger glass already contains this one, sample ITS blurred result (B, which
+            // itself holds blurred A) so stacked glass frosts progressively, front to back.
+            val under = findGlassUnder(rel, w, h)
             layer.record(this, layoutDirection, IntSize(w + 2 * pad, h + 2 * pad)) {
-                translate(pad - rel.x, pad - rel.y) { drawLayer(source) }
+                translate(pad - rel.x, pad - rel.y) {
+                    if (under != null) under.drawFrostedVisuals(this) else drawLayer(source)
+                }
             }
             layer.clip = true
             layer.topLeft = IntOffset(-pad, -pad)
             if (appliedSigma != sigma) {
-                layer.renderEffect = BlurEffect(sigma, sigma, TileMode.Clamp)
+                layer.renderEffect = buildGlassEffect(sigma)
                 appliedSigma = sigma
             }
             drawLayer(layer)
             if (tint.alpha > 0f) drawRect(tint)
+            relX = rel.x
+            relY = rel.y
+            widthPx = w
+            heightPx = h
+            padPx = pad
+            ready = true
             true
-        } catch (_: RuntimeException) {
+        } catch (e: RuntimeException) {
+            Log.w("XvoxBlur", "backdrop blur skipped", e)
             false
         }
+    }
+
+    /** Smallest already-drawn glass on the same Sky that fully contains this surface. */
+    private fun findGlassUnder(rel: Offset, w: Int, h: Int): BackdropBlurNode? {
+        var best: BackdropBlurNode? = null
+        var bestArea = Long.MAX_VALUE
+        val area = w.toLong() * h
+        sky.forEachConsumer { p ->
+            if (p === this || !p.ready || p.nested || p.layer.isReleased) return@forEachConsumer
+            val pArea = p.widthPx.toLong() * p.heightPx
+            if (pArea <= area + area / 20) return@forEachConsumer
+            val inside = p.relX <= rel.x + 1f && p.relY <= rel.y + 1f &&
+                p.relX + p.widthPx >= rel.x + w - 1f && p.relY + p.heightPx >= rel.y + h - 1f
+            if (inside && pArea < bestArea) {
+                best = p
+                bestArea = pArea
+            }
+        }
+        return best
+    }
+
+    /** This glass exactly as the user sees it (blurred A + tint), in SOURCE coordinates. */
+    internal fun drawFrostedVisuals(scope: DrawScope) {
+        with(scope) {
+            translate(relX, relY) {
+                drawLayer(layer)
+                if (tint.alpha > 0f) {
+                    drawRect(tint, Offset.Zero, Size(widthPx.toFloat(), heightPx.toFloat()))
+                }
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Quality governor: the SAME engine, sized to the device so heavy blur can never OOM / close app
+// ---------------------------------------------------------------------------------------------
+
+private enum class BlurTier(val maxSigmaPx: Float, val liveCards: Boolean) {
+    /** Low-RAM / small heap: only chrome, bars and sheets blur live; list cards stay flat glass. */
+    Low(40f, false),
+    /** Mid devices: everything live, moderate reach. */
+    Mid(70f, true),
+    /** Flagships: full reach. */
+    High(MaxSigmaPx, true)
+}
+
+private fun detectBlurTier(context: Context): BlurTier {
+    val am = context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
+        ?: return BlurTier.Mid
+    return when {
+        am.isLowRamDevice || am.memoryClass < 192 -> BlurTier.Low
+        am.memoryClass < 256 -> BlurTier.Mid
+        else -> BlurTier.High
     }
 }
 
@@ -365,6 +501,8 @@ fun Modifier.xvoxLiveBlur(
 ): Modifier {
     val density = LocalDensity.current
     val chrome = LocalXvoxChromeStyle.current
+    val context = LocalContext.current
+    val tier = remember(context) { detectBlurTier(context) }
     // The existing transparency slider changes the real material alpha. While live blur is on,
     // it also increases the blur reach so a more transparent card remains visibly frosted rather
     // than merely looking faint. With blur off we skip the blur entirely: the slider then
@@ -374,10 +512,12 @@ fun Modifier.xvoxLiveBlur(
     val transparencyDrive = maxOf(globalTransparency, surfaceTransparency)
     val configuredBlur = chrome.glassBlurIntensity.coerceIn(0f, 1f)
     val radiusScale = configuredBlur * (.72f + transparencyDrive * .78f)
-    val sigmaPx = remember(level, density.density, radiusScale) {
+    val sigmaPx = remember(level, density.density, radiusScale, tier) {
         (level.radius.value * density.density * radiusScale * SigmaPerRadius)
-            .coerceIn(1f, MaxSigmaPx)
+            .coerceIn(1f, tier.maxSigmaPx)
     }
+    val flatCard = !tier.liveCards &&
+        (level == XvoxBlurLevel.Card || level == XvoxBlurLevel.Selection)
     // Preserve the material's alpha so the transparency slider stays effective.
     val tint = remember(baseColor, level) {
         baseColor.copy(alpha = (baseColor.alpha * level.tintAlpha).coerceIn(0f, 1f))
@@ -391,7 +531,7 @@ fun Modifier.xvoxLiveBlur(
         // Master off and zero intensity both keep the exact transparency selected by the user.
         !blurOn -> clipped.background(baseColor)
         // No valid source: the established readable material fallback.
-        sky == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.S ->
+        sky == null || flatCard || Build.VERSION.SDK_INT < Build.VERSION_CODES.S ->
             clipped.background(fallback)
         else -> {
             val layer = rememberGraphicsLayer()
