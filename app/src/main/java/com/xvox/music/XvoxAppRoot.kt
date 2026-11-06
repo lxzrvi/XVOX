@@ -220,7 +220,7 @@ fun XvoxAppRoot(
         // samples the wallpaper/photo behind the app, while a sheet can blur the real live page it
         // covers. Neither effect is nested inside the Sky it samples.
         val surfaceSky = rememberSky()
-        val overlaySky = rememberSky()
+        val overlaySky = rememberSky(base = surfaceSky)
         CompositionLocalProvider(
             LocalDensity provides customDensity,
             LocalXvoxOverlayController provides overlays,

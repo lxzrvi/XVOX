@@ -2,10 +2,7 @@ package com.xvox.music.core.ui.blur
 
 import android.app.ActivityManager
 import android.content.Context
-import android.graphics.RuntimeShader
-import android.graphics.Shader
 import android.os.Build
-import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
@@ -14,102 +11,42 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.BlurEffect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.ui.graphics.RenderEffect as ComposeRenderEffect
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.graphics.TileMode
-import androidx.compose.ui.graphics.asComposeRenderEffect
-import androidx.compose.ui.graphics.drawscope.ContentDrawScope
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.translate
-import androidx.compose.ui.graphics.layer.CompositingStrategy
-import androidx.compose.ui.graphics.layer.GraphicsLayer
-import androidx.compose.ui.graphics.layer.drawLayer
-import androidx.compose.ui.graphics.rememberGraphicsLayer
-import androidx.compose.ui.layout.LayoutCoordinates
-import androidx.compose.ui.node.DrawModifierNode
-import androidx.compose.ui.node.GlobalPositionAwareModifierNode
-import androidx.compose.ui.node.ModifierNodeElement
-import androidx.compose.ui.node.invalidateDraw
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle
 import com.xvox.music.core.ui.chrome.parseHexColor
-import kotlin.math.ceil
-import kotlin.math.roundToInt
+import top.yukonga.miuix.kmp.blur.Backdrop
+import top.yukonga.miuix.kmp.blur.BlendColorEntry
+import top.yukonga.miuix.kmp.blur.BlurColors
+import top.yukonga.miuix.kmp.blur.LayerBackdrop
+import top.yukonga.miuix.kmp.blur.layerBackdrop
+import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
+import top.yukonga.miuix.kmp.blur.textureBlur
 
 /*
- * ENGINE (GPU, zero bitmaps):
- *  - A Sky is ONE GraphicsLayer that records its source subtree (the "layer" being blurred).
- *  - The source is rasterised once into a cached GPU texture (CompositingStrategy.Offscreen), so
- *    ten blurred cards share one render of the wallpaper/page instead of re-drawing it ten times.
- *  - Every glass surface owns a small padded GraphicsLayer that draws ONLY its own window of the
- *    Sky and blurs it with a native RenderEffect (Gaussian, GPU). No CPU/native blur, no Bitmap.
- *  - A Sky records ONLY while at least one surface is listening; otherwise it costs nothing.
- *  - A surface placed inside the Sky it samples is detected and falls back to flat material, so
- *    a layer can never recurse into itself.
+ * LAYERS (KernelSU method):
+ *  Layer A  = a "Sky" = LayerBackdrop: Modifier.layerBackdrop() records the source (wallpaper,
+ *             page, header art, Now Playing backdrop) into one GraphicsLayer.
+ *  Layer B  = every glass surface: Modifier.textureBlur() draws ITS window of that layer, blurred
+ *             on the GPU (RenderEffect/RuntimeShader), with built-in vibrancy + anti-banding noise
+ *             + a flat tint. Surfaces sitting on moving content (navbar, mini player, bars) sample
+ *             the live page which already contains the cards = glass over glass.
+ * No bitmaps, no CPU blur, no invalidate() needed: the library redraws with the source.
  */
 
-/** Gaussian sigma per "radius px" of the old API. Raise for a heavier frost, lower for lighter. */
-private const val SigmaPerRadius = 1.0f
-/** Hard GPU safety cap (px). Keeps extreme slider values from allocating oversized layers. */
-private const val MaxSigmaPx = 110f
-
-/** Vibrancy of the frosted glass (1 = none). Subtle, premium: 1.10 - 1.25. */
+/** Blur dp per "radius dp" of the old API. Raise for heavier frost, lower for lighter. */
+private const val BlurPerRadius = 1.6f
+/** Colour vibrancy of the frost (1 = off). Same idea as KernelSU's vibrancy(). */
 private const val FrostSaturation = 1.15f
-/** Dither grain strength (removes blur banding). 0 = off, 0.01 - 0.02 is invisible but smooth. */
-private const val FrostGrain = 0.014f
-
-/**
- * AGSL pass run AFTER the Gaussian blur, inside the same RenderEffect chain (one GPU pass):
- *  vibrancy (saturation lift) + tiny dither grain. Android 13+ (minSdk 33) so always available.
- */
-private const val FrostAgsl = """
-uniform shader content;
-uniform float sat;
-uniform float grain;
-half4 main(float2 p) {
-    half4 c = content.eval(p);
-    half l = dot(c.rgb, half3(0.2126, 0.7152, 0.0722));
-    c.rgb = mix(half3(l), c.rgb, half(sat));
-    float n = fract(sin(dot(p, float2(12.9898, 78.233))) * 43758.5453) - 0.5;
-    c.rgb = saturate(c.rgb + half3(half(n * grain)) * c.a);
-    return c;
-}
-"""
-
-/** Blur -> AGSL frost, chained into one RenderEffect. Falls back to plain blur if unavailable. */
-private fun buildGlassEffect(sigma: Float): ComposeRenderEffect {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        try {
-            val shader = RuntimeShader(FrostAgsl)
-            shader.setFloatUniform("sat", FrostSaturation)
-            shader.setFloatUniform("grain", FrostGrain)
-            val blur = android.graphics.RenderEffect.createBlurEffect(
-                sigma, sigma, Shader.TileMode.CLAMP
-            )
-            val frost = android.graphics.RenderEffect.createRuntimeShaderEffect(shader, "content")
-            // Chain: inner (blur) runs first, outer (frost shader) second.
-            return android.graphics.RenderEffect.createChainEffect(frost, blur)
-                .asComposeRenderEffect()
-        } catch (e: RuntimeException) {
-            Log.w("XvoxBlur", "AGSL frost unavailable, plain blur", e)
-        }
-    }
-    return BlurEffect(sigma, sigma, TileMode.Clamp)
-}
 
 /**
  * Blur layers are deliberately source-local.  The root surface is only the real app backdrop;
@@ -150,325 +87,45 @@ enum class XvoxBlurLevel(
 }
 
 // ---------------------------------------------------------------------------------------------
-// Sky: the shared, GPU-cached source layer
+// Sky: thin wrapper around Miuix LayerBackdrop (keeps every existing call-site unchanged)
 // ---------------------------------------------------------------------------------------------
 
 @Stable
-class Sky internal constructor(internal val layer: GraphicsLayer) {
-    internal var coordinates: LayoutCoordinates? = null
-    internal var source: SkySourceNode? = null
-    internal var hasContent = false
-    internal var recording = false
-    private val consumers = ArrayList<BackdropBlurNode>()
+class Sky internal constructor(
+    internal val layer: LayerBackdrop,
+    base: Sky? = null
+) {
+    /**
+     * What a glass surface actually blurs. A source that only holds transparent page content
+     * (list, header art) is composed OVER its base (the wallpaper), exactly like KernelSU draws
+     * its surface colour under the content; otherwise the blur has nothing opaque to frost and
+     * the glass degrades to "just transparency".
+     */
+    val backdrop: Backdrop = if (base != null) CombinedBackdrop(base.backdrop, layer) else layer
 
-    init {
-        // Render the source once into a hardware texture; every surface then samples that texture.
-        layer.compositingStrategy = CompositingStrategy.Offscreen
-    }
-
-    /** Re-capture the source and refresh every surface (same call-sites as before). */
-    fun invalidate() {
-        source?.requestRecord()
-        notifyConsumers()
-    }
-
-    internal val isActive: Boolean get() = consumers.isNotEmpty()
-
-    internal fun addConsumer(node: BackdropBlurNode) {
-        if (!consumers.contains(node)) consumers.add(node)
-        if (consumers.size == 1) source?.requestRecord()
-    }
-
-    internal fun removeConsumer(node: BackdropBlurNode) {
-        consumers.remove(node)
-        if (consumers.isEmpty()) {
-            hasContent = false
-            source?.requestRecord()
-        }
-    }
-
-    internal fun forEachConsumer(block: (BackdropBlurNode) -> Unit) {
-        for (i in consumers.indices) consumers.getOrNull(i)?.let(block)
-    }
-
-    internal fun notifyConsumers() {
-        for (i in consumers.indices.reversed()) {
-            val node = consumers.getOrNull(i) ?: continue
-            if (!node.nested) node.requestRedraw()
-        }
-    }
+    /** Kept for source compatibility. The Miuix backdrop follows its source live. */
+    fun invalidate() = Unit
 }
 
+/** [base] = the opaque layer under this source. Default: the wallpaper (root surface sky). */
 @Composable
-fun rememberSky(): Sky {
-    val layer = rememberGraphicsLayer()
-    return remember(layer) { Sky(layer) }
+fun rememberSky(base: Sky? = LocalXvoxSurfaceSky.current): Sky {
+    val layer = rememberLayerBackdrop()
+    return remember(layer, base) { Sky(layer, base) }
 }
 
-/** Put on the source (page / wallpaper / list). It records only while a surface listens. */
-fun Modifier.sky(sky: Sky): Modifier = this.then(SkySourceElement(sky))
-
-private data class SkySourceElement(val sky: Sky) : ModifierNodeElement<SkySourceNode>() {
-    override fun create() = SkySourceNode(sky)
-    override fun update(node: SkySourceNode) = node.swap(sky)
-}
-
-internal class SkySourceNode(private var sky: Sky) :
-    Modifier.Node(), DrawModifierNode, GlobalPositionAwareModifierNode {
-
-    override fun onAttach() {
-        sky.source = this
-    }
-
-    override fun onDetach() {
-        release(sky)
-    }
-
-    private fun release(target: Sky) {
-        if (target.source === this) {
-            target.source = null
-            target.coordinates = null
-            target.hasContent = false
-        }
-    }
-
-    fun swap(next: Sky) {
-        if (next === sky) return
-        release(sky)
-        sky = next
-        sky.source = this
-        invalidateDraw()
-    }
-
-    fun requestRecord() {
-        if (isAttached) invalidateDraw()
-    }
-
-    override fun onGloballyPositioned(coordinates: LayoutCoordinates) {
-        sky.coordinates = coordinates
-    }
-
-    override fun ContentDrawScope.draw() {
-        val w = size.width.roundToInt()
-        val h = size.height.roundToInt()
-        val target = sky
-        // Nobody listening (or nothing drawable): behave exactly like a plain Box. Zero cost.
-        if (!target.isActive || w <= 0 || h <= 0 || target.layer.isReleased) {
-            target.hasContent = false
-            drawContent()
-            return
-        }
-        try {
-            target.recording = true
-            try {
-                target.layer.record(this, layoutDirection, IntSize(w, h)) {
-                    this@draw.drawContent()
-                }
-            } finally {
-                target.recording = false
-            }
-            drawLayer(target.layer)
-            target.hasContent = true
-            target.notifyConsumers()
-        } catch (e: RuntimeException) {
-            Log.w("XvoxBlur", "sky record skipped", e)
-            target.hasContent = false
-            drawContent()
-        }
-    }
-}
+/** Put on the source (page / wallpaper / list): its drawn output becomes the blurred backdrop. */
+fun Modifier.sky(sky: Sky): Modifier = this.layerBackdrop(sky.layer)
 
 // ---------------------------------------------------------------------------------------------
-// Glass surface: native GPU backdrop blur of its own window of the Sky
+// Quality governor: same engine, sized to the device so heavy blur cannot OOM / close the app
 // ---------------------------------------------------------------------------------------------
 
-private data class BackdropBlurElement(
-    val sky: Sky,
-    val layer: GraphicsLayer,
-    val sigmaPx: Float,
-    val tint: Color,
-    val fallback: Color
-) : ModifierNodeElement<BackdropBlurNode>() {
-    override fun create() = BackdropBlurNode(sky, layer, sigmaPx, tint, fallback)
-    override fun update(node: BackdropBlurNode) = node.update(sky, layer, sigmaPx, tint, fallback)
-}
-
-internal class BackdropBlurNode(
-    private var sky: Sky,
-    private var layer: GraphicsLayer,
-    private var sigmaPx: Float,
-    private var tint: Color,
-    private var fallback: Color
-) : Modifier.Node(), DrawModifierNode, GlobalPositionAwareModifierNode {
-
-    private var coords: LayoutCoordinates? = null
-    private var lastRel: Offset = Offset.Unspecified
-    private var appliedSigma = -1f
-    /** True while this surface sits inside the Sky it samples; it then stays flat (no recursion). */
-    internal var nested = false
-
-    // Last drawn geometry in SOURCE coordinates: lets a smaller glass (layer C) find the bigger
-    // glass (layer B) it sits on, and sample B's finished frosted look instead of the wallpaper.
-    private var relX = 0f
-    private var relY = 0f
-    private var widthPx = 0
-    private var heightPx = 0
-    private var padPx = 0
-    private var ready = false
-
-    override fun onAttach() {
-        sky.addConsumer(this)
-    }
-
-    override fun onDetach() {
-        ready = false
-        sky.removeConsumer(this)
-        coords = null
-        lastRel = Offset.Unspecified
-    }
-
-    fun update(
-        newSky: Sky,
-        newLayer: GraphicsLayer,
-        newSigma: Float,
-        newTint: Color,
-        newFallback: Color
-    ) {
-        if (newSky !== sky) {
-            sky.removeConsumer(this)
-            sky = newSky
-            sky.addConsumer(this)
-        }
-        if (newLayer !== layer) {
-            layer = newLayer
-            appliedSigma = -1f
-        }
-        sigmaPx = newSigma
-        tint = newTint
-        fallback = newFallback
-        invalidateDraw()
-    }
-
-    fun requestRedraw() {
-        if (isAttached) invalidateDraw()
-    }
-
-    override fun onGloballyPositioned(coordinates: LayoutCoordinates) {
-        coords = coordinates
-        val rel = relativeOrigin()
-        // Unspecified = source not positioned yet: keep retrying until it is, never stay flat.
-        if (rel == Offset.Unspecified || rel != lastRel) {
-            lastRel = rel
-            invalidateDraw()
-        }
-    }
-
-    private fun relativeOrigin(): Offset {
-        val me = coords ?: return Offset.Unspecified
-        val src = sky.coordinates ?: return Offset.Unspecified
-        if (!me.isAttached || !src.isAttached) return Offset.Unspecified
-        return try {
-            src.localPositionOf(me, Offset.Zero)
-        } catch (_: IllegalArgumentException) {
-            Offset.Unspecified
-        }
-    }
-
-    override fun ContentDrawScope.draw() {
-        if (!drawBackdrop()) drawRect(fallback)
-        drawContent()
-    }
-
-    private fun DrawScope.drawBackdrop(): Boolean {
-        if (sky.recording) {
-            nested = true
-            return false
-        }
-        nested = false
-        if (!sky.hasContent || layer.isReleased || sky.layer.isReleased) return false
-        val w = ceil(size.width).toInt()
-        val h = ceil(size.height).toInt()
-        if (w <= 0 || h <= 0) return false
-        val rel = relativeOrigin()
-        if (rel == Offset.Unspecified) return false
-        return try {
-            val sigma = sigmaPx.coerceIn(1f, MaxSigmaPx)
-            // Padding lets the blur read real pixels beyond the edges (no dark/clamped rim).
-            val pad = ceil(sigma * 2.5f).toInt().coerceAtLeast(1)
-            val source = sky.layer
-            // Layer A = sky (wallpaper/page). Layer B = glass over A. Layer C = glass over B:
-            // when a bigger glass already contains this one, sample ITS blurred result (B, which
-            // itself holds blurred A) so stacked glass frosts progressively, front to back.
-            val under = findGlassUnder(rel, w, h)
-            layer.record(this, layoutDirection, IntSize(w + 2 * pad, h + 2 * pad)) {
-                translate(pad - rel.x, pad - rel.y) {
-                    if (under != null) under.drawFrostedVisuals(this) else drawLayer(source)
-                }
-            }
-            layer.clip = true
-            layer.topLeft = IntOffset(-pad, -pad)
-            if (appliedSigma != sigma) {
-                layer.renderEffect = buildGlassEffect(sigma)
-                appliedSigma = sigma
-            }
-            drawLayer(layer)
-            if (tint.alpha > 0f) drawRect(tint)
-            relX = rel.x
-            relY = rel.y
-            widthPx = w
-            heightPx = h
-            padPx = pad
-            ready = true
-            true
-        } catch (e: RuntimeException) {
-            Log.w("XvoxBlur", "backdrop blur skipped", e)
-            false
-        }
-    }
-
-    /** Smallest already-drawn glass on the same Sky that fully contains this surface. */
-    private fun findGlassUnder(rel: Offset, w: Int, h: Int): BackdropBlurNode? {
-        var best: BackdropBlurNode? = null
-        var bestArea = Long.MAX_VALUE
-        val area = w.toLong() * h
-        sky.forEachConsumer { p ->
-            if (p === this || !p.ready || p.nested || p.layer.isReleased) return@forEachConsumer
-            val pArea = p.widthPx.toLong() * p.heightPx
-            if (pArea <= area + area / 20) return@forEachConsumer
-            val inside = p.relX <= rel.x + 1f && p.relY <= rel.y + 1f &&
-                p.relX + p.widthPx >= rel.x + w - 1f && p.relY + p.heightPx >= rel.y + h - 1f
-            if (inside && pArea < bestArea) {
-                best = p
-                bestArea = pArea
-            }
-        }
-        return best
-    }
-
-    /** This glass exactly as the user sees it (blurred A + tint), in SOURCE coordinates. */
-    internal fun drawFrostedVisuals(scope: DrawScope) {
-        with(scope) {
-            translate(relX, relY) {
-                drawLayer(layer)
-                if (tint.alpha > 0f) {
-                    drawRect(tint, Offset.Zero, Size(widthPx.toFloat(), heightPx.toFloat()))
-                }
-            }
-        }
-    }
-}
-
-// ---------------------------------------------------------------------------------------------
-// Quality governor: the SAME engine, sized to the device so heavy blur can never OOM / close app
-// ---------------------------------------------------------------------------------------------
-
-private enum class BlurTier(val maxSigmaPx: Float, val liveCards: Boolean) {
+private enum class BlurTier(val maxBlurDp: Float, val liveCards: Boolean) {
     /** Low-RAM / small heap: only chrome, bars and sheets blur live; list cards stay flat glass. */
-    Low(40f, false),
-    /** Mid devices: everything live, moderate reach. */
-    Mid(70f, true),
-    /** Flagships: full reach. */
-    High(MaxSigmaPx, true)
+    Low(16f, false),
+    Mid(32f, true),
+    High(64f, true)
 }
 
 private fun detectBlurTier(context: Context): BlurTier {
@@ -486,7 +143,7 @@ private fun detectBlurTier(context: Context): BlurTier {
 // ---------------------------------------------------------------------------------------------
 
 /**
- * Clean blur surface: clip + live GPU backdrop blur + flat tint. No shadow, no gloss.
+ * Clean blur surface: clip + live GPU backdrop blur (Miuix textureBlur) + flat tint.
  * The border follows Settings > Appearance > Glass border (see xvoxGlassBorder).
  */
 @Composable
@@ -499,44 +156,47 @@ fun Modifier.xvoxLiveBlur(
     borderAlpha: Float = .62f,
     borderWidth: Dp = .8.dp
 ): Modifier {
-    val density = LocalDensity.current
     val chrome = LocalXvoxChromeStyle.current
     val context = LocalContext.current
     val tier = remember(context) { detectBlurTier(context) }
-    // The existing transparency slider changes the real material alpha. While live blur is on,
-    // it also increases the blur reach so a more transparent card remains visibly frosted rather
-    // than merely looking faint. With blur off we skip the blur entirely: the slider then
-    // controls only the ordinary material transparency.
+    // The transparency slider changes the real material alpha and, while blur is on, widens the
+    // blur so a more transparent card stays visibly frosted instead of merely faint.
     val globalTransparency = LocalXvoxGlassTransparency.current.coerceIn(0f, .60f)
     val surfaceTransparency = (1f - baseColor.alpha).coerceIn(0f, 1f)
     val transparencyDrive = maxOf(globalTransparency, surfaceTransparency)
     val configuredBlur = chrome.glassBlurIntensity.coerceIn(0f, 1f)
     val radiusScale = configuredBlur * (.72f + transparencyDrive * .78f)
-    val sigmaPx = remember(level, density.density, radiusScale, tier) {
-        (level.radius.value * density.density * radiusScale * SigmaPerRadius)
-            .coerceIn(1f, tier.maxSigmaPx)
+    val blurDp = remember(level, radiusScale, tier) {
+        (level.radius.value * radiusScale * BlurPerRadius).coerceIn(1f, tier.maxBlurDp)
     }
-    val flatCard = !tier.liveCards &&
-        (level == XvoxBlurLevel.Card || level == XvoxBlurLevel.Selection)
-    // Preserve the material's alpha so the transparency slider stays effective.
     val tint = remember(baseColor, level) {
         baseColor.copy(alpha = (baseColor.alpha * level.tintAlpha).coerceIn(0f, 1f))
     }
     val fallback = remember(baseColor, level) {
         baseColor.copy(alpha = (baseColor.alpha * level.fallbackAlpha).coerceIn(0f, 1f))
     }
+    val colors = remember(tint) {
+        BlurColors(
+            blendColors = listOf(BlendColorEntry(color = tint)),
+            saturation = FrostSaturation
+        )
+    }
+    val flatCard = !tier.liveCards &&
+        (level == XvoxBlurLevel.Card || level == XvoxBlurLevel.Selection)
     val clipped = clip(shape)
     val blurOn = chrome.glassBlurEnabled && configuredBlur > .001f
     val surface = when {
         // Master off and zero intensity both keep the exact transparency selected by the user.
         !blurOn -> clipped.background(baseColor)
-        // No valid source: the established readable material fallback.
+        // No valid source / weak device card: the readable material fallback.
         sky == null || flatCard || Build.VERSION.SDK_INT < Build.VERSION_CODES.S ->
             clipped.background(fallback)
-        else -> {
-            val layer = rememberGraphicsLayer()
-            clipped.then(BackdropBlurElement(sky, layer, sigmaPx, tint, fallback))
-        }
+        else -> clipped.textureBlur(
+            backdrop = sky.backdrop,
+            shape = shape,
+            blurRadius = blurDp,
+            colors = colors
+        )
     }
     return surface.xvoxGlassBorder(shape, borderColor, borderAlpha, borderWidth)
 }
@@ -576,7 +236,8 @@ fun Modifier.xvoxGlassFill(
 
 /** For a bar above a scrolling list: the list is the source, the bar blurs it. */
 @Composable
-fun rememberXvoxContentSky(): Sky = rememberSky()
+fun rememberXvoxContentSky(): Sky =
+    rememberSky(base = LocalXvoxNowPlayingSky.current ?: LocalXvoxSurfaceSky.current)
 
 /** Put on the scrolling list (the source). */
 fun Modifier.xvoxBlurSource(sky: Sky): Modifier = this.sky(sky)

@@ -1,46 +1,211 @@
 package com.xvox.music.core.ui.navigation
 
+import android.os.Build
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.EaseOut
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.drag
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
+import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.dropShadow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.shadow.Shadow
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import coil3.compose.AsyncImage
+import androidx.compose.ui.util.fastCoerceIn
+import androidx.compose.ui.util.lerp
+import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.ui.blur.DampedDragAnimation
+import com.xvox.music.core.ui.blur.InnerShadow
+import com.xvox.music.core.ui.blur.InteractiveHighlight
 import com.xvox.music.core.ui.blur.LocalXvoxShellContentSky
 import com.xvox.music.core.ui.blur.LocalXvoxSurfaceSky
-import com.xvox.music.core.ui.blur.XvoxBlurLevel
-import com.xvox.music.core.ui.blur.xvoxLiveBlur
+import com.xvox.music.core.ui.blur.innerShadow
+import com.xvox.music.core.ui.blur.lens
+import com.xvox.music.core.ui.blur.rememberCombinedBackdrop
+import com.xvox.music.core.ui.blur.vibrancy
+import com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle
+import com.xvox.music.core.ui.chrome.parseHexColor
 import com.xvox.music.core.ui.haptics.LocalXvoxHaptics
 import kotlinx.coroutines.launch
+import top.yukonga.miuix.kmp.blur.Backdrop
+import top.yukonga.miuix.kmp.blur.blur
+import top.yukonga.miuix.kmp.blur.drawBackdrop
+import top.yukonga.miuix.kmp.blur.highlight.BloomStroke
+import top.yukonga.miuix.kmp.blur.highlight.Highlight
+import top.yukonga.miuix.kmp.blur.highlight.LightPosition
+import top.yukonga.miuix.kmp.blur.highlight.LightSource
+import top.yukonga.miuix.kmp.blur.layerBackdrop
+import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
+import top.yukonga.miuix.kmp.blur.sensor.rememberDeviceTilt
+import kotlin.math.PI
 import kotlin.math.abs
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.roundToInt
+import kotlin.math.sign
+import kotlin.math.sin
+
+private val LocalLiquidTabScale = staticCompositionLocalOf { { 1f } }
+private val LocalLiquidTint = compositionLocalOf { Color.White }
+
+private val iosIndicatorSpecular: Highlight = Highlight(
+    width = 1.dp,
+    alpha = 1f,
+    style = BloomStroke(
+        color = Color.White.copy(alpha = 0.12f),
+        innerBlurRadius = 2.0.dp,
+        primaryLight = LightSource(
+            position = LightPosition(0.5f, -0.3f, -0.05f),
+            color = Color.White,
+            intensity = 1f,
+        ),
+        secondaryLight = LightSource(
+            position = LightPosition(0.5f, 0.8f, -0.5f),
+            color = Color.White,
+            intensity = 0.4f,
+        ),
+        dualPeak = true,
+    ),
+)
+
+// Mirrors miuix-blur HighlightStyle's LIGHT_REF - keep in sync.
+private const val LIGHT_REF_X = 0.5f
+private const val LIGHT_REF_Y = 0.7f
+private const val GRAVITY_DIR_THRESHOLD_SQ = 0.01f
+private const val GRAVITY_ANGLE_STEP_RAD = (3.0 * PI / 180.0).toFloat()
+
+/** Tracks gravity for a `dualPeak` highlight's primary light. */
+@Composable
+private fun rememberQuantizedGravityAngle(): State<Float> {
+    val tiltState = rememberDeviceTilt()
+    return remember(tiltState) {
+        derivedStateOf {
+            val tilt = tiltState.value
+            val magnitudeSquared = tilt.gravityX * tilt.gravityX + tilt.gravityY * tilt.gravityY
+            if (magnitudeSquared > GRAVITY_DIR_THRESHOLD_SQ) {
+                (atan2(tilt.gravityY, tilt.gravityX) / GRAVITY_ANGLE_STEP_RAD).roundToInt() * GRAVITY_ANGLE_STEP_RAD
+            } else {
+                (-PI / 2).toFloat()
+            }
+        }
+    }
+}
+
+@Composable
+private fun rememberGravityRotatedHighlight(
+    base: Highlight,
+    extraDegrees: Float = 0f,
+): State<Highlight> {
+    val baseStyle = base.style as BloomStroke
+    val angle = rememberQuantizedGravityAngle()
+    return remember(angle, base, extraDegrees) {
+        derivedStateOf {
+            val basePrimary = baseStyle.primaryLight
+            val rad = angle.value + (extraDegrees * PI / 180.0).toFloat()
+            base.copy(
+                style = baseStyle.copy(
+                    primaryLight = basePrimary.copy(
+                        position = LightPosition(
+                            x = LIGHT_REF_X + cos(rad),
+                            y = LIGHT_REF_Y + sin(rad),
+                            z = basePrimary.position.z,
+                        ),
+                    ),
+                ),
+            )
+        }
+    }
+}
+
+private fun navigationIconRes(destination: XvoxDestination): Int = when (destination) {
+    XvoxDestination.HOME -> R.drawable.ic_xvox_home
+    XvoxDestination.SEARCH -> R.drawable.ic_xvox_search
+    XvoxDestination.SETTINGS -> R.drawable.ic_xvox_settings
+}
+
+@Composable
+private fun RowScope.LiquidTab(
+    destination: XvoxDestination,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    val scale = LocalLiquidTabScale.current
+    Box(
+        modifier = Modifier
+            .semantics(mergeDescendants = true) {
+                this.selected = selected
+                role = Role.Tab
+                onClick {
+                    onClick()
+                    true
+                }
+            }
+            .fillMaxHeight()
+            .weight(1f)
+            .graphicsLayer {
+                val s = scale()
+                scaleX = s
+                scaleY = s
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        Image(
+            painter = painterResource(navigationIconRes(destination)),
+            contentDescription = destination.label,
+            colorFilter = ColorFilter.tint(LocalLiquidTint.current),
+            modifier = Modifier.size(XvoxNavigationGeometry.iconSize)
+        )
+    }
+}
 
 @Composable
 fun XvoxBottomBar(
@@ -48,100 +213,42 @@ fun XvoxBottomBar(
     onSelected: (XvoxDestination) -> Unit,
     /** Retained for call-site compatibility; the Bottom Bar owns press-and-drag selection. */
     @Suppress("UNUSED_PARAMETER") onLongPressSettings: () -> Unit = {},
-    /** Navigation artwork comes only from Chrome's navigationImageUri, never the Header. */
     modifier: Modifier = Modifier
 ) {
     val colors = XvoxTheme.colors
     val haptics = LocalXvoxHaptics.current
-    val chrome = com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle.current
-    // The bar lives above the shell's moving page list, so both its base and active tab pill
-    // sample that sibling source rather than a static wallpaper capture.
+    val chrome = LocalXvoxChromeStyle.current
+    // Sits above the moving page: blur the live page (+ wallpaper underneath it).
     val contentSky = LocalXvoxShellContentSky.current ?: LocalXvoxSurfaceSky.current
     val navBarHeight = chrome.navigationBarHeight.coerceIn(52f, 88f).dp
-    val availableWidth = (androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp.dp - 24.dp)
-        .coerceAtLeast(190.dp)
+    val availableWidth = (LocalConfiguration.current.screenWidthDp.dp - 24.dp).coerceAtLeast(190.dp)
     val navBarWidth = chrome.navigationBarWidth.coerceIn(190f, 380f).dp.coerceAtMost(availableWidth)
-    val slotWidth = navBarWidth / 3f
-    val selectorWidth = (slotWidth - 8.dp).coerceAtLeast(52.dp)
-    val selectorHeight = (navBarHeight - 8.dp).coerceAtLeast(44.dp)
+    val pillHeight = (navBarHeight - 8.dp).coerceAtLeast(44.dp)
     val destinations = XvoxDestination.entries
     val selectedIndex = destinations.indexOf(selected)
 
-    val scope = rememberCoroutineScope()
-    val latestSelect by rememberUpdatedState(onSelected)
-    val latestHaptics by rememberUpdatedState(haptics)
-    val latestSelectedIndex by rememberUpdatedState(selectedIndex)
-
-    val pos = remember { Animatable(selectedIndex.toFloat()) }
-    val grow = remember { Animatable(0f) }
-    // Only a gesture that crosses touch slop is a true swipe; tap travel stays visually neutral.
-    var dragging by remember { mutableStateOf(false) }
-    var travelFrom by remember { mutableFloatStateOf(selectedIndex.toFloat()) }
-    var travelTo by remember { mutableIntStateOf(selectedIndex) }
-
-    fun slideTo(position: Float, stiffness: Float) {
-        scope.launch {
-            pos.animateTo(position, spring(dampingRatio = 1f, stiffness = stiffness))
-        }
-    }
-
-    // Retain the travel endpoints so icons between distant tabs never become active during a tap.
-    fun travelToTab(index: Int, stiffness: Float) {
-        if (travelTo != index) {
-            travelFrom = pos.value
-            travelTo = index
-        }
-        slideTo(index.toFloat(), stiffness)
-    }
-
-    fun iconProximity(index: Int): Float {
-        if (dragging) return navigationProximity(position = pos.value, index = index)
-        val low = minOf(travelFrom, travelTo.toFloat())
-        val high = maxOf(travelFrom, travelTo.toFloat())
-        val isMiddle = index > low + 0.001f && index < high - 0.001f
-        return if (isMiddle) 0f else navigationProximity(position = pos.value, index = index)
-    }
-
-    LaunchedEffect(selectedIndex) {
-        if (!dragging && travelTo != selectedIndex) {
-            travelFrom = pos.value
-            travelTo = selectedIndex
-            pos.animateTo(
-                selectedIndex.toFloat(),
-                spring(dampingRatio = 1f, stiffness = 700f)
-            )
-        }
-    }
-    val parentShape = RoundedCornerShape(navBarHeight / 2f)
-    val selectorShape = RoundedCornerShape(selectorHeight / 2f)
-
-    // Navbar and Mini Player retain independent transparency sliders in both themes. Coupling the
-    // dark navbar to miniBgAlpha made the navbar slider appear broken and kept its selector heavy.
     val navSurfaceAlpha = chrome.navBgAlpha.coerceIn(0f, 1f)
-    // Match Settings' Appearance option-pill material (for example the Font choice box), not
-    // the larger section-card material. The selector deliberately follows the existing navbar
-    // transparency control without adding a separate slider: its transparency is always one half
-    // of the navbar transparency (6% -> 3%, 100% -> 50%).
-    val navbarTransparency = 1f - navSurfaceAlpha
-    val selectorSurfaceAlpha = (1f - navbarTransparency * .5f).coerceIn(.5f, 1f)
-    val defaultNavSurface = colors.background
-    val appliedNavSurfaceAlpha = navSurfaceAlpha
-    // Override only the material's opacity here. `colors.cardElevated` is the Settings option
-    // pill material in both themes, while its stored alpha can reflect the unrelated page-card
-    // transparency preference. Replacing—not multiplying—its alpha preserves the exact required
-    // half-navbar relationship for the selector.
-    val pillFill = colors.cardElevated.copy(alpha = selectorSurfaceAlpha)
+    val isDark = colors.background.luminance() < .5f
+    val intensity = chrome.glassBlurIntensity.coerceIn(0f, 1f)
+    val blurOn = chrome.glassBlurEnabled && intensity > .001f &&
+        contentSky != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+    // Real frost: 8dp (light) .. 26dp (max) controlled by the global blur intensity.
+    val blurDp = 8f + 18f * intensity
+    // With blur on, the material is a light tint so the blurred page shows THROUGH the glass.
+    val containerColor = colors.background.copy(
+        alpha = if (blurOn) navSurfaceAlpha * .5f else navSurfaceAlpha
+    )
+    val accentColor = parseHexColor(chrome.pillIconColor) ?: colors.primaryAccent
+    val inactiveColor = colors.mutedText.copy(alpha = .86f)
 
-    val isLandscape = androidx.compose.ui.platform.LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
-    // Device-orientation baselines requested for the chrome remain separate from the editable
-    // offset below, so a user's custom placement is always additive.
+    val isLandscape = LocalConfiguration.current.orientation ==
+        android.content.res.Configuration.ORIENTATION_LANDSCAPE
     val defaultPlacementY = if (isLandscape) 31.5.dp else 10.5.dp
     val actualHostHeight = if (isLandscape) navBarHeight else navBarHeight + 20.dp
     val topOffset = if (isLandscape) 0.dp else XvoxNavigationGeometry.hostOverflow
 
     Box(
         modifier = modifier
-            // Move the entire touch and paint surface together, so controls stay where they appear.
             .offset(
                 x = chrome.navigationBarOffsetX.coerceIn(-220f, 220f).dp,
                 y = defaultPlacementY + chrome.navigationBarOffsetY.coerceIn(-260f, 260f).dp
@@ -149,152 +256,358 @@ fun XvoxBottomBar(
             .width(navBarWidth)
             .height(actualHostHeight)
     ) {
-        Box(
+        LiquidBar(
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .offset(y = topOffset)
-                .size(navBarWidth, navBarHeight)
-                .xvoxLiveBlur(
-                    shape = parentShape,
-                    level = XvoxBlurLevel.Chrome,
-                    baseColor = defaultNavSurface.copy(alpha = appliedNavSurfaceAlpha),
-                    sky = contentSky,
-                    // Normal chrome remains eligible for the one global Glass border setting.
-                    borderColor = colors.cardBorder,
-                    borderAlpha = 1f,
-                    borderWidth = .8.dp
-                )
-        ) {
-            if (chrome.navigationImageUri.isNotBlank()) {
-                AsyncImage(
-                    model = chrome.navigationImageUri,
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier
-                        .matchParentSize()
-                        // Let the Cloudy surface remain visible under a custom image, rather than
-                        // turning the navigation bar into an opaque photo strip.
-                        .graphicsLayer { alpha = (navSurfaceAlpha * .72f).coerceIn(0f, .72f) }
+                .size(navBarWidth, navBarHeight),
+            selectedIndex = selectedIndex,
+            tabsCount = destinations.size,
+            backdrop = contentSky?.backdrop,
+            blurOn = blurOn,
+            blurDp = blurDp,
+            pillHeight = pillHeight,
+            isDark = isDark,
+            containerColor = containerColor,
+            accentColor = accentColor,
+            inactiveColor = inactiveColor,
+            onTap = { haptics.tap() },
+            onTick = { haptics.sliderTick() },
+            onSelect = { index -> onSelected(destinations[index]) },
+            destinations = destinations
+        )
+    }
+}
+
+@Composable
+private fun LiquidBar(
+    modifier: Modifier,
+    selectedIndex: Int,
+    tabsCount: Int,
+    backdrop: Backdrop?,
+    blurOn: Boolean,
+    blurDp: Float,
+    pillHeight: androidx.compose.ui.unit.Dp,
+    isDark: Boolean,
+    containerColor: Color,
+    accentColor: Color,
+    inactiveColor: Color,
+    onTap: () -> Unit,
+    onTick: () -> Unit,
+    onSelect: (Int) -> Unit,
+    destinations: List<XvoxDestination>
+) {
+    val pillShape = remember { CircleShape }
+    val tabsBackdrop = rememberLayerBackdrop()
+    val density = LocalDensity.current
+    val isLtr = LocalLayoutDirection.current == LayoutDirection.Ltr
+    val animationScope = rememberCoroutineScope()
+    val useBlur = blurOn && backdrop != null
+
+    var tabWidthPx by remember { mutableFloatStateOf(0f) }
+    var totalWidthPx by remember { mutableFloatStateOf(0f) }
+
+    val offsetAnimation = remember { Animatable(0f) }
+    val rubberBandPx = with(density) { 4.dp.toPx() }
+    val panelOffset by remember(rubberBandPx) {
+        derivedStateOf {
+            if (totalWidthPx == 0f) {
+                0f
+            } else {
+                val fraction = (offsetAnimation.value / totalWidthPx).fastCoerceIn(-1f, 1f)
+                rubberBandPx * fraction.sign * EaseOut.transform(abs(fraction))
+            }
+        }
+    }
+
+    var currentIndex by remember { mutableIntStateOf(selectedIndex) }
+    val onSelectedUpdated by rememberUpdatedState(onSelect)
+    val onTapUpdated by rememberUpdatedState(onTap)
+    val onTickUpdated by rememberUpdatedState(onTick)
+    // [0] = a true swipe happened in this gesture, [1] = last index that ticked.
+    val gesture = remember { floatArrayOf(0f, -1f) }
+
+    fun indexAt(positionX: Float): Int {
+        if (tabWidthPx == 0f) return currentIndex
+        val horizontalPaddingPx = with(density) { 4.dp.toPx() }
+        val logicalX = if (isLtr) positionX else totalWidthPx - positionX
+        return ((logicalX - horizontalPaddingPx) / tabWidthPx)
+            .toInt()
+            .coerceIn(0, tabsCount - 1)
+    }
+
+    val dampedDragAnimation = remember(animationScope, tabsCount, density, isLtr) {
+        DampedDragAnimation(
+            animationScope = animationScope,
+            initialValue = selectedIndex.toFloat(),
+            valueRange = 0f..(tabsCount - 1).toFloat(),
+            visibilityThreshold = 0.001f,
+            initialScale = 1f,
+            pressedScale = 78f / 56f,
+            canDrag = { offset -> offset.x in 0f..totalWidthPx },
+            onDragStarted = { position ->
+                gesture[0] = 0f
+                gesture[1] = indexAt(position.x).toFloat()
+                updateValue(indexAt(position.x).toFloat())
+            },
+            onDragStopped = {
+                val targetIndex = targetValue.roundToInt().coerceIn(0, tabsCount - 1)
+                val swiped = gesture[0] > 0f
+                // A completed tap always reaches the callback (re-selecting returns a tab to its
+                // root); a swipe that ends on its starting tab stays a no-op.
+                if (!swiped || currentIndex != targetIndex) {
+                    if (!swiped) onTapUpdated()
+                    currentIndex = targetIndex
+                    onSelectedUpdated(targetIndex)
+                }
+                updateValue(targetIndex.toFloat())
+                animationScope.launch {
+                    offsetAnimation.animateTo(0f, spring(1f, 300f, 0.5f))
+                }
+            },
+            onDragCancelled = {
+                updateValue(currentIndex.toFloat())
+                animationScope.launch {
+                    offsetAnimation.animateTo(0f, spring(1f, 300f, 0.5f))
+                }
+            },
+            onDrag = { _, dragAmount ->
+                if (tabWidthPx > 0f && dragAmount.x != 0f) {
+                    gesture[0] = 1f
+                    val next = (targetValue + dragAmount.x / tabWidthPx * if (isLtr) 1f else -1f)
+                        .coerceIn(0f, (tabsCount - 1).toFloat())
+                    val nextIndex = next.roundToInt()
+                    if (nextIndex.toFloat() != gesture[1]) {
+                        gesture[1] = nextIndex.toFloat()
+                        onTickUpdated()
+                    }
+                    updateValue(next)
+                    animationScope.launch {
+                        offsetAnimation.snapTo(offsetAnimation.value + dragAmount.x)
+                    }
+                }
+            }
+        )
+    }
+
+    LaunchedEffect(selectedIndex) {
+        if (currentIndex != selectedIndex) {
+            currentIndex = selectedIndex
+            dampedDragAnimation.animateToValue(selectedIndex.toFloat())
+        }
+    }
+
+    fun activateTab(index: Int) {
+        if (index !in 0 until tabsCount) return
+        currentIndex = index
+        onSelectedUpdated(index)
+        dampedDragAnimation.animateToValue(index.toFloat())
+    }
+
+    val interactiveHighlight = remember(animationScope, tabWidthPx, dampedDragAnimation) {
+        InteractiveHighlight(
+            animationScope = animationScope,
+            position = { size, _ ->
+                Offset(
+                    if (isLtr) (dampedDragAnimation.value + 0.5f) * tabWidthPx + panelOffset
+                    else size.width - (dampedDragAnimation.value + 0.5f) * tabWidthPx + panelOffset,
+                    size.height / 2f
                 )
             }
+        )
+    }
 
+    val baseHighlight = rememberGravityRotatedHighlight(iosIndicatorSpecular, extraDegrees = -45f)
+    val pillHighlight = rememberGravityRotatedHighlight(iosIndicatorSpecular, extraDegrees = 90f)
+    val combinedBackdrop = rememberCombinedBackdrop(backdrop ?: tabsBackdrop, tabsBackdrop)
+
+    val tabs: @Composable RowScope.() -> Unit = {
+        destinations.forEachIndexed { index, destination ->
+            LiquidTab(
+                destination = destination,
+                selected = index == selectedIndex,
+                onClick = { activateTab(index) }
+            )
+        }
+    }
+
+    Box(modifier = modifier, contentAlignment = Alignment.CenterStart) {
+        Row(
+            Modifier
+                .onGloballyPositioned { coords ->
+                    totalWidthPx = coords.size.width.toFloat()
+                    val contentWidthPx = totalWidthPx - with(density) { 8.dp.toPx() }
+                    tabWidthPx = (contentWidthPx / tabsCount).coerceAtLeast(0f)
+                }
+                .selectableGroup()
+                .graphicsLayer { translationX = panelOffset }
+                .dropShadow(
+                    shape = pillShape,
+                    shadow = Shadow(
+                        radius = 10.dp,
+                        color = Color.Black,
+                        alpha = if (isDark) 0.2f else 0.1f,
+                    ),
+                )
+                .then(
+                    if (useBlur) {
+                        Modifier.drawBackdrop(
+                            backdrop = backdrop!!,
+                            shape = { pillShape },
+                            effects = {
+                                padding = maxOf(padding, 40.dp.toPx())
+                                vibrancy()
+                                blur(blurDp.dp.toPx(), blurDp.dp.toPx())
+                                lens(
+                                    refractionHeight = 24.dp.toPx(),
+                                    refractionAmount = 24.dp.toPx(),
+                                )
+                            },
+                            highlight = { baseHighlight.value.copy(alpha = 0.75f) },
+                            layerBlock = {
+                                val width = size.width.coerceAtLeast(1f)
+                                val s = lerp(1f, 1f + 16.dp.toPx() / width, dampedDragAnimation.pressProgress)
+                                scaleX = s
+                                scaleY = s
+                            },
+                            onDrawSurface = { drawRect(containerColor) },
+                        )
+                    } else {
+                        Modifier.background(containerColor, pillShape)
+                    }
+                )
+                .then(
+                    if (useBlur) {
+                        interactiveHighlight.modifier.then(interactiveHighlight.gestureModifier)
+                    } else Modifier
+                )
+                .then(dampedDragAnimation.modifier)
+                .fillMaxSize()
+                .padding(4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            CompositionLocalProvider(LocalLiquidTint provides inactiveColor) {
+                tabs()
+            }
         }
 
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .offset(
-                    y = topOffset + navBarHeight / 2 - selectorHeight / 2
-                )
-                .graphicsLayer {
-                    translationX = ((slotWidth - selectorWidth) / 2f + slotWidth * pos.value).toPx()
-                    // A true swipe adds a quiet, uniform 2dp emphasis instead of a wobble/stretch.
-                    val extra = 2.dp.toPx() * grow.value
-                    scaleX = 1f + extra / size.width
-                    scaleY = 1f + extra / size.height
-                    shape = selectorShape
-                    clip = true
-                }
-                .size(selectorWidth, selectorHeight)
-                .xvoxLiveBlur(
-                    shape = selectorShape,
-                    level = XvoxBlurLevel.Selection,
-                    baseColor = pillFill,
-                    sky = contentSky,
-                    borderColor = colors.cardBorder,
-                    borderAlpha = 1f,
-                    borderWidth = .8.dp
-                )
-        )
-
-        Row(
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .offset(y = topOffset)
-                .size(navBarWidth, navBarHeight)
-                .pointerInput(Unit) {
-                    val slop = viewConfiguration.touchSlop
-                    awaitEachGesture {
-                        val down = awaitFirstDown()
-                        val slotPx = size.width / destinations.size.toFloat()
-                        fun indexAt(x: Float) = (x / slotPx).toInt().coerceIn(0, destinations.lastIndex)
-                        fun pillTarget(x: Float) =
-                            (x / slotPx - 0.5f).coerceIn(0f, destinations.lastIndex.toFloat())
-
-                        var swiping = false
-                        var lastX = down.position.x
-                        var hoverIndex = indexAt(lastX)
-
-                        // Start travelling toward the pressed tab without haptics; intermediate
-                        // icons stay neutral until a true swipe crosses touch slop.
-                        travelToTab(hoverIndex, 1400f)
-
-                        var finished = false
-                        try {
-                            finished = drag(down.id) { change ->
-                                change.consume()
-                                lastX = change.position.x
-                                if (!swiping && abs(lastX - down.position.x) > slop) {
-                                    swiping = true
-                                    dragging = true
-                                    scope.launch {
-                                        grow.animateTo(1f, spring(dampingRatio = 1f, stiffness = 900f))
-                                    }
-                                }
-                                if (swiping) {
-                                    slideTo(pillTarget(lastX), 2200f)
-                                    val index = indexAt(lastX)
-                                    if (index != hoverIndex) {
-                                        hoverIndex = index
-                                        // Only a true swipe ticks as it crosses a new tab. Route it
-                                        // through the app haptic policy so every surface uses the
-                                        // same restrained medium feedback and respects its toggle.
-                                        latestHaptics.sliderTick()
-                                    }
-                                }
-                            }
-                        } finally {
-                            dragging = false
-                            if (swiping) {
-                                scope.launch {
-                                    grow.animateTo(0f, spring(dampingRatio = 1f, stiffness = 900f))
-                                }
-                            }
-                            val target = if (finished) indexAt(lastX) else latestSelectedIndex
-                            travelToTab(target, 900f)
-                            if (finished && (!swiping || target != latestSelectedIndex)) {
-                                // A completed tap always reaches the destination callback, even
-                                // when it is already selected. The shell uses that re-selection to
-                                // return Home/Search/Settings to their own root screen. A true
-                                // swipe that returns to its starting tab remains a no-op.
-                                if (!swiping) {
-                                    latestHaptics.tap()
-                                }
-                                latestSelect(destinations[target])
-                            }
-                        }
-                    }
+        if (useBlur) {
+            // Accent-coloured copy of the tabs: the travelling pill magnifies THIS layer, so the
+            // active icon looks lit and refracted inside the liquid pill.
+            CompositionLocalProvider(
+                LocalLiquidTabScale provides {
+                    lerp(1f, 1.2f, dampedDragAnimation.pressProgress)
                 },
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            destinations.forEachIndexed { index, destination ->
+                LocalLiquidTint provides accentColor,
+            ) {
+                Row(
+                    Modifier
+                        .clearAndSetSemantics {}
+                        .alpha(0f)
+                        .layerBackdrop(tabsBackdrop)
+                        .graphicsLayer { translationX = panelOffset }
+                        .drawBackdrop(
+                            backdrop = backdrop!!,
+                            shape = { pillShape },
+                            effects = {
+                                vibrancy()
+                                blur(blurDp.dp.toPx(), blurDp.dp.toPx())
+                                lens(
+                                    refractionHeight = 24.dp.toPx(),
+                                    refractionAmount = 24.dp.toPx(),
+                                )
+                            },
+                            onDrawSurface = { drawRect(containerColor) },
+                        )
+                        .then(interactiveHighlight.modifier)
+                        .width(with(density) { totalWidthPx.toDp() })
+                        .height(pillHeight)
+                        .padding(horizontal = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    content = { tabs() }
+                )
+            }
+        }
+
+        if (tabWidthPx > 0f) {
+            val tabWidthDp = with(density) { tabWidthPx.toDp() }
+            if (useBlur) {
                 Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxSize(),
-                    contentAlignment = Alignment.Center
+                    Modifier
+                        .padding(horizontal = 4.dp)
+                        .graphicsLayer {
+                            val progressOffset = dampedDragAnimation.value * tabWidthPx
+                            translationX = if (isLtr) progressOffset + panelOffset else -progressOffset + panelOffset
+                        }
+                        .drawBackdrop(
+                            backdrop = combinedBackdrop,
+                            shape = { pillShape },
+                            effects = {
+                                val progress = dampedDragAnimation.pressProgress
+                                lens(
+                                    refractionHeight = 10.dp.toPx() * progress,
+                                    refractionAmount = 14.dp.toPx() * progress,
+                                    depthEffect = true,
+                                    chromaticAberration = 0.5f,
+                                )
+                            },
+                            highlight = { pillHighlight.value.copy(alpha = dampedDragAnimation.pressProgress) },
+                            layerBlock = {
+                                scaleX = dampedDragAnimation.scaleX
+                                scaleY = dampedDragAnimation.scaleY
+                                val velocity = dampedDragAnimation.velocity / 10f
+                                scaleX /= 1f - (velocity * 0.75f).fastCoerceIn(-0.2f, 0.2f)
+                                scaleY *= 1f - (velocity * 0.25f).fastCoerceIn(-0.2f, 0.2f)
+                            },
+                            onDrawSurface = {
+                                val progress = dampedDragAnimation.pressProgress
+                                drawRect(
+                                    color = if (!isDark) Color.Black.copy(alpha = 0.1f) else Color.White.copy(alpha = 0.1f),
+                                    alpha = 1f - progress,
+                                )
+                                drawRect(Color.Black.copy(alpha = 0.03f * progress))
+                            },
+                        )
+                        .innerShadow(shape = pillShape) {
+                            InnerShadow(
+                                radius = 8.dp * dampedDragAnimation.pressProgress,
+                                color = Color.Black.copy(alpha = 0.15f),
+                                alpha = dampedDragAnimation.pressProgress,
+                            )
+                        }
+                        .height(pillHeight)
+                        .width(tabWidthDp)
+                )
+            } else {
+                // Blur off / unsupported: same pill motion, flat accent tint (KernelSU fallback).
+                Box(
+                    Modifier
+                        .padding(horizontal = 4.dp)
+                        .graphicsLayer {
+                            val progressOffset = dampedDragAnimation.value * tabWidthPx
+                            translationX = if (isLtr) progressOffset + panelOffset else -progressOffset + panelOffset
+                        }
+                        .clip(pillShape)
+                        .background(accentColor.copy(alpha = 0.15f), pillShape)
+                        .height(pillHeight)
+                        .width(tabWidthDp),
+                    contentAlignment = Alignment.CenterStart,
                 ) {
-                    // Active icon colour: pill icon setting wins, otherwise the accent.
-                    val iconAccent = com.xvox.music.core.ui.chrome.parseHexColor(chrome.pillIconColor)
-                        ?: colors.primaryAccent
-                    XvoxNavigationItem(
-                        destination = destination,
-                        proximity = iconProximity(index),
-                        dragging = dragging,
-                        inactiveColor = colors.mutedText.copy(alpha = 0.76f),
-                        activeColor = iconAccent,
-                        modifier = Modifier.fillMaxSize()
-                    )
+                    CompositionLocalProvider(LocalLiquidTint provides accentColor) {
+                        Row(
+                            Modifier
+                                .clearAndSetSemantics {}
+                                .wrapContentWidth(align = Alignment.Start, unbounded = true)
+                                .requiredWidth(with(density) { (totalWidthPx - 8.dp.toPx()).toDp() })
+                                .height(pillHeight)
+                                .graphicsLayer {
+                                    val progressOffset = dampedDragAnimation.value * tabWidthPx
+                                    translationX = if (isLtr) -progressOffset else progressOffset
+                                },
+                            verticalAlignment = Alignment.CenterVertically,
+                            content = { tabs() }
+                        )
+                    }
                 }
             }
         }
