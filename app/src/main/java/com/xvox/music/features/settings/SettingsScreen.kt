@@ -400,47 +400,83 @@ private fun AppearanceSectionCard(
                 val blur = state.chromeStyle.bgBlur.coerceIn(0f, 1f)
                 val hasImage = state.backgroundImageUri != null
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    // One slider decides everything: 0 = default look (no blur, default borders),
-                    // above 0 = blur mode. It blurs the BACKGROUND (photo or generated art) only.
+                    // One pill decides everything: Off = default look (no blur, default borders),
+                    // anything else = blur mode. It blurs the BACKGROUND (photo or mesh) only.
+                    val blurKey = when {
+                        blur <= .001f -> "off"
+                        blur <= .45f -> "low"
+                        blur <= .80f -> "med"
+                        else -> "high"
+                    }
                     Text(
-                        text = if (blur <= .001f) "Blur · Off (default)" else "Blur · ${(blur * 100f).roundToInt()}%",
+                        text = "Blur",
                         color = colors.secondaryText,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.padding(start = 4.dp)
                     )
-                    XvoxSlider(
-                        value = blur,
-                        onValueChange = { v -> viewModel.setChromeStyle { it.copy(bgBlur = v.coerceIn(0f, 1f)) } },
-                        valueRange = 0f..1f,
-                        defaultValue = 0f,
-                        snapRadius = .02f,
-                        valueLabel = { "${(it * 100f).roundToInt()} percent background blur" },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    if (!hasImage) {
-                        val style = state.chromeStyle.bgStyle.coerceIn(0f, 1f)
-                        val styleName = when {
-                            style < .25f -> "Mesh"
-                            style < .75f -> "Rays"
-                            else -> "Patches"
+                    XvoxSegmentedPill(
+                        options = listOf("off" to "Off", "low" to "Low", "med" to "Medium", "high" to "High"),
+                        selectedKey = blurKey,
+                        onSelect = { key ->
+                            val v = when (key) { "low" -> .30f; "med" -> .60f; "high" -> 1f; else -> 0f }
+                            viewModel.setChromeStyle { it.copy(bgBlur = v) }
                         }
+                    )
+                    if (blur <= .001f) {
                         Text(
-                            text = "Background style · $styleName",
+                            text = "Header transparency · ${((1f - state.chromeStyle.headerBgAlpha) * 100f).roundToInt()}%",
                             color = colors.secondaryText,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold,
                             modifier = Modifier.padding(start = 4.dp)
                         )
                         XvoxSlider(
-                            value = style,
-                            onValueChange = { v -> viewModel.setChromeStyle { it.copy(bgStyle = v.coerceIn(0f, 1f)) } },
+                            value = 1f - state.chromeStyle.headerBgAlpha.coerceIn(0f, 1f),
+                            onValueChange = { v -> viewModel.setChromeStyle { it.copy(headerBgAlpha = (1f - v).coerceIn(0f, 1f)) } },
                             valueRange = 0f..1f,
-                            defaultValue = .30f,
+                            defaultValue = 0f,
                             snapRadius = .02f,
-                            valueLabel = { "Background style $styleName" },
+                            valueLabel = { "${(it * 100f).roundToInt()} percent header transparency" },
                             modifier = Modifier.fillMaxWidth()
                         )
+                    }
+                    if (!hasImage) {
+                        // Mesh background colours: blank slot = derived from the accent.
+                        val slots = state.chromeStyle.bgColors.split(',').map { it.trim() }
+                        Text(
+                            text = "Mesh colours (blank = accent)",
+                            color = colors.secondaryText,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(start = 4.dp)
+                        )
+                        for (i in 0 until 3) {
+                            com.xvox.music.features.settings.components.ColorPickerRow(
+                                label = if (i == 0) "Colour 1 (main)" else "Colour ${i + 1}",
+                                hex = slots.getOrElse(i) { "" },
+                                onColorChange = { hex ->
+                                    val next = MutableList(3) { slots.getOrElse(it) { "" } }
+                                    next[i] = hex
+                                    viewModel.setChromeStyle { it.copy(bgColors = next.joinToString(",").trimEnd(',')) }
+                                }
+                            )
+                        }
+                        Box(
+                            modifier = Modifier
+                                .height(34.dp)
+                                .xvoxLiveBlur(
+                                    shape = RoundedCornerShape(14.dp),
+                                    level = XvoxBlurLevel.Selection,
+                                    baseColor = colors.cardElevated,
+                                    borderAlpha = .62f
+                                )
+                                .xvoxPressScale { viewModel.setChromeStyle { it.copy(bgColors = "") } }
+                                .padding(horizontal = 14.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("Reset to accent", color = colors.primaryText, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
                     }
                     // Grid: small preview on the left, Choose/Replace (top) + Remove (bottom) right.
                     Row(
@@ -466,8 +502,9 @@ private fun AppearanceSectionCard(
                                     accent = colors.primaryAccent,
                                     base = colors.background,
                                     isLight = colors.isLight,
-                                    style = state.chromeStyle.bgStyle,
+                                    style = 0f,
                                     blurDp = 0.dp,
+                                    custom = state.chromeStyle.bgColors.split(',').mapNotNull { com.xvox.music.core.ui.chrome.parseHexColor(it.trim()) }.take(3),
                                     modifier = Modifier.matchParentSize()
                                 )
                             }

@@ -1,3 +1,4 @@
+// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/core/ui/blur/XvoxLiquidKit.kt
 // =============================================================================================
 // XVOX LIQUID KIT - KernelSU / Kyant0 AndroidLiquidGlass pieces (Apache 2.0), copied as-is:
 // lens() refraction AGSL, vibrancy(), innerShadow(), CombinedBackdrop, DampedDragAnimation,

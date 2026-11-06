@@ -1,3 +1,4 @@
+// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/core/ui/blur/XvoxLiveBlur.kt
 // =============================================================================================
 // XVOX LIVE BLUR (Miuix / KernelSU engine) - YEH POORI FILE KA EXACT CODE REPLACE KARO.
 // KOI EXTRA KAAM NAHI. Path: app/src/main/java/com/xvox/music/core/ui/blur/XvoxLiveBlur.kt
@@ -160,9 +161,13 @@ fun Modifier.xvoxLiveBlur(
     sky: Sky? = LocalXvoxSurfaceSky.current,
     borderColor: Color = XvoxTheme.colors.cardBorder,
     borderAlpha: Float = .62f,
-    borderWidth: Dp = .8.dp
+    borderWidth: Dp = .8.dp,
+    /** Reflective rim (blur mode only). Bottom bar / mini player pass true; Now Playing is automatic. */
+    glassEdge: Boolean = false
 ): Modifier {
     val chrome = LocalXvoxChromeStyle.current
+    val npSky = LocalXvoxNowPlayingSky.current
+    val npBottomSky = LocalXvoxNowPlayingBottomSky.current
     val context = LocalContext.current
     val tier = remember(context) { detectBlurTier(context) }
     val surfaceSky = LocalXvoxSurfaceSky.current
@@ -213,7 +218,10 @@ fun Modifier.xvoxLiveBlur(
     }
     // Opt-out callers (width 0 / alpha 0: header, scrim, Now Playing bottom box) stay borderless.
     if (borderWidth <= 0.dp || borderAlpha <= 0f) return surface
-    return if (blurMode) surface.xvoxGlassEdge(shape) else surface.xvoxPlainBorder(shape, borderColor, borderAlpha, borderWidth)
+    // Reflective rim ONLY for the bottom bar, mini player and Now Playing glass; every other
+    // element keeps its normal border in both modes.
+    val reflective = blurMode && (glassEdge || (sky != null && (sky === npSky || sky === npBottomSky)))
+    return if (reflective) surface.xvoxGlassEdge(shape) else surface.xvoxPlainBorder(shape, borderColor, borderAlpha, borderWidth)
 }
 
 /** Root sheets sample the live app layer, not only the wallpaper. */
@@ -296,12 +304,12 @@ private fun Modifier.xvoxPlainBorder(
 private fun Modifier.xvoxGlassEdge(shape: Shape): Modifier {
     val colors = XvoxTheme.colors
     val rim = if (colors.isLight) colors.primaryText else Color.White
-    val strong = rim.copy(alpha = if (colors.isLight) .30f else .55f)
-    val faint = rim.copy(alpha = if (colors.isLight) .08f else .10f)
+    val strong = rim.copy(alpha = if (colors.isLight) .42f else .78f)
+    val faint = rim.copy(alpha = if (colors.isLight) .10f else .14f)
     return drawWithContent {
         drawContent()
         val brush = Brush.linearGradient(
-            colorStops = arrayOf(0f to strong, .45f to faint, .75f to faint, 1f to strong.copy(alpha = strong.alpha * .6f)),
+            colorStops = arrayOf(0f to strong, .28f to faint, .62f to faint, .85f to strong.copy(alpha = strong.alpha * .55f), 1f to faint),
             start = Offset.Zero,
             end = Offset(size.width, size.height)
         )

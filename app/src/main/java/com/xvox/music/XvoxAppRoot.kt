@@ -269,8 +269,11 @@ fun XvoxAppRoot(
                                 accent = colors.primaryAccent,
                                 base = colors.background,
                                 isLight = colors.isLight,
-                                style = effectiveChrome.bgStyle,
+                                style = 0f, // Mesh only
                                 blurDp = bgBlurDp,
+                                custom = effectiveChrome.bgColors.split(',')
+                                    .mapNotNull { com.xvox.music.core.ui.chrome.parseHexColor(it.trim()) }
+                                    .take(3),
                                 modifier = Modifier.fillMaxSize()
                             )
                         }

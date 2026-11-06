@@ -130,6 +130,7 @@ fun XvoxMiniPlayerCard(
                         // The global Glass border controls replace the former Mini Player edge
                         // knobs; this only gates the default-to-cover mode handoff.
                         borderColor = colors.cardBorder,
+                        glassEdge = true,
                         borderAlpha = miniBorderVisibility,
                         borderWidth = .8.dp
                     )

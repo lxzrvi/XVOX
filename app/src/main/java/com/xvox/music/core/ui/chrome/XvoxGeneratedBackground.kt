@@ -36,13 +36,14 @@ fun XvoxGeneratedBackground(
     isLight: Boolean,
     style: Float,
     blurDp: Dp,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    custom: List<Color> = emptyList()
 ) {
     val s = style.coerceIn(0f, 1f)
     val strength = if (isLight) .26f else .34f
-    val a1 = remember(accent) { shiftHue(accent, 0f) }
-    val a2 = remember(accent) { shiftHue(accent, 38f) }
-    val a3 = remember(accent) { shiftHue(accent, -42f) }
+    val a1 = remember(accent, custom) { custom.getOrNull(0) ?: shiftHue(accent, 0f) }
+    val a2 = remember(accent, custom) { custom.getOrNull(1) ?: shiftHue(a1, 38f) }
+    val a3 = remember(accent, custom) { custom.getOrNull(2) ?: shiftHue(a1, -42f) }
     fun tri(center: Float) = (1f - (s - center).let { if (it < 0) -it else it } / .5f).coerceIn(0f, 1f)
     val wMesh = tri(0f)
     val wRays = tri(.5f)

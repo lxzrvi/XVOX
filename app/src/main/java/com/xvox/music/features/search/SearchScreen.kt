@@ -127,7 +127,7 @@ fun SearchScreen(
     var searchScrollDistancePx by remember { mutableIntStateOf(0) }
     // The field begins just beneath the Header and tracks its full upward travel. Once Header has
     // left, this status-safe clamp is the only fixed position—there is no spacer left behind.
-    val searchHeaderGap = 2.dp
+    val searchHeaderGap = 0.dp
     val statusBarHeight = with(density) { WindowInsets.statusBars.getTop(this).toDp() }
     val statusSafeSearchTop = statusBarHeight + searchHeaderGap
     val headerSearchTop = topInset + searchHeaderGap

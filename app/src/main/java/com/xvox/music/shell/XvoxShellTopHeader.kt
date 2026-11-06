@@ -1,6 +1,8 @@
 // EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/shell/XvoxShellTopHeader.kt
 package com.xvox.music.shell
 
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
@@ -285,13 +287,11 @@ fun XvoxShellTopHeader(
                             ) {
                                 libraryActions.forEach { action ->
                                     val isCurrentLibrary = libraryMode == action.mode
-                                    // Selection is intentionally a small physical lift rather than
-                                    // a hard swap: the active library icon rises and its tint
-                                    // smoothly resolves to the chosen accent in the same motion.
-                                    val iconLift by animateDpAsState(
-                                        targetValue = if (isCurrentLibrary) (-3).dp else 0.dp,
+                                    // Active pill: slight zoom + accent tint (no vertical slide).
+                                    val iconZoom by animateFloatAsState(
+                                        targetValue = if (isCurrentLibrary) 1.16f else 1f,
                                         animationSpec = tween(190),
-                                        label = "headerLibraryLift_${action.mode}"
+                                        label = "headerLibraryZoom_${action.mode}"
                                     )
                                     val iconTint by animateColorAsState(
                                         targetValue = if (isCurrentLibrary) colors.primaryAccent else colors.primaryText.copy(alpha = .70f),
@@ -314,7 +314,7 @@ fun XvoxShellTopHeader(
                                             contentDescription = action.label,
                                             tint = iconTint,
                                             modifier = Modifier
-                                                .offset(y = iconLift)
+                                                .graphicsLayer { scaleX = iconZoom; scaleY = iconZoom }
                                                 .size(if (action.mode == XvoxHomeLibraryMode.LIKED) 18.dp else 19.dp)
                                         )
                                     }

@@ -217,8 +217,10 @@ fun XvoxNowPlaying(
     val effectiveCoverBlur = settingsState.nowPlayingCoverBlur
     val nowPlayingGlassChrome = remember(chrome, settingsState.nowPlayingCoverBlur) {
         chrome.copy(
-            glassBlurEnabled = true,
-            glassBlurIntensity = (settingsState.nowPlayingCoverBlur / 30f).coerceIn(.4f, 1f)
+            // Blur mode (Settings > App background > Blur) off => Now Playing glass is plain
+            // theme material with default borders; on => live blur + reflective rim.
+            glassBlurEnabled = chrome.glassBlurEnabled,
+            glassBlurIntensity = if (chrome.glassBlurEnabled) (settingsState.nowPlayingCoverBlur / 30f).coerceIn(.4f, 1f) else 0f
         )
     }
     val paletteState = rememberXvoxNowPlayingPalette(song, queue, currentIndex)
