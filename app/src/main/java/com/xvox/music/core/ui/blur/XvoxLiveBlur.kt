@@ -1,3 +1,8 @@
+// =============================================================================================
+// XVOX LIVE BLUR (Miuix / KernelSU engine) - YEH POORI FILE KA EXACT CODE REPLACE KARO.
+// KOI EXTRA KAAM NAHI. Path: app/src/main/java/com/xvox/music/core/ui/blur/XvoxLiveBlur.kt
+// Is folder me nayi file XvoxLiquidKit.kt bhi chahiye (alag se di hai).
+// =============================================================================================
 package com.xvox.music.core.ui.blur
 
 import android.app.ActivityManager
@@ -11,6 +16,8 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Path
@@ -23,7 +30,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle
-import com.xvox.music.core.ui.chrome.parseHexColor
 import top.yukonga.miuix.kmp.blur.Backdrop
 import top.yukonga.miuix.kmp.blur.BlendColorEntry
 import top.yukonga.miuix.kmp.blur.BlurColors
@@ -144,7 +150,7 @@ private fun detectBlurTier(context: Context): BlurTier {
 
 /**
  * Clean blur surface: clip + live GPU backdrop blur (Miuix textureBlur) + flat tint.
- * The border follows Settings > Appearance > Glass border (see xvoxGlassBorder).
+ * Default mode: flat theme material + original border. Blur mode: live blur + shared liquid-edge rim.
  */
 @Composable
 fun Modifier.xvoxLiveBlur(
@@ -159,15 +165,31 @@ fun Modifier.xvoxLiveBlur(
     val chrome = LocalXvoxChromeStyle.current
     val context = LocalContext.current
     val tier = remember(context) { detectBlurTier(context) }
-    // The transparency slider changes the real material alpha and, while blur is on, widens the
-    // blur so a more transparent card stays visibly frosted instead of merely faint.
-    val globalTransparency = LocalXvoxGlassTransparency.current.coerceIn(0f, .60f)
-    val surfaceTransparency = (1f - baseColor.alpha).coerceIn(0f, 1f)
-    val transparencyDrive = maxOf(globalTransparency, surfaceTransparency)
-    val configuredBlur = chrome.glassBlurIntensity.coerceIn(0f, 1f)
-    val radiusScale = configuredBlur * (.72f + transparencyDrive * .78f)
-    val blurDp = remember(level, radiusScale, tier) {
-        (level.radius.value * radiusScale * BlurPerRadius).coerceIn(1f, tier.maxBlurDp)
+    val surfaceSky = LocalXvoxSurfaceSky.current
+    // Blur mode == background-blur slider above zero. Default (slider 0) = plain theme material
+    // with the original borders, zero blur cost.
+    val blurMode = chrome.glassBlurEnabled && chrome.glassBlurIntensity > .001f
+    val canBlur = blurMode && sky != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+
+    // --- Sheets: NEVER blurred. Normal theme material in every mode. ---------------------------
+    if (level == XvoxBlurLevel.Sheet) {
+        return clip(shape).background(baseColor).xvoxPlainBorder(shape, borderColor, borderAlpha, borderWidth)
+    }
+    // --- Free area above a sheet: default = nothing (caller draws the faded theme scrim);
+    //     blur mode = a LIGHT live blur of the page, small radius so it stays cheap and safe. ---
+    if (level == XvoxBlurLevel.SheetBackdrop) {
+        if (!canBlur) return this
+        val light = remember(baseColor) {
+            BlurColors(
+                blendColors = listOf(BlendColorEntry(color = baseColor.copy(alpha = (baseColor.alpha * .12f).coerceIn(0f, 1f)))),
+                saturation = 1.05f
+            )
+        }
+        return textureBlur(backdrop = sky!!.backdrop, shape = shape, blurRadius = 9f.coerceAtMost(tier.maxBlurDp), colors = light)
+    }
+
+    val blurDp = remember(level, tier) {
+        (level.radius.value * BlurPerRadius * .85f).coerceIn(1f, tier.maxBlurDp)
     }
     val tint = remember(baseColor, level) {
         baseColor.copy(alpha = (baseColor.alpha * level.tintAlpha).coerceIn(0f, 1f))
@@ -176,29 +198,22 @@ fun Modifier.xvoxLiveBlur(
         baseColor.copy(alpha = (baseColor.alpha * level.fallbackAlpha).coerceIn(0f, 1f))
     }
     val colors = remember(tint) {
-        BlurColors(
-            blendColors = listOf(BlendColorEntry(color = tint)),
-            saturation = FrostSaturation
-        )
+        BlurColors(blendColors = listOf(BlendColorEntry(color = tint)), saturation = FrostSaturation)
     }
-    val flatCard = !tier.liveCards &&
+    // Cards/selection that sit directly on the static wallpaper: a flat tint over an already
+    // blurred wallpaper looks identical to live blur, so skip the per-card GPU pass (smooth scroll).
+    val overStaticWallpaper = sky === surfaceSky &&
         (level == XvoxBlurLevel.Card || level == XvoxBlurLevel.Selection)
     val clipped = clip(shape)
-    val blurOn = chrome.glassBlurEnabled && configuredBlur > .001f
     val surface = when {
-        // Master off and zero intensity both keep the exact transparency selected by the user.
-        !blurOn -> clipped.background(baseColor)
-        // No valid source / weak device card: the readable material fallback.
-        sky == null || flatCard || Build.VERSION.SDK_INT < Build.VERSION_CODES.S ->
+        !blurMode -> clipped.background(baseColor)
+        !canBlur || overStaticWallpaper || (!tier.liveCards && (level == XvoxBlurLevel.Card || level == XvoxBlurLevel.Selection)) ->
             clipped.background(fallback)
-        else -> clipped.textureBlur(
-            backdrop = sky.backdrop,
-            shape = shape,
-            blurRadius = blurDp,
-            colors = colors
-        )
+        else -> clipped.textureBlur(backdrop = sky!!.backdrop, shape = shape, blurRadius = blurDp, colors = colors)
     }
-    return surface.xvoxGlassBorder(shape, borderColor, borderAlpha, borderWidth)
+    // Opt-out callers (width 0 / alpha 0: header, scrim, Now Playing bottom box) stay borderless.
+    if (borderWidth <= 0.dp || borderAlpha <= 0f) return surface
+    return if (blurMode) surface.xvoxGlassEdge(shape) else surface.xvoxPlainBorder(shape, borderColor, borderAlpha, borderWidth)
 }
 
 /** Root sheets sample the live app layer, not only the wallpaper. */
@@ -257,54 +272,40 @@ fun Modifier.xvoxBarBlur(
     borderWidth = 0.dp
 )
 
-/**
- * Global glass border (Settings > Appearance > Glass border):
- *  - off        : no border on any blurred surface
- *  - width      : 0 - 4 dp
- *  - colour     : custom hex, or the surface's own theme colour when empty
- *  - transparency: via glassBorderAlpha
- *  - softness   : a feathered edge made from a few fading strokes (works on every API level)
- * A caller that passes width 0 or alpha 0 (scrim, header) stays borderless.
- */
+/** Default-mode border: the exact original look (theme border colour, caller's alpha/width). */
 @Composable
-private fun Modifier.xvoxGlassBorder(
+private fun Modifier.xvoxPlainBorder(
     shape: Shape,
-    callColor: Color,
-    callAlpha: Float,
-    callWidth: Dp
+    color: Color,
+    alpha: Float,
+    width: Dp
 ): Modifier {
-    if (callWidth <= 0.dp || callAlpha <= 0f) return this
-    val chrome = LocalXvoxChromeStyle.current
-    if (!chrome.glassBorderEnabled) return this
-    val widthDp = chrome.glassBorderWidth.coerceIn(0f, 4f)
-    if (widthDp <= 0f) return this
-    val soft = chrome.glassBorderBlur.coerceIn(0f, 12f)
-    val base = parseHexColor(chrome.glassBorderColor) ?: callColor
-    val color = base.copy(alpha = (base.alpha * chrome.glassBorderAlpha.coerceIn(0f, 1f)).coerceIn(0f, 1f))
-
+    if (width <= 0.dp || alpha <= 0f) return this
+    val c = color.copy(alpha = (color.alpha * alpha).coerceIn(0f, 1f))
     return drawWithContent {
         drawContent()
-        val path = outlinePath(shape.createOutline(size, layoutDirection, this))
-        val w = widthDp.dp.toPx()
-        val feather = soft.dp.toPx()
-        // The outer half of a stroke is clipped by the surface, so strokes are drawn 2x wide.
-        if (feather < .5f) {
-            drawPath(path = path, color = color, style = Stroke(width = w * 2f))
-        } else {
-            val steps = 5
-            for (k in steps downTo 0) {
-                val t = k / steps.toFloat()
-                val fade = (1f - t) * (1f - t)
-                val a = if (k == 0) color.alpha else color.alpha * fade * .5f
-                if (a > .003f) {
-                    drawPath(
-                        path = path,
-                        color = color.copy(alpha = a),
-                        style = Stroke(width = (w + feather * t) * 2f)
-                    )
-                }
-            }
-        }
+        drawPath(outlinePath(shape.createOutline(size, layoutDirection, this)), c, style = Stroke(width = width.toPx() * 2f))
+    }
+}
+
+/**
+ * Blur-mode border, shared by EVERY blurred element and styled like the liquid navbar edge:
+ * a thin specular rim, bright on the light-facing corner and fading across the surface.
+ */
+@Composable
+private fun Modifier.xvoxGlassEdge(shape: Shape): Modifier {
+    val colors = XvoxTheme.colors
+    val rim = if (colors.isLight) colors.primaryText else Color.White
+    val strong = rim.copy(alpha = if (colors.isLight) .30f else .55f)
+    val faint = rim.copy(alpha = if (colors.isLight) .08f else .10f)
+    return drawWithContent {
+        drawContent()
+        val brush = Brush.linearGradient(
+            colorStops = arrayOf(0f to strong, .45f to faint, .75f to faint, 1f to strong.copy(alpha = strong.alpha * .6f)),
+            start = Offset.Zero,
+            end = Offset(size.width, size.height)
+        )
+        drawPath(outlinePath(shape.createOutline(size, layoutDirection, this)), brush, style = Stroke(width = 1.dp.toPx() * 2f))
     }
 }
 

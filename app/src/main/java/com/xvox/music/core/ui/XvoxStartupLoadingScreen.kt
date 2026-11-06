@@ -1,3 +1,4 @@
+// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/core/ui/XvoxStartupLoadingScreen.kt
 package com.xvox.music.core.ui
 
 import android.provider.Settings
@@ -51,14 +52,14 @@ private val StartupRingStart = -StartupPi / 5f
 private const val StartupTerminalRingSegment = 0
 
 // Ring, unroll, then fill. Starting on the completed ring avoids any pre-loader dot state.
-private val StartupPhaseDurations = floatArrayOf(2200f, 1200f, 2400f)
+private val StartupPhaseDurations = floatArrayOf(1300f, 750f, 1450f)
 private val StartupPhaseBounds = FloatArray(StartupPhaseDurations.size + 1).also { bounds ->
     for (index in StartupPhaseDurations.indices) {
         bounds[index + 1] = bounds[index] + StartupPhaseDurations[index]
     }
 }
 private val StartupTotalDuration = StartupPhaseBounds.last()
-private const val StartupReducedMotionDuration = 2600f
+private const val StartupReducedMotionDuration = 1800f
 // Home/media work begins behind this complete ring-to-bar sequence. The visible clock is never
 // cut short by a fast Home bootstrap; if Home is exceptionally slow, the completed bar simply
 // holds its finished state until the already-running bootstrap is ready to reveal.

@@ -1,3 +1,4 @@
+// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/features/home/allsongs/XvoxAllSongsSection.kt
 package com.xvox.music.features.home.allsongs
 
 import androidx.compose.foundation.layout.*
@@ -40,11 +41,7 @@ fun LazyListScope.allSongsItems(
     onSongClick: (Song) -> Unit,
     onSongLongClick: (Song) -> Unit
 ) {
-    item(key = "all_header", contentType = "all_header") {
-        // Visible cards keep their exact 256px/512px requests. Avoid a speculative decoder batch
-        // here so opening All Songs leaves the first real drag entirely free of image contention.
-        AllSongsHeader(songs.size, selectedSongIds.size)
-    }
+    // The in-page "All Songs · N songs" header is gone: the shell's upper pill + status pill own it.
 
     if (songs.isEmpty()) {
         item(key = "all_empty") {

@@ -1,3 +1,4 @@
+// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/core/ui/overlay/XvoxP.kt
 package com.xvox.music.core.ui.overlay
 
 import androidx.compose.animation.AnimatedVisibility
@@ -27,6 +28,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.ui.blur.LocalXvoxOverlaySky
+import com.xvox.music.core.ui.blur.XvoxBlurLevel
+import com.xvox.music.core.ui.blur.xvoxLiveBlur
 import kotlinx.coroutines.delay
 
 private val XvoxPEasing = CubicBezierEasing(0.16f, 1f, 0.3f, 1f)
@@ -72,8 +76,12 @@ fun XvoxP(
     ) {
         Box(
             modifier = Modifier
-                .clip(RoundedCornerShape(24.dp))
-                .background(colors.cardElevated.copy(alpha = colors.cardElevated.alpha * .88f))
+                .xvoxLiveBlur(
+                    shape = RoundedCornerShape(24.dp),
+                    level = XvoxBlurLevel.Chrome,
+                    baseColor = colors.cardElevated.copy(alpha = colors.cardElevated.alpha * .88f),
+                    sky = LocalXvoxOverlaySky.current
+                )
                 .padding(horizontal = 20.dp, vertical = 10.dp)
         ) {
             Text(

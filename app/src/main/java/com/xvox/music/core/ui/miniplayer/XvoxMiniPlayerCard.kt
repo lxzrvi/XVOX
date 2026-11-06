@@ -1,3 +1,4 @@
+// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/core/ui/miniplayer/XvoxMiniPlayerCard.kt
 package com.xvox.music.core.ui.miniplayer
 
 import androidx.compose.animation.AnimatedContent
@@ -216,7 +217,7 @@ fun XvoxMiniPlayerCard(
                                 scaleY = 1.16f
                                 alpha = (.70f + .24f * miniAlpha).coerceIn(0f, 1f)
                             }
-                            .then(if (chrome.glassBlurEnabled) Modifier.blur(miniBlur) else Modifier)
+                            .blur(miniBlur)
                     )
                     Box(
                         modifier = Modifier

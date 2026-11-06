@@ -1,3 +1,4 @@
+// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/XvoxAppRoot.kt
 package com.xvox.music
 
 import android.net.Uri
@@ -148,7 +149,10 @@ fun XvoxAppRoot(
             com.xvox.music.core.ui.chrome.XvoxChromePreview.clearWhenPersisted(chrome)
         }
     }
-    val effectiveChrome = chromePreview ?: chrome
+    val effectiveChrome = (chromePreview ?: chrome).let {
+        // One slider rules blur mode: 0 = default (flat theme + default borders), >0 = live blur.
+        it.copy(glassBlurEnabled = it.bgBlur > .001f, glassBlurIntensity = it.bgBlur)
+    }
     val backgroundBrightness by prefs.backgroundBrightness.collectAsState(initial = 0.8f)
     val hapticFeedbackEnabled by prefs.hapticFeedbackEnabled.collectAsState(initial = true)
     val hapticIntensity by prefs.hapticIntensity.collectAsState(initial = "medium")
@@ -190,7 +194,8 @@ fun XvoxAppRoot(
     }
     val effectiveAccent = accentPreview ?: accentStr
     val effectiveBackground = backgroundPreview ?: backgroundStr
-    val effectiveCardTransparency = cardTransparencyPreview ?: cardTransparency
+    // The glass/background transparency sliders were removed; materials always use their theme alpha.
+    val effectiveCardTransparency = 0f
     val mode = when (themeStr) {
         "Light" -> XvoxThemeMode.LIGHT
         "Dark" -> XvoxThemeMode.DARK
@@ -220,7 +225,7 @@ fun XvoxAppRoot(
         // samples the wallpaper/photo behind the app, while a sheet can blur the real live page it
         // covers. Neither effect is nested inside the Sky it samples.
         val surfaceSky = rememberSky()
-        val overlaySky = rememberSky(base = surfaceSky)
+        val overlaySky = rememberSky()
         CompositionLocalProvider(
             LocalDensity provides customDensity,
             LocalXvoxOverlayController provides overlays,
@@ -257,13 +262,36 @@ fun XvoxAppRoot(
                             .fillMaxSize()
                             .background(colors.background)
                     ) {
+                        // Background blur slider: blurs ONLY the wallpaper (photo or generated art).
+                        val bgBlurDp = (effectiveChrome.bgBlur * 36f).dp
+                        if (backgroundImage.isBlank()) {
+                            com.xvox.music.core.ui.chrome.XvoxGeneratedBackground(
+                                accent = colors.primaryAccent,
+                                base = colors.background,
+                                isLight = colors.isLight,
+                                style = effectiveChrome.bgStyle,
+                                blurDp = bgBlurDp,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
                         if (backgroundImage.isNotBlank()) {
+                            // SHARP wallpaper: glass cards/buttons blur it themselves, so the blur is
+                            // visible through them (a pre-blurred photo made glass look flat).
                             AsyncImage(
                                 model = Uri.parse(backgroundImage),
                                 contentDescription = null,
                                 contentScale = ContentScale.Crop,
+                                // Re-capture the blur source once the photo has loaded.
                                 onSuccess = { surfaceSky.invalidate() },
-                                modifier = Modifier.fillMaxSize()
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    // Slight over-scale hides the transparent edge a blur leaves.
+                                    .then(
+                                        if (bgBlurDp > 0.dp) Modifier
+                                            .graphicsLayer { scaleX = 1.12f; scaleY = 1.12f }
+                                            .blur(bgBlurDp, androidx.compose.ui.draw.BlurredEdgeTreatment.Unbounded)
+                                        else Modifier
+                                    )
                             )
                             Box(
                                 Modifier

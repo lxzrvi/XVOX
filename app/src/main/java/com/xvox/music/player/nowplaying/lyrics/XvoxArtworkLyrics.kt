@@ -1,5 +1,7 @@
+// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/player/nowplaying/lyrics/XvoxArtworkLyrics.kt
 package com.xvox.music.player.nowplaying.lyrics
 
+import com.xvox.music.core.ui.blur.xvoxLiveBlur
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -507,9 +509,11 @@ fun XvoxArtworkLyrics(
 
                     Row(
                         modifier = Modifier
-                            .background(
-                                colors.card.copy(alpha = 0.32f),
-                                RoundedCornerShape(18.dp)
+                            .xvoxLiveBlur(
+                                shape = RoundedCornerShape(18.dp),
+                                level = com.xvox.music.core.ui.blur.XvoxBlurLevel.Chrome,
+                                baseColor = colors.card.copy(alpha = 0.32f),
+                                sky = com.xvox.music.core.ui.blur.LocalXvoxNowPlayingSky.current
                             )
                             .padding(horizontal = 4.dp),
                         verticalAlignment = Alignment.CenterVertically

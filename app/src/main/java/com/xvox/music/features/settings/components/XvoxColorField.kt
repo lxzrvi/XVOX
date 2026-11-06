@@ -1,5 +1,7 @@
+// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/features/settings/components/XvoxColorField.kt
 package com.xvox.music.features.settings.components
 
+import com.xvox.music.core.ui.blur.xvoxLiveBlur
 import android.graphics.Bitmap
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -497,9 +499,14 @@ fun XvoxPill(text: String, modifier: Modifier = Modifier) {
     val colors = XvoxTheme.colors
     Box(
         modifier = modifier
-            .clip(CircleShape)
-            .background(colors.cardElevated)
-            .border(.7.dp, colors.primaryAccent.copy(alpha = .60f), CircleShape)
+            .xvoxLiveBlur(
+                shape = CircleShape,
+                level = com.xvox.music.core.ui.blur.XvoxBlurLevel.Selection,
+                baseColor = colors.cardElevated,
+                borderColor = colors.primaryAccent,
+                borderAlpha = .60f,
+                borderWidth = .7.dp
+            )
             .padding(horizontal = 9.dp, vertical = 4.dp),
         contentAlignment = Alignment.Center
     ) {

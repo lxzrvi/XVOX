@@ -1,3 +1,4 @@
+// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/features/home/HomeLibraryItems.kt
 package com.xvox.music.features.home
 
 import androidx.compose.foundation.background
@@ -130,7 +131,11 @@ fun LazyListScope.librarySongItems(
     avatarUri: Any? = null,
     columns: Int = 1
 ) {
-    item(key = "${keyPrefix}_header") { HomeCollectionHeader(title, songs.size, onAdd, avatarUri = avatarUri) }
+    // Top-level list pages (Liked/Recent) have no in-page header any more; only artist/playlist
+    // detail pages keep theirs because it is their only title.
+    if (keyPrefix.endsWith("_detail") || onAdd != null || avatarUri != null) {
+        item(key = "${keyPrefix}_header") { HomeCollectionHeader(title, songs.size, onAdd, avatarUri = avatarUri) }
+    }
     if (songs.isEmpty()) item(key = "${keyPrefix}_empty") {
         Text("No songs here yet", color = XvoxTheme.colors.mutedText, fontSize = 12.sp,
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 16.dp))
@@ -189,7 +194,17 @@ fun LazyListScope.playlistCollectionItems(
     // A liked collection remains in its original relative order, but all liked collections are
     // pinned ahead of normal playlists in every supported presentation mode.
     val ordered = playlists.sortedByDescending { it.id in likedPlaylistIds }
-    item(key = "playlists_header") { HomeCollectionHeader("Playlists", playlists.size, onCreate) }
+    // Header text removed; keep only a slim "create playlist" action so creation stays reachable.
+    item(key = "playlists_header") {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.End) {
+            Icon(
+                painterResource(R.drawable.ic_xvox_add),
+                contentDescription = "Create playlist",
+                tint = XvoxTheme.colors.primaryAccent,
+                modifier = Modifier.size(32.dp).xvoxPressScale(onClick = onCreate).padding(4.dp)
+            )
+        }
+    }
     if (playlists.isEmpty()) item(key = "playlists_empty") {
         Text("Create your first playlist", color = XvoxTheme.colors.mutedText, fontSize = 12.sp,
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 16.dp))

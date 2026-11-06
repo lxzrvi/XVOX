@@ -1,3 +1,4 @@
+// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/features/settings/SettingsScreen.kt
 package com.xvox.music.features.settings
 
 import android.app.Activity
@@ -33,6 +34,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.layout.ContentScale
@@ -394,180 +396,146 @@ private fun AppearanceSectionCard(
 
             SettingsField("App background") {
                 val previewShape = RoundedCornerShape(16.dp)
+                val actionShape = RoundedCornerShape(14.dp)
+                val blur = state.chromeStyle.bgBlur.coerceIn(0f, 1f)
+                val hasImage = state.backgroundImageUri != null
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(if (compact) 64.dp else 82.dp)
-                            .xvoxLiveBlur(
-                                shape = previewShape,
-                                level = XvoxBlurLevel.Card,
-                                baseColor = colors.cardElevated,
-                                borderAlpha = .72f
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        state.backgroundImageUri?.let { image ->
-                            AsyncImage(
-                                model = image,
-                                contentDescription = "Selected app background",
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier.matchParentSize().clip(previewShape)
-                            )
-                            // Preserve readable status text over a bright photo without replacing
-                            // the selected image itself with a hard opaque card.
-                            Box(
-                                Modifier
-                                    .matchParentSize()
-                                    .background(Color.Black.copy(alpha = .22f))
-                            )
-                        }
-                        Text(
-                            text = if (state.backgroundImageUri == null) "Use a photo behind live glass" else "Custom app background active",
-                            color = if (state.backgroundImageUri == null) colors.secondaryText else Color.White,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        val actionShape = RoundedCornerShape(14.dp)
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(38.dp)
-                                .xvoxLiveBlur(
-                                    shape = actionShape,
-                                    level = XvoxBlurLevel.Selection,
-                                    baseColor = colors.cardElevated,
-                                    borderAlpha = .62f
-                                )
-                                .xvoxPressScale { backgroundPicker.launch("image/*") },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = if (state.backgroundImageUri == null) "Choose photo" else "Replace photo",
-                                color = colors.primaryText,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                        if (state.backgroundImageUri != null) {
-                            Box(
-                                modifier = Modifier
-                                    .height(38.dp)
-                                    .width(78.dp)
-                                    .xvoxLiveBlur(
-                                        shape = actionShape,
-                                        level = XvoxBlurLevel.Selection,
-                                        baseColor = colors.cardElevated,
-                                        borderAlpha = .62f
-                                    )
-                                    .xvoxPressScale { viewModel.setBackgroundImage(null) },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text("Remove", color = colors.secondaryText, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                            }
-                        }
-                    }
-                    val dimness = (1f - state.backgroundBrightness).coerceIn(0f, .80f)
+                    // One slider decides everything: 0 = default look (no blur, default borders),
+                    // above 0 = blur mode. It blurs the BACKGROUND (photo or generated art) only.
                     Text(
-                        text = "Dimness · ${(dimness * 100f).toInt()}%",
+                        text = if (blur <= .001f) "Blur · Off (default)" else "Blur · ${(blur * 100f).roundToInt()}%",
                         color = colors.secondaryText,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.padding(start = 4.dp)
                     )
                     XvoxSlider(
-                        value = dimness,
-                        // Storage retains its established brightness contract; the Appearance UI
-                        // speaks in the user-facing inverse, Dimness, requested for a wallpaper.
-                        onValueChange = { viewModel.setBackgroundBrightness(1f - it) },
-                        valueRange = 0f..0.80f,
-                        defaultValue = .20f,
-                        snapRadius = .015f,
-                        valueLabel = { "${(it * 100f).toInt()} percent app background dimness" },
+                        value = blur,
+                        onValueChange = { v -> viewModel.setChromeStyle { it.copy(bgBlur = v.coerceIn(0f, 1f)) } },
+                        valueRange = 0f..1f,
+                        defaultValue = 0f,
+                        snapRadius = .02f,
+                        valueLabel = { "${(it * 100f).roundToInt()} percent background blur" },
                         modifier = Modifier.fillMaxWidth()
                     )
-                }
-            }
-
-            SettingsField("Live blur") {
-                val blurEnabled = state.chromeStyle.glassBlurEnabled
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    SettingsToggle(
-                        title = "Enable live blur",
-                        subtitle = if (blurEnabled) {
-                            "Background, cards, and chrome blur their real source layers"
-                        } else {
-                            "Blur is off; transparency still applies to every glass material"
-                        },
-                        checked = blurEnabled,
-                        onChange = { enabled ->
-                            viewModel.setChromeStyle { it.copy(glassBlurEnabled = enabled) }
+                    if (!hasImage) {
+                        val style = state.chromeStyle.bgStyle.coerceIn(0f, 1f)
+                        val styleName = when {
+                            style < .25f -> "Mesh"
+                            style < .75f -> "Rays"
+                            else -> "Patches"
                         }
-                    )
-                    if (blurEnabled) {
-                        val intensity = state.chromeStyle.glassBlurIntensity.coerceIn(0f, 1f)
                         Text(
-                            text = "Background blur intensity · ${(intensity * 100f).roundToInt()}%",
+                            text = "Background style · $styleName",
                             color = colors.secondaryText,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold,
                             modifier = Modifier.padding(start = 4.dp)
                         )
                         XvoxSlider(
-                            value = intensity,
-                            onValueChange = { value ->
-                                viewModel.setChromeStyle {
-                                    it.copy(glassBlurIntensity = value.coerceIn(0f, 1f))
-                                }
-                            },
+                            value = style,
+                            onValueChange = { v -> viewModel.setChromeStyle { it.copy(bgStyle = v.coerceIn(0f, 1f)) } },
                             valueRange = 0f..1f,
-                            defaultValue = .60f,
-                            valueLabel = { value -> "${(value.coerceIn(0f, 1f) * 100f).roundToInt()} percent background blur intensity" },
+                            defaultValue = .30f,
+                            snapRadius = .02f,
+                            valueLabel = { "Background style $styleName" },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                    // Grid: small preview on the left, Choose/Replace (top) + Remove (bottom) right.
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(width = 96.dp, height = 84.dp)
+                                .clip(previewShape)
+                                .background(colors.background)
+                        ) {
+                            if (hasImage) {
+                                AsyncImage(
+                                    model = state.backgroundImageUri,
+                                    contentDescription = "Selected app background",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.matchParentSize()
+                                )
+                            } else {
+                                com.xvox.music.core.ui.chrome.XvoxGeneratedBackground(
+                                    accent = colors.primaryAccent,
+                                    base = colors.background,
+                                    isLight = colors.isLight,
+                                    style = state.chromeStyle.bgStyle,
+                                    blurDp = 0.dp,
+                                    modifier = Modifier.matchParentSize()
+                                )
+                            }
+                        }
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(38.dp)
+                                    .xvoxLiveBlur(
+                                        shape = actionShape,
+                                        level = XvoxBlurLevel.Selection,
+                                        baseColor = colors.cardElevated,
+                                        borderAlpha = .62f
+                                    )
+                                    .xvoxPressScale { backgroundPicker.launch("image/*") },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = if (hasImage) "Replace" else "Choose",
+                                    color = colors.primaryText,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(38.dp)
+                                    .xvoxLiveBlur(
+                                        shape = actionShape,
+                                        level = XvoxBlurLevel.Selection,
+                                        baseColor = colors.cardElevated,
+                                        borderAlpha = .62f
+                                    )
+                                    .then(
+                                        if (hasImage) Modifier.xvoxPressScale { viewModel.setBackgroundImage(null) }
+                                        else Modifier.alpha(.4f)
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("Remove", color = colors.secondaryText, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                    if (hasImage) {
+                        val dimness = (1f - state.backgroundBrightness).coerceIn(0f, .80f)
+                        Text(
+                            text = "Dimness · ${(dimness * 100f).toInt()}%",
+                            color = colors.secondaryText,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(start = 4.dp)
+                        )
+                        XvoxSlider(
+                            value = dimness,
+                            onValueChange = { viewModel.setBackgroundBrightness(1f - it) },
+                            valueRange = 0f..0.80f,
+                            defaultValue = .20f,
+                            snapRadius = .015f,
+                            valueLabel = { "${(it * 100f).toInt()} percent app background dimness" },
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
                 }
-            }
-
-            val cardTransparency = state.cardTransparency.coerceIn(0f, .60f)
-            SettingsField(if (state.chromeStyle.glassBlurEnabled) "Glass transparency & blur" else "Glass transparency") {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(
-                        text = if (state.chromeStyle.glassBlurEnabled) {
-                            "${(cardTransparency * 100f).roundToInt()}% · also adjusts live blur reach"
-                        } else {
-                            "${(cardTransparency * 100f).roundToInt()}%"
-                        },
-                        color = colors.secondaryText,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(start = 4.dp)
-                    )
-                    XvoxSlider(
-                        value = cardTransparency,
-                        onValueChange = viewModel::setCardTransparency,
-                        valueRange = 0f..0.60f,
-                        defaultValue = 0f,
-                        valueLabel = { value ->
-                            val percentage = (value.coerceIn(0f, .60f) * 100f).roundToInt()
-                            if (state.chromeStyle.glassBlurEnabled) {
-                                "$percentage percent glass transparency and blur reach"
-                            } else {
-                                "$percentage percent glass transparency"
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            }
-
-            SettingsField("Glass border") {
-                GlassBorderSettingsControls(
-                    chrome = state.chromeStyle,
-                    onChromeChange = { updated -> viewModel.setChromeStyle { updated } }
-                )
             }
 
             SettingsField("Fonts") {

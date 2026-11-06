@@ -1,3 +1,4 @@
+// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/shell/XvoxShellTopHeader.kt
 package com.xvox.music.shell
 
 import androidx.compose.animation.AnimatedVisibility
@@ -100,6 +101,7 @@ fun XvoxShellTopHeader(
     onPlaylistClick: () -> Unit,
     onArtistClick: () -> Unit = {},
     onRecentClick: () -> Unit = {},
+    onAllSongsClick: () -> Unit = {},
     /** Search keeps the visual/profile Header but deliberately has no Home action cluster. */
     showHomeControls: Boolean = destination == XvoxDestination.HOME,
     useSystemInsets: Boolean = true
@@ -118,6 +120,7 @@ fun XvoxShellTopHeader(
     }
     val headerHeight = statusBarHeight + XvoxShellTopHeaderBodyHeight
     val libraryActions = listOf(
+        HeaderLibraryAction(XvoxHomeLibraryMode.ALL_SONGS, R.drawable.ic_xvox_music_note, "All Songs", onAllSongsClick),
         HeaderLibraryAction(XvoxHomeLibraryMode.RECENT, R.drawable.ic_xvox_recent, "Recently Played", onRecentClick),
         HeaderLibraryAction(XvoxHomeLibraryMode.LIKED, R.drawable.ic_xvox_heart, "Liked Songs", onLikedClick),
         HeaderLibraryAction(XvoxHomeLibraryMode.PLAYLISTS, R.drawable.ic_xvox_playlist, "Playlists", onPlaylistClick),

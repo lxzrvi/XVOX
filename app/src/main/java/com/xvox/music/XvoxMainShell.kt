@@ -1,3 +1,4 @@
+// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/XvoxMainShell.kt
 @file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 
 package com.xvox.music
@@ -655,11 +656,41 @@ fun XvoxMainShell(
     fun openRecentFromHeader() =
         openHomeLibrary(com.xvox.music.features.playlist.XvoxHomeLibraryMode.RECENT)
 
+    fun openAllSongsFromHeader() {
+        // All Songs is the base page, never a toggle: tapping it while already there is a no-op.
+        if (destination == XvoxDestination.HOME && homeState.libraryMode == com.xvox.music.features.playlist.XvoxHomeLibraryMode.ALL_SONGS &&
+            activeHomeDetailMode == null && hoistedSelectedPlaylistId == null) return
+        if (activeHomeDetailMode != null) { activeHomeDetailMode = null; homeDetailExitKey++ }
+        hoistedSelectedPlaylistId = null
+        if (destination != XvoxDestination.HOME) destination = XvoxDestination.HOME
+        homeViewModel.setLibraryMode(com.xvox.music.features.playlist.XvoxHomeLibraryMode.ALL_SONGS)
+        homeScrollResetKey++
+    }
+
     fun openArtistsFromHeader() =
         openHomeLibrary(com.xvox.music.features.playlist.XvoxHomeLibraryMode.ARTISTS)
 
     // Exactly one Header is composed by the shell. It remains mounted as Home, Search, and
     // Settings route bodies slide beneath it; only Home's action cluster animates in/out.
+    // Page-change status pill: "All songs : 54 songs" etc. replaces the removed in-page headers.
+    val pillLibraryMode = homeState.libraryMode
+    val pillSongCount = homeState.songs.size
+    val pillLikedCount = homeState.songs.count { it.id in homeState.likedSongIds }
+    val pillArtistCount = remember(homeState.songs) { homeState.songs.map { it.artist }.distinct().size }
+    var pillFirst by remember { mutableStateOf(true) }
+    LaunchedEffect(pillLibraryMode, destination) {
+        if (pillFirst) { pillFirst = false; return@LaunchedEffect }
+        if (destination != XvoxDestination.HOME) return@LaunchedEffect
+        val text = when (pillLibraryMode) {
+            com.xvox.music.features.playlist.XvoxHomeLibraryMode.ALL_SONGS, com.xvox.music.features.playlist.XvoxHomeLibraryMode.SPLIT -> "All songs : $pillSongCount songs"
+            com.xvox.music.features.playlist.XvoxHomeLibraryMode.RECENT -> "Recently played : ${homeState.recentlyPlayed.size} songs"
+            com.xvox.music.features.playlist.XvoxHomeLibraryMode.LIKED -> "Liked songs : $pillLikedCount songs"
+            com.xvox.music.features.playlist.XvoxHomeLibraryMode.PLAYLISTS -> "Playlists : ${homeState.playlists.size} playlists"
+            com.xvox.music.features.playlist.XvoxHomeLibraryMode.ARTISTS -> "Artists : $pillArtistCount artists"
+        }
+        overlays.showP(text)
+    }
+
     val sharedShellHeader: @Composable () -> Unit = {
         XvoxShellTopHeader(
             profile = homeState.profile,
@@ -671,6 +702,7 @@ fun XvoxMainShell(
             onPlaylistClick = ::openPlaylistsFromNavigation,
             onArtistClick = ::openArtistsFromHeader,
             onRecentClick = ::openRecentFromHeader,
+            onAllSongsClick = ::openAllSongsFromHeader,
             showHomeControls = destination == XvoxDestination.HOME &&
                 homeState.sourceMode == com.xvox.music.features.sourcemode.XvoxSourceMode.OFFLINE,
             // The Header itself remains mounted for an instant, non-black Now Playing return.

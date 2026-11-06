@@ -1,3 +1,4 @@
+// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/features/home/recent/XvoxRecentlyPlayedSection.kt
 package com.xvox.music.features.home.recent
 
 import androidx.compose.foundation.layout.Column
@@ -26,11 +27,6 @@ fun XvoxRecentlyPlayedSection(
             .fillMaxWidth()
             .padding(bottom = 8.dp),
     ) {
-        XvoxHomeSectionHeading(
-            title = "Recently Played",
-            subtitle = "Total ${songs.size} played"
-        )
-
         XvoxRecentCarousel(
             songs = songs,
             currentSongId = currentSongId,

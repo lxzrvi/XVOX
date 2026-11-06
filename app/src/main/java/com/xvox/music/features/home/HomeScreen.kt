@@ -1,3 +1,4 @@
+// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/features/home/HomeScreen.kt
 package com.xvox.music.features.home
 
 import android.app.Activity
@@ -568,9 +569,6 @@ fun HomeScreen(
     }
 
     fun androidx.compose.foundation.lazy.LazyListScope.artistsSection(standalone: Boolean = false) {
-        item(key = "artists_header") {
-            HomeCollectionHeader("Artists", artists.size, onAdd = null)
-        }
         item(key = "artists_grid") {
             XvoxArtistGrid(
                 artists = artists,
@@ -793,7 +791,8 @@ fun HomeScreen(
                 // the page beneath it. This avoids a separately animated Header drifting away
                 // from Home content or leaving a blank band during a drag.
                 item(key = "shell_header_scroll_spacer") {
-                    Spacer(Modifier.height(topInset))
+                    // 6dp == the gap between cards, so the first card sits exactly one card-gap below the header.
+                    Spacer(Modifier.height(topInset + 6.dp))
                 }
                 if (targetArtist != null) {
                     librarySongItems(

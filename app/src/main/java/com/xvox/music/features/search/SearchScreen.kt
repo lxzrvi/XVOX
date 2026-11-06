@@ -1,3 +1,4 @@
+// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/features/search/SearchScreen.kt
 package com.xvox.music.features.search
 
 import android.app.Activity
@@ -1044,16 +1045,6 @@ private fun androidx.compose.foundation.lazy.LazyListScope.searchResultsContent(
 
     // Songs list
     if (matchingSongs.isNotEmpty()) {
-        item(key = "header_songs") {
-            val colors = XvoxTheme.colors
-            Text(
-                text = if (query.isEmpty()) "All Songs (${matchingSongs.size})" else "Songs (${matchingSongs.size})",
-                color = colors.primaryAccent,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(start = 6.dp, top = 8.dp, bottom = 4.dp)
-            )
-        }
         items(matchingSongs, key = { "song_${it.id}" }) { song ->
             val colors = XvoxTheme.colors
             val cardColor = rememberSongCardColor(song = song, current = false)

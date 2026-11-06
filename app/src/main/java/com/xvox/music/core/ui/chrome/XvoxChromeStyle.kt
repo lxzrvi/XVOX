@@ -1,3 +1,4 @@
+// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/core/ui/chrome/XvoxChromeStyle.kt
 package com.xvox.music.core.ui.chrome
 
 import androidx.compose.runtime.mutableStateOf
@@ -138,9 +139,13 @@ data class XvoxChromeStyle(
     /** Edge softness in dp (0 = crisp line). */
     val glassBorderBlur: Float = 0f,
     /** Master switch for every Cloudy-backed surface; off preserves only material transparency. */
-    val glassBlurEnabled: Boolean = true,
-    /** User-facing intensity for the actual backdrop and all live glass surfaces. */
-    val glassBlurIntensity: Float = .60f
+    val glassBlurEnabled: Boolean = false,
+    /** Derived at the app root from [bgBlur]; kept so every existing call-site is unchanged. */
+    val glassBlurIntensity: Float = 0f,
+    /** Settings > Appearance > App background > Blur. 0 = default look (no blur, default borders). */
+    val bgBlur: Float = 0f,
+    /** Default (image-less) background style/texture slider: mesh -> rays -> patches. */
+    val bgStyle: Float = .30f
 ) {
     fun encode(): String = listOf(
         optionBoxBgAlpha, optionBoxBorder, optionBoxBorderAlpha,
@@ -183,7 +188,8 @@ data class XvoxChromeStyle(
         miniCoverBlur,
         glassBorderEnabled, glassBorderWidth, glassBorderColor, glassBorderAlpha, glassBorderBlur,
         // Appended after the global-border record so earlier installations retain their values.
-        glassBlurEnabled, glassBlurIntensity
+        glassBlurEnabled, glassBlurIntensity,
+        bgBlur, bgStyle
     ).joinToString("|")
 
     fun resetNowPlayingLayout(): XvoxChromeStyle = copy(
@@ -307,8 +313,11 @@ data class XvoxChromeStyle(
                 glassBorderBlur = number(81, 0f).coerceIn(0f, 12f),
                 // These two values were appended after the global-border revision. Missing slots
                 // intentionally resolve to enabled + the balanced default for existing records.
-                glassBlurEnabled = parts.getOrNull(82)?.trim()?.toBooleanStrictOrNull() ?: true,
-                glassBlurIntensity = flt(83, .60f),
+                glassBlurEnabled = false,
+                glassBlurIntensity = 0f,
+                // Blur is now driven only by this single background slider (default 0 = off).
+                bgBlur = flt(84, 0f).coerceIn(0f, 1f),
+                bgStyle = flt(85, .30f).coerceIn(0f, 1f),
                 nowPlayingSeekStyle = seekStyle(31),
                 nowPlayingPillSide = side(32, "left"),
                 nowPlayingChangingActionsSide = side(33, "right"),

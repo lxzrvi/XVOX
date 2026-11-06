@@ -1,3 +1,9 @@
+// =============================================================================================
+// XVOX LIQUID NAVBAR (KernelSU FloatingBottomBar style: live blur + lens refraction + liquid pill)
+// YEH POORI FILE KA EXACT CODE REPLACE KARO. KOI EXTRA KAAM NAHI.
+// Path: app/src/main/java/com/xvox/music/core/ui/navigation/XvoxBottomBar.kt
+// Call-sites (XvoxMainShell) same rehte hain. Layout / size / offset / settings same.
+// =============================================================================================
 package com.xvox.music.core.ui.navigation
 
 import android.os.Build
@@ -6,6 +12,7 @@ import androidx.compose.animation.core.EaseOut
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.RowScope
@@ -70,7 +77,6 @@ import com.xvox.music.core.ui.blur.LocalXvoxShellContentSky
 import com.xvox.music.core.ui.blur.LocalXvoxSurfaceSky
 import com.xvox.music.core.ui.blur.innerShadow
 import com.xvox.music.core.ui.blur.lens
-import com.xvox.music.core.ui.blur.rememberCombinedBackdrop
 import com.xvox.music.core.ui.blur.vibrancy
 import com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle
 import com.xvox.music.core.ui.chrome.parseHexColor
@@ -298,7 +304,6 @@ private fun LiquidBar(
     destinations: List<XvoxDestination>
 ) {
     val pillShape = remember { CircleShape }
-    val tabsBackdrop = rememberLayerBackdrop()
     val density = LocalDensity.current
     val isLtr = LocalLayoutDirection.current == LayoutDirection.Ltr
     val animationScope = rememberCoroutineScope()
@@ -419,7 +424,6 @@ private fun LiquidBar(
 
     val baseHighlight = rememberGravityRotatedHighlight(iosIndicatorSpecular, extraDegrees = -45f)
     val pillHighlight = rememberGravityRotatedHighlight(iosIndicatorSpecular, extraDegrees = 90f)
-    val combinedBackdrop = rememberCombinedBackdrop(backdrop ?: tabsBackdrop, tabsBackdrop)
 
     val tabs: @Composable RowScope.() -> Unit = {
         destinations.forEachIndexed { index, destination ->
@@ -455,13 +459,8 @@ private fun LiquidBar(
                             backdrop = backdrop!!,
                             shape = { pillShape },
                             effects = {
-                                padding = maxOf(padding, 40.dp.toPx())
-                                vibrancy()
+                                padding = maxOf(padding, 24.dp.toPx())
                                 blur(blurDp.dp.toPx(), blurDp.dp.toPx())
-                                lens(
-                                    refractionHeight = 24.dp.toPx(),
-                                    refractionAmount = 24.dp.toPx(),
-                                )
                             },
                             highlight = { baseHighlight.value.copy(alpha = 0.75f) },
                             layerBlock = {
@@ -491,104 +490,27 @@ private fun LiquidBar(
             }
         }
 
-        if (useBlur) {
-            // Accent-coloured copy of the tabs: the travelling pill magnifies THIS layer, so the
-            // active icon looks lit and refracted inside the liquid pill.
-            CompositionLocalProvider(
-                LocalLiquidTabScale provides {
-                    lerp(1f, 1.2f, dampedDragAnimation.pressProgress)
-                },
-                LocalLiquidTint provides accentColor,
-            ) {
-                Row(
-                    Modifier
-                        .clearAndSetSemantics {}
-                        .alpha(0f)
-                        .layerBackdrop(tabsBackdrop)
-                        .graphicsLayer { translationX = panelOffset }
-                        .drawBackdrop(
-                            backdrop = backdrop!!,
-                            shape = { pillShape },
-                            effects = {
-                                vibrancy()
-                                blur(blurDp.dp.toPx(), blurDp.dp.toPx())
-                                lens(
-                                    refractionHeight = 24.dp.toPx(),
-                                    refractionAmount = 24.dp.toPx(),
-                                )
-                            },
-                            onDrawSurface = { drawRect(containerColor) },
-                        )
-                        .then(interactiveHighlight.modifier)
-                        .width(with(density) { totalWidthPx.toDp() })
-                        .height(pillHeight)
-                        .padding(horizontal = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    content = { tabs() }
-                )
-            }
-        }
-
         if (tabWidthPx > 0f) {
             val tabWidthDp = with(density) { tabWidthPx.toDp() }
-            if (useBlur) {
+            run {
+                // One cheap pill for every mode (no per-frame lens/backdrop pass => smooth, and no
+                // accent tint bleeding in when it grows). Blur mode uses a neutral glass tint.
+                val pillFill = if (useBlur) {
+                    if (isDark) Color.White.copy(alpha = .13f) else Color.Black.copy(alpha = .08f)
+                } else accentColor.copy(alpha = 0.15f)
+                val pillRim = (if (isDark) Color.White else Color.Black).copy(alpha = if (useBlur) .22f else 0f)
                 Box(
                     Modifier
                         .padding(horizontal = 4.dp)
                         .graphicsLayer {
                             val progressOffset = dampedDragAnimation.value * tabWidthPx
                             translationX = if (isLtr) progressOffset + panelOffset else -progressOffset + panelOffset
-                        }
-                        .drawBackdrop(
-                            backdrop = combinedBackdrop,
-                            shape = { pillShape },
-                            effects = {
-                                val progress = dampedDragAnimation.pressProgress
-                                lens(
-                                    refractionHeight = 10.dp.toPx() * progress,
-                                    refractionAmount = 14.dp.toPx() * progress,
-                                    depthEffect = true,
-                                    chromaticAberration = 0.5f,
-                                )
-                            },
-                            highlight = { pillHighlight.value.copy(alpha = dampedDragAnimation.pressProgress) },
-                            layerBlock = {
-                                scaleX = dampedDragAnimation.scaleX
-                                scaleY = dampedDragAnimation.scaleY
-                                val velocity = dampedDragAnimation.velocity / 10f
-                                scaleX /= 1f - (velocity * 0.75f).fastCoerceIn(-0.2f, 0.2f)
-                                scaleY *= 1f - (velocity * 0.25f).fastCoerceIn(-0.2f, 0.2f)
-                            },
-                            onDrawSurface = {
-                                val progress = dampedDragAnimation.pressProgress
-                                drawRect(
-                                    color = if (!isDark) Color.Black.copy(alpha = 0.1f) else Color.White.copy(alpha = 0.1f),
-                                    alpha = 1f - progress,
-                                )
-                                drawRect(Color.Black.copy(alpha = 0.03f * progress))
-                            },
-                        )
-                        .innerShadow(shape = pillShape) {
-                            InnerShadow(
-                                radius = 8.dp * dampedDragAnimation.pressProgress,
-                                color = Color.Black.copy(alpha = 0.15f),
-                                alpha = dampedDragAnimation.pressProgress,
-                            )
-                        }
-                        .height(pillHeight)
-                        .width(tabWidthDp)
-                )
-            } else {
-                // Blur off / unsupported: same pill motion, flat accent tint (KernelSU fallback).
-                Box(
-                    Modifier
-                        .padding(horizontal = 4.dp)
-                        .graphicsLayer {
-                            val progressOffset = dampedDragAnimation.value * tabWidthPx
-                            translationX = if (isLtr) progressOffset + panelOffset else -progressOffset + panelOffset
+                            scaleX = dampedDragAnimation.scaleX
+                            scaleY = dampedDragAnimation.scaleY
                         }
                         .clip(pillShape)
-                        .background(accentColor.copy(alpha = 0.15f), pillShape)
+                        .background(pillFill, pillShape)
+                        .border(1.dp, pillRim, pillShape)
                         .height(pillHeight)
                         .width(tabWidthDp),
                     contentAlignment = Alignment.CenterStart,

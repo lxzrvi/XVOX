@@ -1,3 +1,10 @@
+// =============================================================================================
+// XVOX LIQUID KIT - KernelSU / Kyant0 AndroidLiquidGlass pieces (Apache 2.0), copied as-is:
+// lens() refraction AGSL, vibrancy(), innerShadow(), CombinedBackdrop, DampedDragAnimation,
+// InteractiveHighlight, inspectDragGestures.
+// NAYI FILE BANAO: app/src/main/java/com/xvox/music/core/ui/blur/XvoxLiquidKit.kt
+// Yeh poora code paste karo. Kuch aur mat badlo.
+// =============================================================================================
 package com.xvox.music.core.ui.blur
 
 import android.annotation.SuppressLint
@@ -264,6 +271,7 @@ half4 main(float2 coord) {
 
     half4 cyan = content.eval(refractedCoord - dispersedCoord * (1.0 / 3.0));
     color.g += cyan.g / 3.5;
+    color.b += cyan.b / 3.0;
     color.a += cyan.a / 7.0;
 
     half4 blue = content.eval(refractedCoord - dispersedCoord * (2.0 / 3.0));
@@ -278,6 +286,7 @@ half4 main(float2 coord) {
     return color;
 }
 """
+
 
 // ---- InnerShadow.kt ----
 @Immutable
@@ -410,6 +419,7 @@ private val ShadowMaskPaint: Paint = Paint().apply {
     blendMode = BlendMode.Clear
 }
 
+
 // ---- CombinedBackdrop.kt ----
 @Stable
 class CombinedBackdrop(
@@ -437,6 +447,7 @@ class CombinedBackdrop(
 fun rememberCombinedBackdrop(first: Backdrop, second: Backdrop): Backdrop =
     remember(first, second) { CombinedBackdrop(first, second) }
 
+
 // ---- Vibrancy.kt ----
 fun BackdropEffectScope.vibrancy() {
     colorControls(
@@ -445,6 +456,7 @@ fun BackdropEffectScope.vibrancy() {
         saturation = 1.5f,
     )
 }
+
 
 // ---- DampedDragAnimation.kt ----
 class DampedDragAnimation(
@@ -584,6 +596,7 @@ class DampedDragAnimation(
     }
 }
 
+
 // ---- InteractiveHighlight.kt ----
 @SuppressLint("NewApi")
 class InteractiveHighlight(
@@ -611,7 +624,7 @@ class InteractiveHighlight(
     layout(color) uniform half4 color;
     uniform float radius;
     uniform float2 position;
-
+    
     half4 main(float2 coord) {
         float dist = distance(coord, position);
         float intensity = smoothstep(radius, radius * 0.5, dist);
@@ -674,6 +687,7 @@ class InteractiveHighlight(
             }
         }
 }
+
 
 // ---- DragGestureInspector.kt ----
 suspend fun PointerInputScope.inspectDragGestures(

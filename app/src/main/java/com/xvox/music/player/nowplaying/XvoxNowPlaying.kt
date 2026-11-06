@@ -1,5 +1,7 @@
+// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/player/nowplaying/XvoxNowPlaying.kt
 package com.xvox.music.player.nowplaying
 
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
@@ -51,6 +53,7 @@ import com.xvox.music.core.ui.blur.LocalXvoxNowPlayingBottomSky
 import com.xvox.music.core.ui.blur.LocalXvoxNowPlayingSky
 import com.xvox.music.core.ui.blur.rememberXvoxContentSky
 import com.xvox.music.core.ui.blur.xvoxBlurSource
+import com.xvox.music.core.ui.blur.xvoxLiveBlur
 import com.xvox.music.core.ui.chrome.normalizedNowPlayingGrid
 import com.xvox.music.core.model.Song
 import com.xvox.music.core.ui.miniplayer.XvoxNowPlayingMs
@@ -207,6 +210,10 @@ fun XvoxNowPlaying(
     val context = LocalContext.current
     val lyricsState by lyricsViewModel.state.collectAsState()
     val settingsState by settingsViewModel.state.collectAsState()
+    // The master Appearance intensity also scales the cover backdrop. This makes one slider
+    // control the true expensive player blur, and lets low settings reduce GPU work immediately.
+    // Now Playing blur is controlled ONLY from Now Playing (its own cover-blur setting); the
+    // Settings master blur switch/intensity no longer changes it.
     val effectiveCoverBlur = settingsState.nowPlayingCoverBlur
     val nowPlayingGlassChrome = remember(chrome, settingsState.nowPlayingCoverBlur) {
         chrome.copy(
@@ -1247,7 +1254,15 @@ fun XvoxNowPlaying(
                     modifier = Modifier
                         .matchParentSize()
                         .xvoxBlurSource(bottomBoxSky)
-                        .background(colors.cardElevated.copy(alpha = colors.cardElevated.alpha * bottomPanelAlpha))
+                        // Live blur of the Now Playing backdrop; deliberately NO border here.
+                        .xvoxLiveBlur(
+                            shape = RectangleShape,
+                            level = com.xvox.music.core.ui.blur.XvoxBlurLevel.Bar,
+                            baseColor = colors.cardElevated.copy(alpha = colors.cardElevated.alpha * bottomPanelAlpha),
+                            sky = LocalXvoxNowPlayingSky.current,
+                            borderAlpha = 0f,
+                            borderWidth = 0.dp
+                        )
                 )
                 CompositionLocalProvider(LocalXvoxNowPlayingBottomSky provides bottomBoxSky) {
                 Column(
