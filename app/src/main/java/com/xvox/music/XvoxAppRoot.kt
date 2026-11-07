@@ -1,6 +1,7 @@
 // EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/XvoxAppRoot.kt
 package com.xvox.music
 
+import com.xvox.music.core.ui.chrome.backgroundMode
 import android.net.Uri
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
@@ -242,6 +243,7 @@ fun XvoxAppRoot(
             // stays plain, and every glass surface reflects exactly what is truly behind it.
             LaunchedEffect(
                 backgroundImage,
+                effectiveChrome.bgStyle,
                 backgroundBrightness,
                 colors.background,
                 effectiveChrome.glassBlurEnabled,
@@ -264,7 +266,8 @@ fun XvoxAppRoot(
                     ) {
                         // Background blur slider: blurs ONLY the wallpaper (photo or generated art).
                         val bgBlurDp = if (com.xvox.music.core.ui.blur.XvoxGpuGuard.safeMode) 0.dp else (effectiveChrome.bgImageBlur * 36f).dp
-                        if (backgroundImage.isBlank()) {
+                        val bgMode = effectiveChrome.backgroundMode(backgroundImage.isNotBlank())
+                        if (bgMode == com.xvox.music.core.ui.chrome.XvoxBackgroundMode.Gradient) {
                             com.xvox.music.core.ui.chrome.XvoxGeneratedBackground(
                                 accent = colors.primaryAccent,
                                 base = colors.background,
@@ -274,7 +277,7 @@ fun XvoxAppRoot(
                                 modifier = Modifier.fillMaxSize()
                             )
                         }
-                        if (backgroundImage.isNotBlank()) {
+                        if (bgMode == com.xvox.music.core.ui.chrome.XvoxBackgroundMode.Custom && backgroundImage.isNotBlank()) {
                             // SHARP wallpaper: glass cards/buttons blur it themselves, so the blur is
                             // visible through them (a pre-blurred photo made glass look flat).
                             AsyncImage(

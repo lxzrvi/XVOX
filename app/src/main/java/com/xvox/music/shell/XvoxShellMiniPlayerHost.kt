@@ -1,3 +1,4 @@
+// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/shell/XvoxShellMiniPlayerHost.kt
 @file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 
 package com.xvox.music.shell
@@ -25,6 +26,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
@@ -59,7 +61,8 @@ fun BoxScope.XvoxShellMiniPlayerHost(
     onLike: () -> Unit,
     onAddToPlaylist: () -> Unit = {},
     onOpenMiniPlayerSettings: () -> Unit = {},
-    navigationBarHeight: Dp = 62.dp
+    navigationBarHeight: Dp = 62.dp,
+    aboveNavbar: Boolean = false
 ) {
     // Let the incoming Settings page become visible before the card descends, so the card reads
     // as part of that route handoff rather than disappearing before Settings has opened.
@@ -94,6 +97,7 @@ fun BoxScope.XvoxShellMiniPlayerHost(
         // complete arrival/departure passes behind the navbar pill instead of over that surface.
         modifier = Modifier
             .align(Alignment.BottomCenter)
+            .zIndex(if (aboveNavbar) 11f else 0f)
     ) {
         if (currentSongId != null) {
             val density = LocalDensity.current

@@ -340,9 +340,9 @@ fun ProfileEditorBox(
             HeaderIdeasLoopBanner()
         }
 
-        // Header transparency lives with the other Header controls (only meaningful with blur off).
+        // Header transparency lives with the other Header controls and works in every mode.
         val chromeNow by prefs.chromeStyle.collectAsState(initial = com.xvox.music.core.ui.chrome.XvoxChromeStyle())
-        if (chromeNow.bgBlur <= .001f) {
+        run {
             Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -367,45 +367,6 @@ fun ProfileEditorBox(
                     modifier = Modifier.fillMaxWidth()
                 )
             }
-        }
-
-        // Chrome still stores a dim overlay for backward compatibility, but the editor exposes
-        // the direct user-facing inverse: 100% is the un-darkened Header and 0% is black.
-        val visibleBrightness = if (draft.headerDimEnabled) {
-            1f - draft.headerDimAmount.coerceIn(0f, 1f)
-        } else {
-            1f
-        }
-        Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("Header Brightness", color = colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                Text(
-                    "${(visibleBrightness * 100).toInt()}%",
-                    color = colors.primaryAccent,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-            Text("Drag for continuous Header brightness.", color = colors.secondaryText, fontSize = 11.sp)
-            XvoxContinuousSlider(
-                value = visibleBrightness,
-                onValueChange = { brightness ->
-                    val normalized = brightness.coerceIn(0f, 1f)
-                    onDraftChange(
-                        draft.copy(
-                            headerDimEnabled = normalized < .995f,
-                            headerDimAmount = (1f - normalized).coerceIn(0f, 1f)
-                        )
-                    )
-                },
-                valueRange = 0f..1f,
-                defaultValue = 1f,
-                contentDescription = "Header brightness"
-            )
         }
 
         }

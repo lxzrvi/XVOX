@@ -136,7 +136,8 @@ fun XvoxShellTopHeader(
     val visibleHeaderImage = preview?.imageUri ?: profile.headerImageUri
     val dimEnabled = preview?.dimEnabled ?: chrome.headerDimEnabled
     val dimAmount = preview?.dimAmount ?: chrome.headerDimAmount
-    val headerDimAlpha = if (dimEnabled) dimAmount.coerceIn(0f, 1f) else 0f
+    // Header Brightness was removed from the profile sheet, so any stored dim is ignored.
+    val headerDimAlpha = if (false && dimEnabled) dimAmount.coerceIn(0f, 1f) else 0f
     // Use a palette-owned dark tone rather than a hard-coded overlay colour.
     val headerDimColor = if (colors.isLight) colors.primaryText else colors.background
     val hasCustomHeader = !visibleHeaderImage.isNullOrBlank()

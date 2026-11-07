@@ -1111,7 +1111,12 @@ fun XvoxMainShell(
                 },
                 onAddToPlaylist = { currentSong?.let(::showAddCurrentSongToPlaylist) },
                 onOpenMiniPlayerSettings = ::showMiniPlayerSettings,
-                navigationBarHeight = navigationBarHeight
+                navigationBarHeight = navigationBarHeight,
+                // Glass navbar is see-through: keep the card above it so it visibly slides down
+                // past the navbar exactly like the default (blur off) handoff.
+                aboveNavbar = com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle.current.let {
+                    it.glassBlurEnabled && it.glassBlurIntensity > .001f
+                }
             )
 
             Box(

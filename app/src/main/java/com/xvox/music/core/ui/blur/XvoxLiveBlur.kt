@@ -132,12 +132,20 @@ fun Modifier.sky(sky: Sky): Modifier = this.layerBackdrop(sky.layer)
 
 private enum class BlurTier(val maxBlurDp: Float, val liveCards: Boolean) {
     /** Low-RAM / small heap: only chrome, bars and sheets blur live; list cards stay flat glass. */
-    Low(16f, false),
-    Mid(32f, true),
-    High(64f, true)
+    // Radii are capped on purpose: very large radii force the GPU to blur a tiny down-sampled copy,
+    // which is what made text/icons/covers look pixelated. ~28dp stays crisp and is much cheaper.
+    Low(14f, false),
+    Mid(24f, true),
+    High(28f, true)
 }
 
-private fun detectBlurTier(context: Context): BlurTier {
+private var cachedBlurTier: BlurTier? = null
+
+/** Detected once per process (it used to be a binder call for every card that composed). */
+private fun detectBlurTier(context: Context): BlurTier =
+    cachedBlurTier ?: detectBlurTierUncached(context).also { cachedBlurTier = it }
+
+private fun detectBlurTierUncached(context: Context): BlurTier {
     val am = context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
         ?: return BlurTier.Mid
     return when {
@@ -195,13 +203,13 @@ fun Modifier.xvoxLiveBlur(
                 saturation = 1.05f
             )
         }
-        return textureBlur(backdrop = sky!!.backdrop, shape = shape, blurRadius = 9f.coerceAtMost(tier.maxBlurDp), colors = light)
+        return textureBlur(backdrop = sky!!.backdrop, shape = shape, blurRadius = 14f.coerceAtMost(tier.maxBlurDp), colors = light)
     }
 
     val inNowPlaying = sky != null && (sky === npSky || sky === npBottomSky)
     // Now Playing glass: HEAVY blur (x1.7), still capped by the device tier.
     val blurDp = remember(level, tier, inNowPlaying) {
-        (level.radius.value * BlurPerRadius * .85f * (if (inNowPlaying) 1.7f else 1f)).coerceIn(1f, tier.maxBlurDp)
+        (level.radius.value * BlurPerRadius * .7f * (if (inNowPlaying) 1.15f else 1f)).coerceIn(1f, tier.maxBlurDp)
     }
     val tint = remember(baseColor, level) {
         baseColor.copy(alpha = (baseColor.alpha * level.tintAlpha).coerceIn(0f, 1f))
@@ -212,14 +220,31 @@ fun Modifier.xvoxLiveBlur(
     val colors = remember(tint) {
         BlurColors(blendColors = listOf(BlendColorEntry(color = tint)), saturation = FrostSaturation)
     }
-    // Cards/selection that sit directly on the static wallpaper: a flat tint over an already
-    // blurred wallpaper looks identical to live blur, so skip the per-card GPU pass (smooth scroll).
-    // (Cards are live-blurred again on request; only Low-RAM tiers keep them flat.)
-    val overStaticWallpaper = false
+    // PERFORMANCE: a live blur pass per list card is what made scroll/tab changes lag. Cards and
+    // selection pills sit on the (static) app background, and Now Playing controls sit on a cover
+    // that is already blurred, so a flat frosted tint looks the same there without a GPU pass each.
+    // Live blur stays on everything that floats over MOVING content (header, navbar, mini player,
+    // search bar, lyrics pill, Now Playing bottom box, sheet scrim).
+    val flatStatic = blurMode && surfaceSky != null && sky === surfaceSky &&
+        (level == XvoxBlurLevel.Card || level == XvoxBlurLevel.Selection)
+    val flatNowPlaying = blurMode && inNowPlaying && level != XvoxBlurLevel.Bar
+    val flatTint = remember(baseColor, level) {
+        val a = when (level) {
+            XvoxBlurLevel.Card -> .62f
+            XvoxBlurLevel.Selection -> .55f
+            else -> .50f
+        }
+        baseColor.copy(alpha = (baseColor.alpha * a).coerceIn(0f, 1f))
+    }
+    // Default (blur off) song/settings cards are 6% see-through; everything else is the plain theme colour.
+    val plainColor = remember(baseColor, level) {
+        if (level == XvoxBlurLevel.Card) baseColor.copy(alpha = (baseColor.alpha * .94f).coerceIn(0f, 1f)) else baseColor
+    }
     val clipped = clip(shape)
     val surface = when {
-        !blurMode -> clipped.background(baseColor)
-        !canBlur || overStaticWallpaper || (!tier.liveCards && (level == XvoxBlurLevel.Card || level == XvoxBlurLevel.Selection)) ->
+        !blurMode -> clipped.background(plainColor)
+        flatStatic || flatNowPlaying -> clipped.background(flatTint)
+        !canBlur || (!tier.liveCards && (level == XvoxBlurLevel.Card || level == XvoxBlurLevel.Selection)) ->
             clipped.background(fallback)
         else -> clipped.textureBlur(backdrop = sky!!.backdrop, shape = shape, blurRadius = blurDp, colors = colors)
     }

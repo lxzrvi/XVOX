@@ -131,8 +131,10 @@ fun SearchScreen(
     val statusBarHeight = with(density) { WindowInsets.statusBars.getTop(this).toDp() }
     val statusSafeSearchTop = statusBarHeight + searchHeaderGap
     val headerSearchTop = topInset + searchHeaderGap
-    val travelledSearchDp = with(density) { searchScrollDistancePx.toDp() }
-    val movingSearchTop = headerSearchTop - travelledSearchDp
+    // Portrait: the field sits slightly below the Header and scrolls away WITH the page. The offset is
+    // read in the layout phase only, so scrolling never recomposes the whole Search screen.
+    val portraitSearchTopPx = with(density) { (headerSearchTop + 6.dp).roundToPx() }
+    val statusLaneVisible by remember { androidx.compose.runtime.derivedStateOf { searchScrollDistancePx > 0 } }
     // The search bar no longer travels up with the header: it stays put while the Header leaves
     // through the status bar, and results/status lane stay visibly blurred around it.
     val searchFieldTop = headerSearchTop
@@ -522,7 +524,7 @@ fun SearchScreen(
                 state = listState,
                 modifier = Modifier.fillMaxSize().xvoxBlurSource(contentSky),
                 contentPadding = PaddingValues(
-                    top = topInset + 56.dp,
+                    top = topInset + 62.dp,
                     bottom = bottomInset + 16.dp
                 ),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -686,7 +688,7 @@ fun SearchScreen(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .offset(y = searchFieldTop)
+                    .offset { androidx.compose.ui.unit.IntOffset(0, portraitSearchTopPx - searchScrollDistancePx) }
                     // No strip/patti behind the field: only the rounded search bar itself.
                     .padding(start = 6.dp, end = 6.dp, bottom = 4.dp)
             ) {
@@ -708,7 +710,7 @@ fun SearchScreen(
         // Once Search begins travelling, reserve an opaque system-status lane above it. This
         // prevents result cards/text from becoming visible behind the status icons while keeping
         // the accepted Search-field clamp and movement unchanged.
-        if (searchScrollDistancePx > 0) {
+        if (statusLaneVisible) {
             Box(
                 modifier = Modifier
                     .align(Alignment.TopCenter)

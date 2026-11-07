@@ -321,7 +321,7 @@ data class XvoxChromeStyle(
                 glassBlurIntensity = 0f,
                 // Blur is now driven only by this single background slider (default 0 = off).
                 bgBlur = flt(84, 0f).coerceIn(0f, 1f),
-                bgStyle = flt(85, 0f).coerceIn(0f, 1f),
+                bgStyle = flt(85, 0f).coerceIn(0f, 3f),
                 bgColors = str(86),
                 bgImageBlur = flt(87, 0f).coerceIn(0f, 1f),
                 nowPlayingSeekStyle = seekStyle(31),
@@ -517,3 +517,14 @@ fun XvoxChromeStyle.normalizedNowPlayingGrid(): XvoxChromeStyle = copy(
     nowPlayingItemScales = normalizedItemScales().toSortedMap().entries.joinToString(",") { (key, value) -> "$key=$value" },
     nowPlayingCoverScale = nowPlayingCoverScale.coerceIn(.65f, 1.55f)
 )
+
+
+/** App background mode. Stored in [XvoxChromeStyle.bgStyle]: 0 = legacy auto, 1 = Off, 2 = Custom, 3 = Gradient. */
+enum class XvoxBackgroundMode { Off, Gradient, Custom }
+
+fun XvoxChromeStyle.backgroundMode(hasImage: Boolean): XvoxBackgroundMode = when {
+    bgStyle >= 2.5f -> XvoxBackgroundMode.Gradient
+    bgStyle >= 1.5f -> if (hasImage) XvoxBackgroundMode.Custom else XvoxBackgroundMode.Gradient
+    bgStyle >= .5f -> XvoxBackgroundMode.Off
+    else -> if (hasImage) XvoxBackgroundMode.Custom else XvoxBackgroundMode.Gradient
+}

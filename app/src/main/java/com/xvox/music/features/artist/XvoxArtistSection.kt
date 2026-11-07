@@ -1,3 +1,4 @@
+// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/features/artist/XvoxArtistSection.kt
 package com.xvox.music.features.artist
 
 import android.net.Uri
@@ -155,8 +156,9 @@ fun ArtistCircleItem(
                         level = if (selected) XvoxBlurLevel.Selection else XvoxBlurLevel.Card,
                         baseColor = colors.background,
                         borderColor = if (selected) colors.primaryAccent else colors.cardBorder,
-                        borderAlpha = if (selected) 1f else .64f,
-                        borderWidth = if (selected) 2.dp else .7.dp
+                        // Artist photos carry no border (only the selected ring remains).
+                        borderAlpha = if (selected) 1f else 0f,
+                        borderWidth = if (selected) 2.dp else 0.dp
                     ),
                 contentAlignment = Alignment.Center
             ) {

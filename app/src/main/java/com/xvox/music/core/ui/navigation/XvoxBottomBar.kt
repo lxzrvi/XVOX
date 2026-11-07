@@ -180,6 +180,7 @@ private fun navigationIconRes(destination: XvoxDestination): Int = when (destina
 }
 
 /** Blur-off only: per-tab 0..1 proximity of the sliding pill (null in blur mode). */
+private val LocalLiquidAccent = androidx.compose.runtime.compositionLocalOf<Color?> { null }
 private val LocalLiquidTabEmphasis = androidx.compose.runtime.compositionLocalOf<((Int) -> Float)?> { null }
 
 @Composable
@@ -191,7 +192,7 @@ private fun RowScope.LiquidTab(
 ) {
     val scale = LocalLiquidTabScale.current
     val emphasis = LocalLiquidTabEmphasis.current
-    val accent = XvoxTheme.colors.primaryAccent
+    val accent = LocalLiquidAccent.current ?: XvoxTheme.colors.primaryAccent
     Box(
         modifier = Modifier
             .semantics(mergeDescendants = true) {
@@ -260,7 +261,7 @@ fun XvoxBottomBar(
         !com.xvox.music.core.ui.blur.XvoxGpuGuard.safeMode &&
         contentSky != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
     // Real frost: 8dp (light) .. 26dp (max) controlled by the global blur intensity.
-    val blurDp = 8f + 18f * intensity
+    val blurDp = 8f + 10f * intensity
     // With blur on, the material is a light tint so the blurred page shows THROUGH the glass.
     val containerColor = colors.background.copy(
         alpha = if (blurOn) navSurfaceAlpha * .5f else navSurfaceAlpha
@@ -511,7 +512,7 @@ private fun LiquidBar(
                 .padding(4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            CompositionLocalProvider(LocalLiquidTint provides inactiveColor, LocalLiquidTabEmphasis provides emphasisFn) {
+            CompositionLocalProvider(LocalLiquidTint provides inactiveColor, LocalLiquidTabEmphasis provides emphasisFn, LocalLiquidAccent provides accentColor) {
                 tabs()
             }
         }
@@ -536,10 +537,14 @@ private fun LiquidBar(
                             shape = { pillShape },
                             effects = {
                                 blur(blurDp.dp.toPx(), blurDp.dp.toPx())
-                                lens(
-                                    refractionHeight = 24.dp.toPx(),
-                                    refractionAmount = 24.dp.toPx(),
-                                )
+                                // The refraction pass is only visible while the pill is pressed/dragged;
+                                // skipping it at rest removes a per-frame shader from every tab change.
+                                if (dampedDragAnimation.pressProgress > .02f) {
+                                    lens(
+                                        refractionHeight = 24.dp.toPx(),
+                                        refractionAmount = 24.dp.toPx(),
+                                    )
+                                }
                             },
                             onDrawSurface = { drawRect(containerColor) },
                         )

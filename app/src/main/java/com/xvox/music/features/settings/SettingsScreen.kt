@@ -35,6 +35,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.graphics.graphicsLayer
+import com.xvox.music.core.ui.chrome.backgroundMode
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.layout.ContentScale
@@ -233,19 +236,7 @@ fun SettingsScreen(
 
     Box(
         modifier = modifier
-            .fillMaxSize()
-            // Let a selected app photo remain visible under Settings' live-glass cards without
-            // changing the opaque default theme when no custom background exists.
-            .background(
-                colors.background.copy(
-                    alpha = when {
-                        // Blur mode: the real app background must show through the live-glass cards.
-                        state.chromeStyle.bgBlur > .001f -> 0f
-                        state.backgroundImageUri != null -> .60f
-                        else -> 1f
-                    }
-                )
-            ),
+            .fillMaxSize(),
         contentAlignment = Alignment.TopCenter
     ) {
         LazyVerticalGrid(
@@ -357,8 +348,46 @@ private fun AppearanceSectionCard(
     val colors = XvoxTheme.colors
     // The repository copies this into app-private storage, so the selected app background remains
     // available after the document provider's transient permission disappears.
+    val overlays = LocalXvoxOverlayController.current
+    val latestState by rememberUpdatedState(state)
+    // Draft values for the Custom background box. Nothing is applied until Okay.
+    var draftUri by remember { mutableStateOf<String?>(null) }
+    var draftBlur by remember { mutableStateOf(0f) }
+    var draftDim by remember { mutableStateOf(.2f) }
     val backgroundPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        uri?.let { viewModel.setBackgroundImage(it.toString()) }
+        uri?.let { draftUri = it.toString() }
+    }
+    fun openCustomBackground() {
+        draftUri = latestState.backgroundImageUri
+        draftBlur = latestState.chromeStyle.bgImageBlur.coerceIn(0f, 1f)
+        draftDim = (1f - latestState.backgroundBrightness).coerceIn(0f, .80f)
+        overlays.showBox(
+            title = "Custom background",
+            bottomAction = {
+                XvoxTransactionalFooterActions(
+                    onCancel = { overlays.hideBox() },
+                    onOkay = {
+                        val chosen = draftUri
+                        if (chosen != latestState.backgroundImageUri) viewModel.setBackgroundImage(chosen)
+                        viewModel.setBackgroundBrightness(1f - draftDim)
+                        viewModel.setChromeStyle {
+                            it.copy(bgImageBlur = draftBlur, bgStyle = if (chosen == null) 3f else 2f)
+                        }
+                        overlays.hideBox()
+                    }
+                )
+            }
+        ) {
+            CustomBackgroundBoxContent(
+                uri = draftUri,
+                blur = draftBlur,
+                dim = draftDim,
+                onChoose = { backgroundPicker.launch("image/*") },
+                onRemove = { draftUri = null },
+                onBlur = { draftBlur = it },
+                onDim = { draftDim = it }
+            )
+        }
     }
     val themeOptions = listOf("System" to "System", "Light" to "Light", "Dark" to "Dark")
     val selectedTheme = themeOptions.firstOrNull { it.first.equals(state.theme, ignoreCase = true) }?.first
@@ -403,25 +432,13 @@ private fun AppearanceSectionCard(
                 )
             }
 
-            SettingsField("App background") {
-                val previewShape = RoundedCornerShape(16.dp)
-                val actionShape = RoundedCornerShape(14.dp)
+            SettingsField("Liquid glass") {
                 val blur = state.chromeStyle.bgBlur.coerceIn(0f, 1f)
-                val hasImage = state.backgroundImageUri != null
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    // Blur On/Off pill. Off = default look (flat theme + default borders).
-                    // On = live blur on elements. It NEVER changes how strong the background is.
-                    val blurKey = if (blur <= .001f) "off" else "on"
-                    Text(
-                        text = "Blur",
-                        color = colors.secondaryText,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(start = 4.dp)
-                    )
+                    // Off = default look (flat theme + default borders). On = live blur on elements.
                     XvoxSegmentedPill(
                         options = listOf("off" to "Off", "on" to "On"),
-                        selectedKey = blurKey,
+                        selectedKey = if (blur <= .001f) "off" else "on",
                         onSelect = { key -> viewModel.setChromeStyle { it.copy(bgBlur = if (key == "on") 1f else 0f) } }
                     )
                     if (com.xvox.music.core.ui.blur.XvoxGpuGuard.safeMode) {
@@ -437,119 +454,29 @@ private fun AppearanceSectionCard(
                                 .padding(horizontal = 4.dp, vertical = 4.dp)
                         )
                     }
-                    if (hasImage) {
-                        val ib = state.chromeStyle.bgImageBlur.coerceIn(0f, 1f)
-                        Text(
-                            text = "Image blur · ${(ib * 100f).roundToInt()}%",
-                            color = colors.secondaryText,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.padding(start = 4.dp)
-                        )
-                        XvoxSlider(
-                            value = ib,
-                            onValueChange = { v -> viewModel.setChromeStyle { it.copy(bgImageBlur = v.coerceIn(0f, 1f)) } },
-                            valueRange = 0f..1f,
-                            defaultValue = 0f,
-                            snapRadius = .02f,
-                            valueLabel = { "${(it * 100f).roundToInt()} percent background image blur" },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                    // Grid: small preview on the left, Choose/Replace (top) + Remove (bottom) right.
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(width = 96.dp, height = 84.dp)
-                                .clip(previewShape)
-                                .background(colors.background)
-                        ) {
-                            if (hasImage) {
-                                AsyncImage(
-                                    model = state.backgroundImageUri,
-                                    contentDescription = "Selected app background",
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier.matchParentSize()
-                                )
-                            } else {
-                                com.xvox.music.core.ui.chrome.XvoxGeneratedBackground(
-                                    accent = colors.primaryAccent,
-                                    base = colors.background,
-                                    isLight = colors.isLight,
-                                    style = 0f,
-                                    blurDp = 0.dp,
-                                    modifier = Modifier.matchParentSize()
-                                )
-                            }
-                        }
-                        Column(
-                            modifier = Modifier.weight(1f),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(38.dp)
-                                    .xvoxLiveBlur(
-                                        shape = actionShape,
-                                        level = XvoxBlurLevel.Selection,
-                                        baseColor = colors.cardElevated,
-                                        borderAlpha = .62f
-                                    )
-                                    .xvoxPressScale { backgroundPicker.launch("image/*") },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = if (hasImage) "Replace" else "Choose",
-                                    color = colors.primaryText,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(38.dp)
-                                    .xvoxLiveBlur(
-                                        shape = actionShape,
-                                        level = XvoxBlurLevel.Selection,
-                                        baseColor = colors.cardElevated,
-                                        borderAlpha = .62f
-                                    )
-                                    .then(
-                                        if (hasImage) Modifier.xvoxPressScale { viewModel.setBackgroundImage(null) }
-                                        else Modifier.alpha(.4f)
-                                    ),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text("Remove", color = colors.secondaryText, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                            }
-                        }
-                    }
-                    if (hasImage) {
-                        val dimness = (1f - state.backgroundBrightness).coerceIn(0f, .80f)
-                        Text(
-                            text = "Dimness · ${(dimness * 100f).toInt()}%",
-                            color = colors.secondaryText,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.padding(start = 4.dp)
-                        )
-                        XvoxSlider(
-                            value = dimness,
-                            onValueChange = { viewModel.setBackgroundBrightness(1f - it) },
-                            valueRange = 0f..0.80f,
-                            defaultValue = .20f,
-                            snapRadius = .015f,
-                            valueLabel = { "${(it * 100f).toInt()} percent app background dimness" },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
                 }
+            }
+
+            SettingsField("App background") {
+                val hasImage = state.backgroundImageUri != null
+                val bgMode = state.chromeStyle.backgroundMode(hasImage)
+                XvoxSegmentedPill(
+                    options = listOf("off" to "Off", "gradient" to "Gradient", "custom" to "Custom"),
+                    selectedKey = when (bgMode) {
+                        com.xvox.music.core.ui.chrome.XvoxBackgroundMode.Off -> "off"
+                        com.xvox.music.core.ui.chrome.XvoxBackgroundMode.Gradient -> "gradient"
+                        com.xvox.music.core.ui.chrome.XvoxBackgroundMode.Custom -> "custom"
+                    },
+                    imageKey = "custom",
+                    imageUri = state.backgroundImageUri,
+                    onSelect = { key ->
+                        when (key) {
+                            "off" -> viewModel.setChromeStyle { it.copy(bgStyle = 1f) }
+                            "gradient" -> viewModel.setChromeStyle { it.copy(bgStyle = 3f) }
+                            else -> openCustomBackground()
+                        }
+                    }
+                )
             }
 
             SettingsField("Fonts") {
@@ -611,7 +538,10 @@ private fun XvoxSegmentedPill(
     options: List<Pair<String, String>>,
     selectedKey: String?,
     onSelect: (String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    /** Optional: this option shows a photo thumbnail as its face (App background > Custom). */
+    imageKey: String? = null,
+    imageUri: String? = null
 ) {
     val colors = XvoxTheme.colors
     val compact = LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
@@ -676,9 +606,22 @@ private fun XvoxSegmentedPill(
                         .xvoxPressScale { onSelect(key) },
                     contentAlignment = Alignment.Center
                 ) {
+                    val showsImage = key == imageKey && imageUri != null
+                    if (showsImage) {
+                        AsyncImage(
+                            model = imageUri,
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.matchParentSize()
+                        )
+                        Box(Modifier.matchParentSize().background(Color.Black.copy(alpha = .38f)))
+                        if (isSelected) {
+                            Box(Modifier.matchParentSize().border(2.dp, colors.primaryAccent, CircleShape))
+                        }
+                    }
                     Text(
                         text = label,
-                        color = if (isSelected) selectedTextColor else colors.mutedText,
+                        color = if (showsImage) Color.White else if (isSelected) selectedTextColor else colors.mutedText,
                         fontSize = 12.sp,
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
                         maxLines = 1
@@ -1169,4 +1112,115 @@ private fun SettingsCardFrame(
 private fun xvoxOnAccent(accent: Color): Color {
     val luminance = 0.2126f * accent.red + 0.7152f * accent.green + 0.0722f * accent.blue
     return if (luminance > 0.62f) Color(0xFF111111) else Color.White
+}
+
+
+/** Body of the Custom background box: live preview, Choose/Remove, then Blur and Dimness. */
+@Composable
+private fun CustomBackgroundBoxContent(
+    uri: String?,
+    blur: Float,
+    dim: Float,
+    onChoose: () -> Unit,
+    onRemove: () -> Unit,
+    onBlur: (Float) -> Unit,
+    onDim: (Float) -> Unit
+) {
+    val colors = XvoxTheme.colors
+    val scroll = rememberScrollState()
+    val shape = RoundedCornerShape(18.dp)
+    val actionShape = RoundedCornerShape(14.dp)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .verticalScroll(scroll)
+            .xvoxBoxScroll(scroll)
+            .padding(vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(190.dp)
+                .clip(shape)
+                .background(colors.background),
+            contentAlignment = Alignment.Center
+        ) {
+            if (uri != null) {
+                AsyncImage(
+                    model = uri,
+                    contentDescription = "Background preview",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .matchParentSize()
+                        .graphicsLayer { scaleX = 1.1f; scaleY = 1.1f }
+                        .blur((blur * 27f).dp, androidx.compose.ui.draw.BlurredEdgeTreatment.Unbounded)
+                )
+                Box(Modifier.matchParentSize().background(Color.Black.copy(alpha = dim.coerceIn(0f, .95f))))
+            } else {
+                Text("No photo chosen", color = colors.secondaryText, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(40.dp)
+                    .clip(actionShape)
+                    .background(colors.primaryAccent)
+                    .xvoxPressScale(onClick = onChoose),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    if (uri == null) "Choose" else "Replace",
+                    color = xvoxOnAccent(colors.primaryAccent),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            if (uri != null) {
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(40.dp)
+                        .clip(actionShape)
+                        .background(colors.cardElevated)
+                        .xvoxPressScale(onClick = onRemove),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("Remove", color = colors.primaryText, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+        if (uri != null) {
+            Text(
+                "Blur · ${(blur * 100f).roundToInt()}%",
+                color = colors.secondaryText, fontSize = 11.sp, fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(start = 4.dp)
+            )
+            XvoxSlider(
+                value = blur,
+                onValueChange = onBlur,
+                valueRange = 0f..1f,
+                defaultValue = 0f,
+                snapRadius = .02f,
+                valueLabel = { "${(it * 100f).roundToInt()} percent background blur" },
+                modifier = Modifier.fillMaxWidth()
+            )
+            Text(
+                "Dimness · ${(dim * 100f).roundToInt()}%",
+                color = colors.secondaryText, fontSize = 11.sp, fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(start = 4.dp)
+            )
+            XvoxSlider(
+                value = dim,
+                onValueChange = onDim,
+                valueRange = 0f..0.80f,
+                defaultValue = .20f,
+                snapRadius = .015f,
+                valueLabel = { "${(it * 100f).roundToInt()} percent background dimness" },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
 }
