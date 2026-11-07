@@ -1,3 +1,4 @@
+// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/features/home/HomeProfileAvatar.kt
 package com.xvox.music.features.home
 
 import android.net.Uri
@@ -55,7 +56,8 @@ fun HomeProfileAvatar(
                 level = XvoxBlurLevel.Selection,
                 baseColor = avatarSurface,
                 sky = avatarSky,
-                borderAlpha = .56f
+                borderAlpha = 0f,
+                borderWidth = 0.dp
             )
             .then(
                 if (onClick != null) {

@@ -1,3 +1,4 @@
+// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/player/nowplaying/XvoxNowPlayingControls.kt
 package com.xvox.music.player.nowplaying
 
 import androidx.compose.foundation.background
@@ -358,7 +359,7 @@ private fun PlayControl(
                 level = XvoxBlurLevel.Chrome,
                 baseColor = circleColor,
                 sky = bottomBoxSky,
-                borderAlpha = .46f
+                borderAlpha = 0f
             )
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },

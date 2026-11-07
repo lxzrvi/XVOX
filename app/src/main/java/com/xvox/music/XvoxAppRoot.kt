@@ -263,17 +263,14 @@ fun XvoxAppRoot(
                             .background(colors.background)
                     ) {
                         // Background blur slider: blurs ONLY the wallpaper (photo or generated art).
-                        val bgBlurDp = (effectiveChrome.bgBlur * 36f).dp
+                        val bgBlurDp = if (com.xvox.music.core.ui.blur.XvoxGpuGuard.safeMode) 0.dp else (effectiveChrome.bgImageBlur * 36f).dp
                         if (backgroundImage.isBlank()) {
                             com.xvox.music.core.ui.chrome.XvoxGeneratedBackground(
                                 accent = colors.primaryAccent,
                                 base = colors.background,
                                 isLight = colors.isLight,
                                 style = 0f, // Mesh only
-                                blurDp = bgBlurDp,
-                                custom = effectiveChrome.bgColors.split(',')
-                                    .mapNotNull { com.xvox.music.core.ui.chrome.parseHexColor(it.trim()) }
-                                    .take(3),
+                                blurDp = 0.dp, // default gradient is never blurred
                                 modifier = Modifier.fillMaxSize()
                             )
                         }

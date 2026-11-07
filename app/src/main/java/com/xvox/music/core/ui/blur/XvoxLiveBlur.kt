@@ -174,7 +174,7 @@ fun Modifier.xvoxLiveBlur(
     // Blur mode == background-blur slider above zero. Default (slider 0) = plain theme material
     // with the original borders, zero blur cost.
     val blurMode = chrome.glassBlurEnabled && chrome.glassBlurIntensity > .001f
-    val canBlur = blurMode && sky != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+    val canBlur = blurMode && sky != null && !XvoxGpuGuard.safeMode && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
 
     // --- Sheets: NEVER blurred. Normal theme material in every mode. ---------------------------
     if (level == XvoxBlurLevel.Sheet) {
@@ -193,8 +193,10 @@ fun Modifier.xvoxLiveBlur(
         return textureBlur(backdrop = sky!!.backdrop, shape = shape, blurRadius = 9f.coerceAtMost(tier.maxBlurDp), colors = light)
     }
 
-    val blurDp = remember(level, tier) {
-        (level.radius.value * BlurPerRadius * .85f).coerceIn(1f, tier.maxBlurDp)
+    val inNowPlaying = sky != null && (sky === npSky || sky === npBottomSky)
+    // Now Playing glass: HEAVY blur (x1.7), still capped by the device tier.
+    val blurDp = remember(level, tier, inNowPlaying) {
+        (level.radius.value * BlurPerRadius * .85f * (if (inNowPlaying) 1.7f else 1f)).coerceIn(1f, tier.maxBlurDp)
     }
     val tint = remember(baseColor, level) {
         baseColor.copy(alpha = (baseColor.alpha * level.tintAlpha).coerceIn(0f, 1f))
@@ -207,8 +209,8 @@ fun Modifier.xvoxLiveBlur(
     }
     // Cards/selection that sit directly on the static wallpaper: a flat tint over an already
     // blurred wallpaper looks identical to live blur, so skip the per-card GPU pass (smooth scroll).
-    val overStaticWallpaper = sky === surfaceSky &&
-        (level == XvoxBlurLevel.Card || level == XvoxBlurLevel.Selection)
+    // (Cards are live-blurred again on request; only Low-RAM tiers keep them flat.)
+    val overStaticWallpaper = false
     val clipped = clip(shape)
     val surface = when {
         !blurMode -> clipped.background(baseColor)
@@ -217,10 +219,11 @@ fun Modifier.xvoxLiveBlur(
         else -> clipped.textureBlur(backdrop = sky!!.backdrop, shape = shape, blurRadius = blurDp, colors = colors)
     }
     // Opt-out callers (width 0 / alpha 0: header, scrim, Now Playing bottom box) stay borderless.
-    if (borderWidth <= 0.dp || borderAlpha <= 0f) return surface
-    // Reflective rim ONLY for the bottom bar, mini player and Now Playing glass; every other
-    // element keeps its normal border in both modes.
-    val reflective = blurMode && (glassEdge || (sky != null && (sky === npSky || sky === npBottomSky)))
+    // Now Playing glass is ALWAYS borderless (both modes).
+    if (borderWidth <= 0.dp || borderAlpha <= 0f || inNowPlaying) return surface
+    // Reflective rim ONLY for the bottom bar and mini player; every other element keeps its
+    // normal border in both modes.
+    val reflective = blurMode && glassEdge
     return if (reflective) surface.xvoxGlassEdge(shape) else surface.xvoxPlainBorder(shape, borderColor, borderAlpha, borderWidth)
 }
 

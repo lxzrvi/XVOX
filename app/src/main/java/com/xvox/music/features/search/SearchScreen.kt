@@ -685,7 +685,7 @@ fun SearchScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .offset(y = searchFieldTop)
-                    .xvoxBarBlur(contentSky)
+                    // No strip/patti behind the field: only the rounded search bar itself.
                     .padding(start = 6.dp, end = 6.dp, bottom = 4.dp)
             ) {
                 SearchBarComponent(
@@ -693,6 +693,7 @@ fun SearchScreen(
                     onQueryChange = { query = it },
                     onClear = { query = "" },
                     focusRequester = focusRequester,
+                    sky = contentSky,
                     onSearch = {
                         if (trimmedQuery.isNotBlank()) homeViewModel.addRecentSearch(trimmedQuery)
                         focusManager.clearFocus()
@@ -727,7 +728,8 @@ private fun SearchBarComponent(
     onClear: () -> Unit,
     focusRequester: FocusRequester,
     onSearch: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    sky: com.xvox.music.core.ui.blur.Sky? = null
 ) {
     val colors = XvoxTheme.colors
     val haptics = LocalXvoxHaptics.current
@@ -740,6 +742,7 @@ private fun SearchBarComponent(
                 shape = RoundedCornerShape(24.dp),
                 level = XvoxBlurLevel.Chrome,
                 baseColor = if (colors.isLight) colors.cardElevated else colors.card,
+                sky = sky ?: com.xvox.music.core.ui.blur.LocalXvoxSurfaceSky.current,
                 borderAlpha = 1f,
                 borderWidth = .7.dp
             )

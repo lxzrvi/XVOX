@@ -1169,22 +1169,18 @@ fun XvoxMainShell(
                     onTimer = ::showTimerBox,
                     onQueue = ::showQueueBox,
                     onInfo = {
-                        // Song information is always a first-level bottom sheet. Clear the
-                        // current Now Playing/menu box before loading and once more before
-                        // presenting in case an asynchronous callback raced another overlay.
                         overlays.hideBox()
-                        homeViewModel.loadInfo(playingSong) { info ->
-                            overlays.hideBox()
-                            overlays.showBox(
-                                title = "Song info",
-                                bottomAction = {
-                                    XvoxTransactionalFooterActions(
-                                        onCancel = overlays::hideBox,
-                                        onOkay = overlays::hideBox
-                                    )
-                                }
-                            ) { SongInfoBox(info = info) }
-                        }
+                        val infoState = androidx.compose.runtime.mutableStateOf(com.xvox.music.features.home.quickSongInfo(playingSong))
+                        overlays.showBox(
+                            title = "Song info",
+                            bottomAction = {
+                                XvoxTransactionalFooterActions(
+                                    onCancel = overlays::hideBox,
+                                    onOkay = overlays::hideBox
+                                )
+                            }
+                        ) { SongInfoBox(info = infoState.value) }
+                        homeViewModel.loadInfo(playingSong) { info -> infoState.value = info }
                     },
                     onShare = {
                         XvoxSongActions.share(context, playingSong)

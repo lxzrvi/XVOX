@@ -400,14 +400,9 @@ private fun AppearanceSectionCard(
                 val blur = state.chromeStyle.bgBlur.coerceIn(0f, 1f)
                 val hasImage = state.backgroundImageUri != null
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    // One pill decides everything: Off = default look (no blur, default borders),
-                    // anything else = blur mode. It blurs the BACKGROUND (photo or mesh) only.
-                    val blurKey = when {
-                        blur <= .001f -> "off"
-                        blur <= .45f -> "low"
-                        blur <= .80f -> "med"
-                        else -> "high"
-                    }
+                    // Blur On/Off pill. Off = default look (flat theme + default borders).
+                    // On = live blur on elements. It NEVER changes how strong the background is.
+                    val blurKey = if (blur <= .001f) "off" else "on"
                     Text(
                         text = "Blur",
                         color = colors.secondaryText,
@@ -416,13 +411,23 @@ private fun AppearanceSectionCard(
                         modifier = Modifier.padding(start = 4.dp)
                     )
                     XvoxSegmentedPill(
-                        options = listOf("off" to "Off", "low" to "Low", "med" to "Medium", "high" to "High"),
+                        options = listOf("off" to "Off", "on" to "On"),
                         selectedKey = blurKey,
-                        onSelect = { key ->
-                            val v = when (key) { "low" -> .30f; "med" -> .60f; "high" -> 1f; else -> 0f }
-                            viewModel.setChromeStyle { it.copy(bgBlur = v) }
-                        }
+                        onSelect = { key -> viewModel.setChromeStyle { it.copy(bgBlur = if (key == "on") 1f else 0f) } }
                     )
+                    if (com.xvox.music.core.ui.blur.XvoxGpuGuard.safeMode) {
+                        val ctx = androidx.compose.ui.platform.LocalContext.current
+                        Text(
+                            text = "Safe mode: the last run closed unexpectedly, so blur effects are paused. Tap to try blur again.",
+                            color = colors.primaryAccent,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .xvoxPressScale { com.xvox.music.core.ui.blur.XvoxGpuGuard.clearSafeMode(ctx) }
+                                .padding(horizontal = 4.dp, vertical = 4.dp)
+                        )
+                    }
                     if (blur <= .001f) {
                         Text(
                             text = "Header transparency · ${((1f - state.chromeStyle.headerBgAlpha) * 100f).roundToInt()}%",
@@ -441,42 +446,24 @@ private fun AppearanceSectionCard(
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
-                    if (!hasImage) {
-                        // Mesh background colours: blank slot = derived from the accent.
-                        val slots = state.chromeStyle.bgColors.split(',').map { it.trim() }
+                    if (hasImage) {
+                        val ib = state.chromeStyle.bgImageBlur.coerceIn(0f, 1f)
                         Text(
-                            text = "Mesh colours (blank = accent)",
+                            text = "Image blur · ${(ib * 100f).roundToInt()}%",
                             color = colors.secondaryText,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold,
                             modifier = Modifier.padding(start = 4.dp)
                         )
-                        for (i in 0 until 3) {
-                            com.xvox.music.features.settings.components.ColorPickerRow(
-                                label = if (i == 0) "Colour 1 (main)" else "Colour ${i + 1}",
-                                hex = slots.getOrElse(i) { "" },
-                                onColorChange = { hex ->
-                                    val next = MutableList(3) { slots.getOrElse(it) { "" } }
-                                    next[i] = hex
-                                    viewModel.setChromeStyle { it.copy(bgColors = next.joinToString(",").trimEnd(',')) }
-                                }
-                            )
-                        }
-                        Box(
-                            modifier = Modifier
-                                .height(34.dp)
-                                .xvoxLiveBlur(
-                                    shape = RoundedCornerShape(14.dp),
-                                    level = XvoxBlurLevel.Selection,
-                                    baseColor = colors.cardElevated,
-                                    borderAlpha = .62f
-                                )
-                                .xvoxPressScale { viewModel.setChromeStyle { it.copy(bgColors = "") } }
-                                .padding(horizontal = 14.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text("Reset to accent", color = colors.primaryText, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        }
+                        XvoxSlider(
+                            value = ib,
+                            onValueChange = { v -> viewModel.setChromeStyle { it.copy(bgImageBlur = v.coerceIn(0f, 1f)) } },
+                            valueRange = 0f..1f,
+                            defaultValue = 0f,
+                            snapRadius = .02f,
+                            valueLabel = { "${(it * 100f).roundToInt()} percent background image blur" },
+                            modifier = Modifier.fillMaxWidth()
+                        )
                     }
                     // Grid: small preview on the left, Choose/Replace (top) + Remove (bottom) right.
                     Row(
@@ -504,7 +491,6 @@ private fun AppearanceSectionCard(
                                     isLight = colors.isLight,
                                     style = 0f,
                                     blurDp = 0.dp,
-                                    custom = state.chromeStyle.bgColors.split(',').mapNotNull { com.xvox.music.core.ui.chrome.parseHexColor(it.trim()) }.take(3),
                                     modifier = Modifier.matchParentSize()
                                 )
                             }

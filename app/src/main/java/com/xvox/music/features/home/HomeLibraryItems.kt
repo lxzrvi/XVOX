@@ -1,6 +1,9 @@
 // EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/features/home/HomeLibraryItems.kt
 package com.xvox.music.features.home
 
+import androidx.compose.runtime.remember
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyListScope
@@ -194,20 +197,39 @@ fun LazyListScope.playlistCollectionItems(
     // A liked collection remains in its original relative order, but all liked collections are
     // pinned ahead of normal playlists in every supported presentation mode.
     val ordered = playlists.sortedByDescending { it.id in likedPlaylistIds }
-    // Header text removed; keep only a slim "create playlist" action so creation stays reachable.
+    // No header text any more. The create action is a crisp, vector-drawn "+" (no bitmap icon and
+    // no scaled layer), so tapping it never pixelates the icon or the label.
     item(key = "playlists_header") {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.End) {
-            Icon(
-                painterResource(R.drawable.ic_xvox_add),
-                contentDescription = "Create playlist",
-                tint = XvoxTheme.colors.primaryAccent,
-                modifier = Modifier.size(32.dp).xvoxPressScale(onClick = onCreate).padding(4.dp)
-            )
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onCreate
+                )
+                .padding(vertical = if (playlists.isEmpty()) 10.dp else 2.dp),
+            horizontalArrangement = Arrangement.End,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (playlists.isEmpty()) {
+                Text(
+                    "Create your first playlist",
+                    color = XvoxTheme.colors.mutedText,
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(end = 8.dp)
+                )
+            }
+            val accent = XvoxTheme.colors.primaryAccent
+            androidx.compose.foundation.Canvas(Modifier.size(28.dp)) {
+                val c = center
+                val r = size.minDimension * .26f
+                val w = 2.2.dp.toPx()
+                drawLine(accent, androidx.compose.ui.geometry.Offset(c.x - r, c.y), androidx.compose.ui.geometry.Offset(c.x + r, c.y), strokeWidth = w, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+                drawLine(accent, androidx.compose.ui.geometry.Offset(c.x, c.y - r), androidx.compose.ui.geometry.Offset(c.x, c.y + r), strokeWidth = w, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+            }
         }
-    }
-    if (playlists.isEmpty()) item(key = "playlists_empty") {
-        Text("Create your first playlist", color = XvoxTheme.colors.mutedText, fontSize = 12.sp,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 16.dp))
     }
     if (orientation == "horizontal") {
         val rowCount = rows.coerceIn(1, 3)

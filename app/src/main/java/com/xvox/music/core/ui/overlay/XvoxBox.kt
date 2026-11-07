@@ -1,5 +1,9 @@
+// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/core/ui/overlay/XvoxBox.kt
 package com.xvox.music.core.ui.overlay
 
+import com.xvox.music.core.ui.blur.LocalXvoxOverlaySky
+import com.xvox.music.core.ui.blur.xvoxLiveBlur
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.CubicBezierEasing
@@ -168,6 +172,8 @@ fun XvoxBox(
     headerLeadingContent: (@Composable () -> Unit)? = null,
     headerTitleContent: (@Composable () -> Unit)? = null,
     bottomAction: (@Composable () -> Unit)? = null,
+    closeSignal: Int = 0,
+    liveScrim: Boolean = false,
     content: @Composable () -> Unit
 ) = XvoxSheet(
     onDismiss = onDismiss,
@@ -184,6 +190,8 @@ fun XvoxBox(
     headerLeadingContent = headerLeadingContent,
     headerTitleContent = headerTitleContent,
     bottomAction = bottomAction,
+    closeSignal = closeSignal,
+    liveScrim = liveScrim,
     content = content
 )
 
@@ -211,6 +219,8 @@ fun XvoxSheet(
     headerLeadingContent: (@Composable () -> Unit)? = null,
     headerTitleContent: (@Composable () -> Unit)? = null,
     bottomAction: (@Composable () -> Unit)? = null,
+    closeSignal: Int = 0,
+    liveScrim: Boolean = false,
     content: @Composable () -> Unit
 ) {
     if (presentation == XvoxBoxPresentation.CENTERED) {
@@ -227,6 +237,8 @@ fun XvoxSheet(
             headerLeadingContent = headerLeadingContent,
             headerTitleContent = headerTitleContent,
             bottomAction = bottomAction,
+            closeSignal = closeSignal,
+            liveScrim = liveScrim,
             content = content
         )
         return
@@ -252,7 +264,7 @@ fun XvoxSheet(
         // veil so the page is recognizably present through the stronger blur above the sheet.
         targetValue = if (closing) 0f else .24f,
         animationSpec = tween(
-            durationMillis = if (closing) XvoxSheetExitMs else XvoxSheetEnterMs,
+            durationMillis = if (closing) XvoxSheetExitMs + 60 else XvoxSheetEnterMs + 80,
             easing = XvoxBoxEasing
         ),
         label = "sheetScrim"
@@ -272,16 +284,25 @@ fun XvoxSheet(
     }
 
     BackHandler(onBack = ::close)
+    // Content X / Done buttons call overlays.hideBox(); route them through the same animated close.
+    val initialCloseSignal = remember { closeSignal }
+    LaunchedEffect(closeSignal) { if (closeSignal != initialCloseSignal) close() }
     Box(modifier = modifier.fillMaxSize()) {
         Box(
             modifier = Modifier
                 .matchParentSize()
+                // The light scrim blur fades in/out with the dim layer instead of popping.
+                .graphicsLayer { alpha = (scrimAlpha / .24f).coerceIn(0f, 1f) }
                 // This is a sibling of the live app capture in XvoxAppRoot, so the empty space
                 // above a sheet blurs the actual page instead of merely applying a dark scrim.
-                .xvoxOverlayBlur(
+                .xvoxLiveBlur(
                     shape = RoundedCornerShape(0.dp),
                     level = XvoxBlurLevel.SheetBackdrop,
                     baseColor = scrimColor,
+                    // Only the host-level sheet (a sibling OUTSIDE the captured app layer) may
+                    // sample the app. A sheet composed INSIDE the captured layer (Now Playing,
+                    // Settings) would sample itself recursively and crash natively.
+                    sky = if (liveScrim) LocalXvoxOverlaySky.current else null,
                     borderWidth = 0.dp
                 )
                 .drawBehind { drawRect(scrimColor, alpha = scrimAlpha) }
@@ -585,6 +606,8 @@ private fun XvoxCenteredBox(
     headerLeadingContent: (@Composable () -> Unit)?,
     headerTitleContent: (@Composable () -> Unit)?,
     bottomAction: (@Composable () -> Unit)?,
+    closeSignal: Int = 0,
+    liveScrim: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val colors = XvoxTheme.colors
@@ -624,6 +647,9 @@ private fun XvoxCenteredBox(
     }
 
     BackHandler(onBack = ::close)
+    // Content X / Done buttons call overlays.hideBox(); route them through the same animated close.
+    val initialCloseSignal = remember { closeSignal }
+    LaunchedEffect(closeSignal) { if (closeSignal != initialCloseSignal) close() }
     BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
@@ -669,10 +695,15 @@ private fun XvoxCenteredBox(
         Box(
             Modifier
                 .matchParentSize()
-                .xvoxOverlayBlur(
+                .graphicsLayer { alpha = (scrimAlpha / .28f).coerceIn(0f, 1f) }
+                .xvoxLiveBlur(
                     shape = RoundedCornerShape(0.dp),
                     level = XvoxBlurLevel.SheetBackdrop,
                     baseColor = scrimColor,
+                    // Only the host-level sheet (a sibling OUTSIDE the captured app layer) may
+                    // sample the app. A sheet composed INSIDE the captured layer (Now Playing,
+                    // Settings) would sample itself recursively and crash natively.
+                    sky = if (liveScrim) LocalXvoxOverlaySky.current else null,
                     borderWidth = 0.dp
                 )
                 .drawBehind { drawRect(scrimColor, alpha = scrimAlpha) }
@@ -683,11 +714,11 @@ private fun XvoxCenteredBox(
             // Preserve one stationary dim layer for compact pickers too. The picker itself
             // rises and falls independently; no background pixel participates in that motion.
             enter = slideInVertically(
-                initialOffsetY = { it },
+                initialOffsetY = { (constraints.maxHeight + it) / 2 },
                 animationSpec = tween(XvoxSheetEnterMs, easing = XvoxBoxEasing)
             ),
             exit = slideOutVertically(
-                targetOffsetY = { it },
+                targetOffsetY = { (constraints.maxHeight + it) / 2 },
                 animationSpec = tween(XvoxSheetExitMs, easing = XvoxBoxEasing)
             )
         ) {

@@ -238,6 +238,7 @@ fun XvoxBottomBar(
     val isDark = colors.background.luminance() < .5f
     val intensity = chrome.glassBlurIntensity.coerceIn(0f, 1f)
     val blurOn = chrome.glassBlurEnabled && intensity > .001f &&
+        !com.xvox.music.core.ui.blur.XvoxGpuGuard.safeMode &&
         contentSky != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
     // Real frost: 8dp (light) .. 26dp (max) controlled by the global blur intensity.
     val blurDp = 8f + 18f * intensity

@@ -147,7 +147,9 @@ data class XvoxChromeStyle(
     /** Default (image-less) background style/texture slider: mesh -> rays -> patches. */
     val bgStyle: Float = 0f,
     /** Up to 3 comma-separated #RRGGBB colours for the generated mesh background; blank = accent. */
-    val bgColors: String = ""
+    val bgColors: String = "",
+    /** Blur applied to the chosen background IMAGE only (0..1). Never touches element blur. */
+    val bgImageBlur: Float = 0f
 ) {
     fun encode(): String = listOf(
         optionBoxBgAlpha, optionBoxBorder, optionBoxBorderAlpha,
@@ -191,7 +193,7 @@ data class XvoxChromeStyle(
         glassBorderEnabled, glassBorderWidth, glassBorderColor, glassBorderAlpha, glassBorderBlur,
         // Appended after the global-border record so earlier installations retain their values.
         glassBlurEnabled, glassBlurIntensity,
-        bgBlur, bgStyle, bgColors
+        bgBlur, bgStyle, bgColors, bgImageBlur
     ).joinToString("|")
 
     fun resetNowPlayingLayout(): XvoxChromeStyle = copy(
@@ -321,6 +323,7 @@ data class XvoxChromeStyle(
                 bgBlur = flt(84, 0f).coerceIn(0f, 1f),
                 bgStyle = flt(85, 0f).coerceIn(0f, 1f),
                 bgColors = str(86),
+                bgImageBlur = flt(87, 0f).coerceIn(0f, 1f),
                 nowPlayingSeekStyle = seekStyle(31),
                 nowPlayingPillSide = side(32, "left"),
                 nowPlayingChangingActionsSide = side(33, "right"),

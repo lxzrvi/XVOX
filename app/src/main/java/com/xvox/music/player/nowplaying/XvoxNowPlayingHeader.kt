@@ -1,3 +1,4 @@
+// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/player/nowplaying/XvoxNowPlayingHeader.kt
 package com.xvox.music.player.nowplaying
 
 import androidx.compose.foundation.background
@@ -80,7 +81,7 @@ fun XvoxNowPlayingHeader(
                     level = XvoxBlurLevel.Selection,
                     baseColor = colors.card.copy(alpha = colors.card.alpha * surfaceAlpha.coerceIn(0f, 1f)),
                     sky = nowPlayingSky,
-                    borderAlpha = .46f
+                    borderAlpha = 0f
                 )
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
@@ -178,7 +179,7 @@ fun XvoxNowPlayingHeader(
                         level = XvoxBlurLevel.Chrome,
                         baseColor = colors.card.copy(alpha = colors.card.alpha * surfaceAlpha.coerceIn(0f, 1f)),
                         sky = nowPlayingSky,
-                        borderAlpha = .50f
+                        borderAlpha = 0f
                     )
                     .padding(horizontal = 5.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -215,7 +216,7 @@ fun XvoxNowPlayingHeader(
                         level = XvoxBlurLevel.Chrome,
                         baseColor = colors.card.copy(alpha = colors.card.alpha * surfaceAlpha.coerceIn(0f, 1f)),
                         sky = nowPlayingSky,
-                        borderAlpha = .50f
+                        borderAlpha = 0f
                     )
                     .padding(horizontal = 2.dp),
                 verticalAlignment = Alignment.CenterVertically

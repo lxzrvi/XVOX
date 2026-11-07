@@ -1,9 +1,11 @@
+// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/core/ui/overlay/XvoxOverlayController.kt
 package com.xvox.music.core.ui.overlay
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -93,7 +95,7 @@ class XvoxOverlayController {
         boxTitle = title
         // A box opened from a visible box is a deeper choice.  It intentionally becomes centred
         // rather than creating a stack of bottom sheets.
-        boxPresentation = if (isBoxVisible && presentation == XvoxBoxPresentation.DEFAULT) {
+        boxPresentation = if (isBoxVisible && !hideRequested && presentation == XvoxBoxPresentation.DEFAULT) {
             XvoxBoxPresentation.CENTERED
         } else {
             presentation
@@ -105,6 +107,7 @@ class XvoxOverlayController {
         boxHeaderTitleContent = headerTitleContent
         boxBottomAction = bottomAction
         boxOnDismiss = onDismiss
+        hideRequested = false
         listKey++
         listContent = content
     }
@@ -130,11 +133,28 @@ class XvoxOverlayController {
         boxHeaderTitleContent = headerTitleContent
         boxBottomAction = null
         boxOnDismiss = null
+        hideRequested = false
         listKey++
         listContent = content
     }
 
+    /** Bumped by [hideBox]; the visible sheet observes it and plays its normal slide-down exit. */
+    internal var closeSignal by mutableIntStateOf(0)
+        private set
+
+    /** Animated close: every X / Done / action button ends in the same smooth slide-down. */
     fun hideBox() {
+        if (listContent == null) return
+        hideRequested = true
+        closeSignal++
+    }
+
+    /** True between hideBox() and the end of the exit animation: the box is already "gone" logically. */
+    private var hideRequested = false
+
+    /** Immediate teardown, called by the sheet AFTER its exit animation finished. */
+    internal fun finishHide() {
+        hideRequested = false
         val dismiss = boxOnDismiss
         boxOnDismiss = null
         listContent = null

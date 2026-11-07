@@ -1,3 +1,4 @@
+// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/MainActivity.kt
 package com.xvox.music
 
 import android.content.pm.ActivityInfo
@@ -51,6 +52,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
+        com.xvox.music.core.ui.blur.XvoxGpuGuard.markForeground(this)
         requestHighRefreshPresentation()
         keepLandscapeStatusBarHidden()
         isAppInForeground = true
@@ -72,11 +74,13 @@ class MainActivity : ComponentActivity() {
 
     override fun onStop() {
         super.onStop()
+        com.xvox.music.core.ui.blur.XvoxGpuGuard.markBackground(this)
         isAppInForeground = false
     }
 
     @Suppress("DEPRECATION")
     override fun onCreate(savedInstanceState: Bundle?) {
+        com.xvox.music.core.ui.blur.XvoxGpuGuard.onProcessStart(this)
         installSplashScreen()
         super.onCreate(savedInstanceState)
         if (savedInstanceState == null) com.xvox.music.features.home.allsongs.XvoxMosaicSession.begin()

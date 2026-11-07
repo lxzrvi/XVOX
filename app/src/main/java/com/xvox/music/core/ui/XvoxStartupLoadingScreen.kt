@@ -52,7 +52,7 @@ private val StartupRingStart = -StartupPi / 5f
 private const val StartupTerminalRingSegment = 0
 
 // Ring, unroll, then fill. Starting on the completed ring avoids any pre-loader dot state.
-private val StartupPhaseDurations = floatArrayOf(1300f, 750f, 1450f)
+private val StartupPhaseDurations = floatArrayOf(1100f, 1150f, 1150f)
 private val StartupPhaseBounds = FloatArray(StartupPhaseDurations.size + 1).also { bounds ->
     for (index in StartupPhaseDurations.indices) {
         bounds[index + 1] = bounds[index] + StartupPhaseDurations[index]

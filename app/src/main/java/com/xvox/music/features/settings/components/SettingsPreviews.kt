@@ -1,3 +1,4 @@
+// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/features/settings/components/SettingsPreviews.kt
 package com.xvox.music.features.settings.components
 
 import androidx.compose.animation.core.LinearEasing
@@ -79,12 +80,18 @@ fun SettingsChoiceRow(
                 fontSize = 12.sp,
                 fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
                 modifier = Modifier
-                    .xvoxLiveBlur(
-                        shape = RoundedCornerShape(12.dp),
-                        level = XvoxBlurLevel.Selection,
-                        baseColor = if (active) colors.primaryAccent else colors.cardElevated,
-                        borderColor = if (active) Color.Transparent else colors.cardBorder,
-                        borderAlpha = if (active) 0f else .78f
+                    .then(
+                        // Active choice = SOLID accent (never washed out by blur tinting).
+                        if (active) Modifier
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(colors.primaryAccent)
+                        else Modifier.xvoxLiveBlur(
+                            shape = RoundedCornerShape(12.dp),
+                            level = XvoxBlurLevel.Selection,
+                            baseColor = colors.cardElevated,
+                            borderColor = colors.cardBorder,
+                            borderAlpha = .78f
+                        )
                     )
                     .xvoxPressScale { onSelect(key) }
                     .padding(horizontal = 14.dp, vertical = 10.dp)
@@ -118,12 +125,15 @@ fun SettingsFlexChoiceRow(
                 modifier = Modifier
                     .weight(1f)
                     .height(pillHeight)
-                    .xvoxLiveBlur(
-                        shape = shape,
-                        level = XvoxBlurLevel.Selection,
-                        baseColor = if (active) colors.primaryAccent else colors.cardElevated,
-                        borderColor = if (active) Color.Transparent else colors.cardBorder,
-                        borderAlpha = if (active) 0f else .78f
+                    .then(
+                        if (active) Modifier.clip(shape).background(colors.primaryAccent)
+                        else Modifier.xvoxLiveBlur(
+                            shape = shape,
+                            level = XvoxBlurLevel.Selection,
+                            baseColor = colors.cardElevated,
+                            borderColor = colors.cardBorder,
+                            borderAlpha = .78f
+                        )
                     )
                     .xvoxPressScale { onSelect(key) },
                 contentAlignment = Alignment.Center

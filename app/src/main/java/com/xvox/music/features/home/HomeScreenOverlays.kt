@@ -1,3 +1,4 @@
+// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/features/home/HomeScreenOverlays.kt
 package com.xvox.music.features.home
 
 import android.content.Context
@@ -342,21 +343,18 @@ fun showSongOptionsOverlay(
             },
             onInfo = {
                 overlays.hideBox()
-                viewModel.loadInfo(sourcedSong) { info ->
-                    // The detail surface must not inherit a centred/menu presentation if a
-                    // concurrent action opened another box while MediaStore info was loading.
-                    overlays.hideBox()
-                    overlays.showBox(
-                        title = "Song info",
-                        bottomAction = {
-                            XvoxTransactionalFooterActions(
-                                onCancel = overlays::hideBox,
-                                onOkay = overlays::hideBox
-                            )
-                        }
-                    ) { SongInfoBox(info) }
-                }
-            },
+                        val infoState = androidx.compose.runtime.mutableStateOf(com.xvox.music.features.home.quickSongInfo(sourcedSong))
+                overlays.showBox(
+                    title = "Song info",
+                    bottomAction = {
+                        XvoxTransactionalFooterActions(
+                            onCancel = overlays::hideBox,
+                            onOkay = overlays::hideBox
+                        )
+                    }
+                ) { SongInfoBox(info = infoState.value) }
+                viewModel.loadInfo(sourcedSong) { info -> infoState.value = info }
+                    },
             onRingtone = {
                 overlays.hideBox()
                 if (XvoxSongActions.canWriteSettings(context)) {

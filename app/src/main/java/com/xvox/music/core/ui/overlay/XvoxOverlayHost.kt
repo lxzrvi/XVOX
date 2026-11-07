@@ -1,3 +1,4 @@
+// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/core/ui/overlay/XvoxOverlayHost.kt
 package com.xvox.music.core.ui.overlay
 
 import androidx.compose.foundation.layout.Box
@@ -17,7 +18,9 @@ fun XvoxOverlayHost(
         controller.listContent?.let { content ->
             key(controller.listKey) {
                 XvoxBox(
-                    onDismiss = controller::hideBox,
+                    onDismiss = controller::finishHide,
+                    closeSignal = controller.closeSignal,
+                    liveScrim = true,
                     title = controller.boxTitle,
                     presentation = controller.boxPresentation,
                     mini = controller.boxMini,

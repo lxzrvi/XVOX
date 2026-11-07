@@ -1,3 +1,4 @@
+// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/features/home/SongInfoReader.kt
 package com.xvox.music.features.home
 
 import android.content.Context
@@ -112,4 +113,26 @@ class SongInfoReader(
             append((total % 60L).toString().padStart(2, '0'))
         }
     }
+}
+
+
+/** Instant placeholder info (no IO) so the Song info sheet opens immediately; replaced when read() finishes. */
+fun quickSongInfo(song: Song): SongInfo {
+    val total = (song.duration / 1000L).coerceAtLeast(0L)
+    return SongInfo(
+        title = song.title,
+        artist = song.artist,
+        album = "…",
+        albumArtist = "…",
+        genre = "…",
+        year = "…",
+        duration = String.format(Locale.US, "%d:%02d", total / 60L, total % 60L),
+        format = "…",
+        fileName = song.contentUri.lastPathSegment.orEmpty().ifBlank { "…" },
+        size = "…",
+        bitrate = "…",
+        sampleRate = "…",
+        location = "…",
+        trackNumber = "…"
+    )
 }

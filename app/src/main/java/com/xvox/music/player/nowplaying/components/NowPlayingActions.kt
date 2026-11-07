@@ -1,3 +1,4 @@
+// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/player/nowplaying/components/NowPlayingActions.kt
 @file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 
 package com.xvox.music.player.nowplaying.components
@@ -215,7 +216,7 @@ fun NowPlayingActions(
                         level = XvoxBlurLevel.Chrome,
                         baseColor = colors.card.copy(alpha = colors.card.alpha * surfaceAlpha.coerceIn(0f, 1f)),
                         sky = bottomBoxSky,
-                        borderAlpha = .50f
+                        borderAlpha = 0f
                     )
                     .padding(horizontal = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -654,7 +655,7 @@ fun NowPlayingCircleAction(
                 level = XvoxBlurLevel.Selection,
                 baseColor = bgColor,
                 sky = bottomBoxSky,
-                borderAlpha = .44f
+                borderAlpha = 0f
             )
             .combinedClickable(
                 interactionSource = remember { MutableInteractionSource() },

@@ -252,7 +252,8 @@ fun XvoxShellTopHeader(
                                     level = XvoxBlurLevel.Chrome,
                                     baseColor = controlSurface,
                                     sky = headerSky,
-                                    borderAlpha = .58f
+                                    borderAlpha = 0f,
+                                    borderWidth = 0.dp
                                 )
                                 .xvoxPressScale(pressedScale = .90f, onClick = onRefreshClick),
                             contentAlignment = Alignment.Center
@@ -275,7 +276,8 @@ fun XvoxShellTopHeader(
                                     level = XvoxBlurLevel.Chrome,
                                     baseColor = controlSurface,
                                     sky = headerSky,
-                                    borderAlpha = .58f
+                                    borderAlpha = 0f,
+                                    borderWidth = 0.dp
                                 )
                         ) {
                             Row(
