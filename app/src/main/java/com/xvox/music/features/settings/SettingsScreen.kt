@@ -236,7 +236,16 @@ fun SettingsScreen(
             .fillMaxSize()
             // Let a selected app photo remain visible under Settings' live-glass cards without
             // changing the opaque default theme when no custom background exists.
-            .background(colors.background.copy(alpha = if (state.backgroundImageUri != null) .60f else 1f)),
+            .background(
+                colors.background.copy(
+                    alpha = when {
+                        // Blur mode: the real app background must show through the live-glass cards.
+                        state.chromeStyle.bgBlur > .001f -> 0f
+                        state.backgroundImageUri != null -> .60f
+                        else -> 1f
+                    }
+                )
+            ),
         contentAlignment = Alignment.TopCenter
     ) {
         LazyVerticalGrid(
@@ -426,24 +435,6 @@ private fun AppearanceSectionCard(
                                 .fillMaxWidth()
                                 .xvoxPressScale { com.xvox.music.core.ui.blur.XvoxGpuGuard.clearSafeMode(ctx) }
                                 .padding(horizontal = 4.dp, vertical = 4.dp)
-                        )
-                    }
-                    if (blur <= .001f) {
-                        Text(
-                            text = "Header transparency · ${((1f - state.chromeStyle.headerBgAlpha) * 100f).roundToInt()}%",
-                            color = colors.secondaryText,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.padding(start = 4.dp)
-                        )
-                        XvoxSlider(
-                            value = 1f - state.chromeStyle.headerBgAlpha.coerceIn(0f, 1f),
-                            onValueChange = { v -> viewModel.setChromeStyle { it.copy(headerBgAlpha = (1f - v).coerceIn(0f, 1f)) } },
-                            valueRange = 0f..1f,
-                            defaultValue = 0f,
-                            snapRadius = .02f,
-                            valueLabel = { "${(it * 100f).roundToInt()} percent header transparency" },
-                            modifier = Modifier.fillMaxWidth()
                         )
                     }
                     if (hasImage) {

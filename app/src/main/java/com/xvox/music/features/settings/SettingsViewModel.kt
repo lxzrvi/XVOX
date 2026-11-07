@@ -1,3 +1,4 @@
+// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/features/settings/SettingsViewModel.kt
 package com.xvox.music.features.settings
 
 import com.xvox.music.audio.EqBands
@@ -177,7 +178,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     /** One Okay-confirmed Now Playing draft must land atomically to preserve its visual crossfade. */
     fun applyNowPlayingBackground(style: String, coverBlur: Float) {
         val normalizedStyle = com.xvox.music.player.nowplaying.XvoxNowPlayingBackgroundStyles.normalize(style)
-        val normalizedBlur = coverBlur.coerceIn(12f, 50f)
+        val normalizedBlur = coverBlur.coerceIn(3f, 50f)
         pendingNowPlayingCoverBlur = normalizedBlur
         _state.update {
             it.copy(nowPlayingBackgroundStyle = normalizedStyle, nowPlayingCoverBlur = normalizedBlur)

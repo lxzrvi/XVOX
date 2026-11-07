@@ -179,13 +179,19 @@ private fun navigationIconRes(destination: XvoxDestination): Int = when (destina
     XvoxDestination.SETTINGS -> R.drawable.ic_xvox_settings
 }
 
+/** Blur-off only: per-tab 0..1 proximity of the sliding pill (null in blur mode). */
+private val LocalLiquidTabEmphasis = androidx.compose.runtime.compositionLocalOf<((Int) -> Float)?> { null }
+
 @Composable
 private fun RowScope.LiquidTab(
     destination: XvoxDestination,
+    index: Int,
     selected: Boolean,
     onClick: () -> Unit
 ) {
     val scale = LocalLiquidTabScale.current
+    val emphasis = LocalLiquidTabEmphasis.current
+    val accent = XvoxTheme.colors.primaryAccent
     Box(
         modifier = Modifier
             .semantics(mergeDescendants = true) {
@@ -199,7 +205,9 @@ private fun RowScope.LiquidTab(
             .fillMaxHeight()
             .weight(1f)
             .graphicsLayer {
-                val s = scale()
+                // Blur off: the icon the pill is travelling toward grows a little.
+                val e = emphasis?.invoke(index) ?: 0f
+                val s = scale() * (1f + .14f * e)
                 scaleX = s
                 scaleY = s
             },
@@ -211,6 +219,17 @@ private fun RowScope.LiquidTab(
             colorFilter = ColorFilter.tint(LocalLiquidTint.current),
             modifier = Modifier.size(XvoxNavigationGeometry.iconSize)
         )
+        if (emphasis != null) {
+            // Accent copy cross-fades in as the pill approaches: one icon, no clipped duplicate row.
+            Image(
+                painter = painterResource(navigationIconRes(destination)),
+                contentDescription = null,
+                colorFilter = ColorFilter.tint(accent),
+                modifier = Modifier
+                    .size(XvoxNavigationGeometry.iconSize)
+                    .graphicsLayer { alpha = emphasis.invoke(index).coerceIn(0f, 1f) }
+            )
+        }
     }
 }
 
@@ -429,10 +448,12 @@ private fun LiquidBar(
     val pillHighlight = rememberGravityRotatedHighlight(iosIndicatorSpecular, extraDegrees = 90f)
     val combinedBackdrop = rememberCombinedBackdrop(backdrop ?: tabsBackdrop, tabsBackdrop)
 
+    val emphasisFn: ((Int) -> Float)? = if (useBlur) null else { i -> (1f - kotlin.math.abs(dampedDragAnimation.value - i)).coerceIn(0f, 1f) }
     val tabs: @Composable RowScope.() -> Unit = {
         destinations.forEachIndexed { index, destination ->
             LiquidTab(
                 destination = destination,
+                index = index,
                 selected = index == selectedIndex,
                 onClick = { activateTab(index) }
             )
@@ -463,12 +484,9 @@ private fun LiquidBar(
                             backdrop = backdrop!!,
                             shape = { pillShape },
                             effects = {
-                                padding = maxOf(padding, 40.dp.toPx())
+                                padding = maxOf(padding, 24.dp.toPx())
+                                // Container = blur only (the per-frame lens pass lives on the pill).
                                 blur(blurDp.dp.toPx(), blurDp.dp.toPx())
-                                lens(
-                                    refractionHeight = 24.dp.toPx(),
-                                    refractionAmount = 24.dp.toPx(),
-                                )
                             },
                             highlight = { baseHighlight.value.copy(alpha = 0.75f) },
                             layerBlock = {
@@ -493,7 +511,7 @@ private fun LiquidBar(
                 .padding(4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            CompositionLocalProvider(LocalLiquidTint provides inactiveColor) {
+            CompositionLocalProvider(LocalLiquidTint provides inactiveColor, LocalLiquidTabEmphasis provides emphasisFn) {
                 tabs()
             }
         }
@@ -599,21 +617,7 @@ private fun LiquidBar(
                         .width(tabWidthDp),
                     contentAlignment = Alignment.CenterStart,
                 ) {
-                    CompositionLocalProvider(LocalLiquidTint provides accentColor) {
-                        Row(
-                            Modifier
-                                .clearAndSetSemantics {}
-                                .wrapContentWidth(align = Alignment.Start, unbounded = true)
-                                .requiredWidth(with(density) { (totalWidthPx - 8.dp.toPx()).toDp() })
-                                .height(pillHeight)
-                                .graphicsLayer {
-                                    val progressOffset = dampedDragAnimation.value * tabWidthPx
-                                    translationX = if (isLtr) -progressOffset else progressOffset
-                                },
-                            verticalAlignment = Alignment.CenterVertically,
-                            content = { tabs() }
-                        )
-                    }
+                    // (No clipped duplicate icon row any more: icons themselves cross-fade to accent.)
                 }
             }
         }

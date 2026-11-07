@@ -559,7 +559,7 @@ fun XvoxSheet(
                             LocalXvoxSheetGrowthActive provides (requestedHeight != null),
                             LocalXvoxSheetGrowthLimitReporter provides reportBodyGrowthLimit
                         ) {
-                            content()
+                            androidx.compose.runtime.CompositionLocalProvider(com.xvox.music.core.ui.blur.LocalXvoxInSheet provides true) { content() }
                         }
                     }
 
@@ -581,7 +581,7 @@ fun XvoxSheet(
                                     vertical = if (presentation == XvoxBoxPresentation.PROFILE) 4.dp else 7.dp
                                 )
                         ) {
-                            footer()
+                            androidx.compose.runtime.CompositionLocalProvider(com.xvox.music.core.ui.blur.LocalXvoxInSheet provides true) { footer() }
                         }
                     }
                 }
@@ -764,7 +764,7 @@ private fun XvoxCenteredBox(
                         LocalXvoxSheetScrollBridge provides contentScrollBridge,
                         LocalXvoxSheetGrowthActive provides (requestedHeight != null)
                     ) {
-                        content()
+                        androidx.compose.runtime.CompositionLocalProvider(com.xvox.music.core.ui.blur.LocalXvoxInSheet provides true) { content() }
                     }
                 }
                 bottomAction?.let { footer ->
@@ -773,7 +773,7 @@ private fun XvoxCenteredBox(
                             .fillMaxWidth()
                             .imePadding()
                             .padding(horizontal = 16.dp, vertical = 10.dp)
-                    ) { footer() }
+                    ) { androidx.compose.runtime.CompositionLocalProvider(com.xvox.music.core.ui.blur.LocalXvoxInSheet provides true) { footer() } }
                 }
             }
         }

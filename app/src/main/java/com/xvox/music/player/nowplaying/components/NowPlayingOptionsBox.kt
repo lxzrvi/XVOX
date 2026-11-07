@@ -1,3 +1,4 @@
+// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/player/nowplaying/components/NowPlayingOptionsBox.kt
 package com.xvox.music.player.nowplaying.components
 
 import androidx.compose.foundation.background
@@ -42,7 +43,7 @@ fun NowPlayingOptionsBox(
     onApplyBackground: (style: String, coverBlur: Float) -> Unit,
     onDismiss: () -> Unit
 ) {
-    val blurMin = 12f
+    val blurMin = 3f
     val blurMax = 50f
     // The displayed rail reads 20%–100%. 50% maps to this retained local cover-blur range.
     val resetCoverBlur = 26.25f
@@ -114,7 +115,7 @@ fun NowPlayingOptionsBox(
                 val normalizedBlur = draftCoverBlur.coerceIn(blurMin, blurMax)
                 val blurFraction = (normalizedBlur - blurMin) / (blurMax - blurMin)
                 val defaultBlurFraction = (24f - blurMin) / (blurMax - blurMin)
-                val blurPercent = (20f + blurFraction * 80f).roundToInt().coerceIn(20, 100)
+                val blurPercent = (5f + blurFraction * 95f).roundToInt().coerceIn(5, 100)
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()

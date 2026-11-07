@@ -1,3 +1,4 @@
+// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/features/home/ProfileEditorBox.kt
 package com.xvox.music.features.home
 
 import android.content.Intent
@@ -337,6 +338,35 @@ fun ProfileEditorBox(
                 )
             }
             HeaderIdeasLoopBanner()
+        }
+
+        // Header transparency lives with the other Header controls (only meaningful with blur off).
+        val chromeNow by prefs.chromeStyle.collectAsState(initial = com.xvox.music.core.ui.chrome.XvoxChromeStyle())
+        if (chromeNow.bgBlur <= .001f) {
+            Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Header Transparency", color = colors.primaryText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        "${((1f - chromeNow.headerBgAlpha.coerceIn(0f, 1f)) * 100).toInt()}%",
+                        color = colors.primaryAccent,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                XvoxContinuousSlider(
+                    value = 1f - chromeNow.headerBgAlpha.coerceIn(0f, 1f),
+                    onValueChange = { t ->
+                        val next = chromeNow.copy(headerBgAlpha = (1f - t).coerceIn(0f, 1f))
+                        com.xvox.music.core.ui.chrome.XvoxChromePreview.publish(next)
+                        scope.launch { prefs.setChromeStyle(next) }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
         }
 
         // Chrome still stores a dim overlay for backward compatibility, but the editor exposes

@@ -63,6 +63,8 @@ private const val FrostSaturation = 1.15f
  */
 val LocalXvoxSurfaceSky = staticCompositionLocalOf<Sky?> { null }
 val LocalXvoxOverlaySky = staticCompositionLocalOf<Sky?> { null }
+/** True inside sheet/box content: controls there are flat theme material (no blur) in every mode. */
+val LocalXvoxInSheet = staticCompositionLocalOf { false }
 /** Actual tab/body content used by the persistent Mini Player, navbar, and active tab pill. */
 val LocalXvoxShellContentSky = staticCompositionLocalOf<Sky?> { null }
 /** Header artwork/material used only by the avatar and Header action controls. */
@@ -163,8 +165,11 @@ fun Modifier.xvoxLiveBlur(
     borderAlpha: Float = .62f,
     borderWidth: Dp = .8.dp,
     /** Reflective rim (blur mode only). Bottom bar / mini player pass true; Now Playing is automatic. */
-    glassEdge: Boolean = false
+    glassEdge: Boolean = false,
+    /** Blur mode only: draw the thin edge even when the default-mode border is disabled (alpha 0). */
+    edgeInBlur: Boolean = false
 ): Modifier {
+    val inSheet = LocalXvoxInSheet.current
     val chrome = LocalXvoxChromeStyle.current
     val npSky = LocalXvoxNowPlayingSky.current
     val npBottomSky = LocalXvoxNowPlayingBottomSky.current
@@ -173,7 +178,7 @@ fun Modifier.xvoxLiveBlur(
     val surfaceSky = LocalXvoxSurfaceSky.current
     // Blur mode == background-blur slider above zero. Default (slider 0) = plain theme material
     // with the original borders, zero blur cost.
-    val blurMode = chrome.glassBlurEnabled && chrome.glassBlurIntensity > .001f
+    val blurMode = !inSheet && chrome.glassBlurEnabled && chrome.glassBlurIntensity > .001f
     val canBlur = blurMode && sky != null && !XvoxGpuGuard.safeMode && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
 
     // --- Sheets: NEVER blurred. Normal theme material in every mode. ---------------------------
@@ -218,13 +223,14 @@ fun Modifier.xvoxLiveBlur(
             clipped.background(fallback)
         else -> clipped.textureBlur(backdrop = sky!!.backdrop, shape = shape, blurRadius = blurDp, colors = colors)
     }
-    // Opt-out callers (width 0 / alpha 0: header, scrim, Now Playing bottom box) stay borderless.
-    // Now Playing glass is ALWAYS borderless (both modes).
-    if (borderWidth <= 0.dp || borderAlpha <= 0f || inNowPlaying) return surface
-    // Reflective rim ONLY for the bottom bar and mini player; every other element keeps its
-    // normal border in both modes.
-    val reflective = blurMode && glassEdge
-    return if (reflective) surface.xvoxGlassEdge(shape) else surface.xvoxPlainBorder(shape, borderColor, borderAlpha, borderWidth)
+    // Now Playing glass is ALWAYS borderless.
+    if (inNowPlaying) return surface
+    // Blur mode: bottom bar / mini player = reflective rim; every other blurred element = a very
+    // thin, white-ish (not grey) hairline. Default mode keeps the call-site's normal border.
+    if (blurMode && glassEdge) return surface.xvoxGlassEdge(shape)
+    if (blurMode && (edgeInBlur || (borderAlpha > 0f && borderWidth > 0.dp))) return surface.xvoxThinEdge(shape)
+    if (borderWidth <= 0.dp || borderAlpha <= 0f) return surface
+    return surface.xvoxPlainBorder(shape, borderColor, borderAlpha, borderWidth)
 }
 
 /** Root sheets sample the live app layer, not only the wallpaper. */
@@ -296,6 +302,19 @@ private fun Modifier.xvoxPlainBorder(
     return drawWithContent {
         drawContent()
         drawPath(outlinePath(shape.createOutline(size, layoutDirection, this)), c, style = Stroke(width = width.toPx() * 2f))
+    }
+}
+
+/** Hairline used by every normal blurred element in blur mode: 0.5dp, light, never grey. */
+@Composable
+private fun Modifier.xvoxThinEdge(shape: Shape): Modifier {
+    val colors = XvoxTheme.colors
+    val hi = Color.White.copy(alpha = if (colors.isLight) .85f else .34f)
+    val lo = Color.White.copy(alpha = if (colors.isLight) .35f else .10f)
+    return drawWithContent {
+        drawContent()
+        val brush = Brush.linearGradient(listOf(hi, lo, hi.copy(alpha = hi.alpha * .7f)), start = Offset.Zero, end = Offset(size.width, size.height))
+        drawPath(outlinePath(shape.createOutline(size, layoutDirection, this)), brush, style = Stroke(width = .5.dp.toPx() * 2f))
     }
 }
 

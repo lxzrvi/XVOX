@@ -57,7 +57,8 @@ fun HomeProfileAvatar(
                 baseColor = avatarSurface,
                 sky = avatarSky,
                 borderAlpha = 0f,
-                borderWidth = 0.dp
+                borderWidth = 0.dp,
+                edgeInBlur = true
             )
             .then(
                 if (onClick != null) {

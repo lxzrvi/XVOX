@@ -1,3 +1,4 @@
+// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/core/ui/miniplayer/XvoxMiniPlayer.kt
 package com.xvox.music.core.ui.miniplayer
 
 import androidx.compose.animation.AnimatedVisibility
@@ -184,7 +185,13 @@ fun XvoxMiniPlayer(
         exiting = true
         setQuickActionsVisible(false)
         cancelCommit()
-        if (!stop) prepareNowPlaying()
+        // Let the downward travel paint its first frames BEFORE the heavy Now Playing composition
+        // starts; otherwise the first-ever open stalls and the card appears to just vanish.
+        if (!stop) scope.launch {
+            androidx.compose.runtime.withFrameNanos { }
+            androidx.compose.runtime.withFrameNanos { }
+            prepareNowPlaying()
+        }
 
         scope.launch {
             // The full Mini Player completes its physical downward travel first. Clear every

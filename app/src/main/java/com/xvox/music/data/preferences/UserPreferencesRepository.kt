@@ -1,3 +1,4 @@
+// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/data/preferences/UserPreferencesRepository.kt
 package com.xvox.music.data.preferences
 
 import android.content.Context
@@ -565,7 +566,7 @@ class UserPreferencesRepository(
     val nowPlayingBackgroundStyle: Flow<String> = context.xvoxDataStore.data
         .map { normalizeNowPlayingBackgroundStyle(it[Keys.nowPlayingBackgroundStyle]) }.distinctUntilChanged()
     val nowPlayingCoverBlur: Flow<Float> = context.xvoxDataStore.data
-        .map { (it[Keys.nowPlayingCoverBlur] ?: 24f).coerceIn(12f, 50f) }.distinctUntilChanged()
+        .map { (it[Keys.nowPlayingCoverBlur] ?: 24f).coerceIn(3f, 50f) }.distinctUntilChanged()
     val persistentBackgroundPlayback: Flow<Boolean> = context.xvoxDataStore.data
         .map { it[Keys.persistentBackgroundPlayback] ?: false }.distinctUntilChanged()
     val backgroundPlaybackPermissionRequested: Flow<Boolean> = context.xvoxDataStore.data
@@ -865,13 +866,13 @@ class UserPreferencesRepository(
         context.xvoxDataStore.edit { it[Keys.nowPlayingBackgroundStyle] = normalizeNowPlayingBackgroundStyle(style) }
     }
     suspend fun setNowPlayingCoverBlur(amount: Float) {
-        context.xvoxDataStore.edit { it[Keys.nowPlayingCoverBlur] = amount.coerceIn(12f, 50f) }
+        context.xvoxDataStore.edit { it[Keys.nowPlayingCoverBlur] = amount.coerceIn(3f, 50f) }
     }
     /** Commit the overflow sheet's style and local cover-blur draft in one observable DataStore edit. */
     suspend fun setNowPlayingBackground(style: String, coverBlur: Float) {
         context.xvoxDataStore.edit {
             it[Keys.nowPlayingBackgroundStyle] = normalizeNowPlayingBackgroundStyle(style)
-            it[Keys.nowPlayingCoverBlur] = coverBlur.coerceIn(12f, 50f)
+            it[Keys.nowPlayingCoverBlur] = coverBlur.coerceIn(3f, 50f)
         }
     }
     suspend fun setPersistentBackgroundPlayback(enabled: Boolean) {

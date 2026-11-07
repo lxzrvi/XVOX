@@ -2,6 +2,7 @@
 package com.xvox.music.player.nowplaying.lyrics
 
 import com.xvox.music.core.ui.blur.xvoxLiveBlur
+import com.xvox.music.core.ui.blur.xvoxBlurSource
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -87,6 +88,7 @@ fun XvoxArtworkLyrics(
     modifier: Modifier = Modifier
 ) {
     val colors = XvoxTheme.colors
+    val lyricsSky = com.xvox.music.core.ui.blur.rememberXvoxContentSky()
     val context = LocalContext.current
     val haptics = LocalXvoxHaptics.current
     val overlays = LocalXvoxOverlayController.current
@@ -340,6 +342,8 @@ fun XvoxArtworkLyrics(
                     state = listState,
                     modifier = Modifier
                         .fillMaxSize()
+                        // The scrolling lyric text is the backdrop the lyrics pill blurs.
+                        .xvoxBlurSource(lyricsSky)
                         .lyricsEdgeFade(
                             if (lyricsSettings.fadeEnabled) lyricsSettings.fadeTop else 0f,
                             if (lyricsSettings.fadeEnabled) lyricsSettings.fadeBottom else 0f
@@ -386,6 +390,8 @@ fun XvoxArtworkLyrics(
                     state = listState,
                     modifier = Modifier
                         .fillMaxSize()
+                        // The scrolling lyric text is the backdrop the lyrics pill blurs.
+                        .xvoxBlurSource(lyricsSky)
                         .lyricsEdgeFade(
                             if (lyricsSettings.fadeEnabled) lyricsSettings.fadeTop else 0f,
                             if (lyricsSettings.fadeEnabled) lyricsSettings.fadeBottom else 0f
@@ -513,7 +519,7 @@ fun XvoxArtworkLyrics(
                                 shape = RoundedCornerShape(18.dp),
                                 level = com.xvox.music.core.ui.blur.XvoxBlurLevel.Chrome,
                                 baseColor = colors.card.copy(alpha = 0.32f),
-                                sky = com.xvox.music.core.ui.blur.LocalXvoxNowPlayingSky.current
+                                sky = lyricsSky
                             )
                             .padding(horizontal = 4.dp),
                         verticalAlignment = Alignment.CenterVertically

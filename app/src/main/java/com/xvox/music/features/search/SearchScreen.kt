@@ -133,7 +133,9 @@ fun SearchScreen(
     val headerSearchTop = topInset + searchHeaderGap
     val travelledSearchDp = with(density) { searchScrollDistancePx.toDp() }
     val movingSearchTop = headerSearchTop - travelledSearchDp
-    val searchFieldTop = if (movingSearchTop < statusSafeSearchTop) statusSafeSearchTop else movingSearchTop
+    // The search bar no longer travels up with the header: it stays put while the Header leaves
+    // through the status bar, and results/status lane stay visibly blurred around it.
+    val searchFieldTop = headerSearchTop
 
     var pendingDeleteSong by remember { mutableStateOf<Song?>(null) }
     val deleteLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->

@@ -253,7 +253,8 @@ fun XvoxShellTopHeader(
                                     baseColor = controlSurface,
                                     sky = headerSky,
                                     borderAlpha = 0f,
-                                    borderWidth = 0.dp
+                                    borderWidth = 0.dp,
+                                    edgeInBlur = true
                                 )
                                 .xvoxPressScale(pressedScale = .90f, onClick = onRefreshClick),
                             contentAlignment = Alignment.Center
@@ -277,7 +278,8 @@ fun XvoxShellTopHeader(
                                     baseColor = controlSurface,
                                     sky = headerSky,
                                     borderAlpha = 0f,
-                                    borderWidth = 0.dp
+                                    borderWidth = 0.dp,
+                                    edgeInBlur = true
                                 )
                         ) {
                             Row(
