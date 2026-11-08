@@ -77,6 +77,7 @@ import com.xvox.music.core.ui.blur.LocalXvoxShellContentSky
 import com.xvox.music.core.ui.blur.LocalXvoxSurfaceSky
 import com.xvox.music.core.ui.blur.innerShadow
 import com.xvox.music.core.ui.blur.lens
+import com.xvox.music.core.ui.blur.xvoxGlassEdge
 import com.xvox.music.core.ui.blur.rememberCombinedBackdrop
 import com.xvox.music.core.ui.blur.vibrancy
 import com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle
@@ -257,6 +258,15 @@ fun XvoxBottomBar(
     val navSurfaceAlpha = chrome.navBgAlpha.coerceIn(0f, 1f)
     val isDark = colors.background.luminance() < .5f
     val intensity = chrome.glassBlurIntensity.coerceIn(0f, 1f)
+    val miniBackdrop = com.xvox.music.core.ui.blur.LocalXvoxMiniBackdrop.current
+    val navBackdrop = remember(contentSky?.backdrop, miniBackdrop) {
+        val page = contentSky?.backdrop
+        when {
+            page == null -> null
+            miniBackdrop == null -> page
+            else -> com.xvox.music.core.ui.blur.CombinedBackdrop(page, miniBackdrop)
+        }
+    }
     val blurOn = chrome.glassBlurEnabled && intensity > .001f &&
         !com.xvox.music.core.ui.blur.XvoxGpuGuard.safeMode &&
         contentSky != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
@@ -291,7 +301,7 @@ fun XvoxBottomBar(
                 .size(navBarWidth, navBarHeight),
             selectedIndex = selectedIndex,
             tabsCount = destinations.size,
-            backdrop = contentSky?.backdrop,
+            backdrop = navBackdrop,
             blurOn = blurOn,
             blurDp = blurDp,
             pillHeight = pillHeight,
@@ -500,6 +510,7 @@ private fun LiquidBar(
                         )
                     } else {
                         Modifier.background(containerColor, pillShape)
+                            .xvoxGlassEdge(pillShape)
                     }
                 )
                 .then(

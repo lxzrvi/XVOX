@@ -37,6 +37,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.toArgb
 import com.xvox.music.core.ui.chrome.backgroundMode
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
@@ -357,6 +358,39 @@ private fun AppearanceSectionCard(
     val backgroundPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         uri?.let { draftUri = it.toString() }
     }
+    var gStyle by remember { mutableStateOf(0) }
+    var gAngle by remember { mutableStateOf(35f) }
+    var gC1 by remember { mutableStateOf("") }
+    var gC2 by remember { mutableStateOf("") }
+    fun hexOf(c: Color) = String.format("#%06X", c.toArgb() and 0xFFFFFF)
+    fun openGradientBox() {
+        val cs = latestState.chromeStyle
+        val cols = cs.bgColors.split(",").map { it.trim() }.filter { it.isNotBlank() }
+        gStyle = cs.bgGradStyle.toInt().coerceIn(0, 5)
+        gAngle = cs.bgGradAngle
+        gC1 = cols.getOrNull(0) ?: hexOf(colors.primaryAccent)
+        gC2 = cols.getOrNull(1) ?: hexOf(Color(android.graphics.Color.HSVToColor(FloatArray(3).also { android.graphics.Color.colorToHSV(colors.primaryAccent.toArgb(), it); it[0] = (it[0] + 38f) % 360f })))
+        overlays.showBox(
+            title = "Gradient",
+            bottomAction = {
+                XvoxTransactionalFooterActions(
+                    onCancel = { overlays.hideBox() },
+                    onOkay = {
+                        viewModel.setChromeStyle {
+                            it.copy(bgStyle = 3f, bgGradStyle = gStyle.toFloat(), bgGradAngle = gAngle, bgColors = "$gC1,$gC2")
+                        }
+                        overlays.hideBox()
+                    }
+                )
+            }
+        ) {
+            GradientBoxContent(
+                style = gStyle, angle = gAngle, c1 = gC1, c2 = gC2,
+                onStyle = { gStyle = it }, onAngle = { gAngle = it },
+                onC1 = { gC1 = it }, onC2 = { gC2 = it }
+            )
+        }
+    }
     fun openCustomBackground() {
         draftUri = latestState.backgroundImageUri
         draftBlur = latestState.chromeStyle.bgImageBlur.coerceIn(0f, 1f)
@@ -468,11 +502,14 @@ private fun AppearanceSectionCard(
                         com.xvox.music.core.ui.chrome.XvoxBackgroundMode.Custom -> "custom"
                     },
                     imageKey = "custom",
-                    imageUri = state.backgroundImageUri,
+                    imageUri = if (bgMode == com.xvox.music.core.ui.chrome.XvoxBackgroundMode.Custom) state.backgroundImageUri else null,
                     onSelect = { key ->
                         when (key) {
                             "off" -> viewModel.setChromeStyle { it.copy(bgStyle = 1f) }
-                            "gradient" -> viewModel.setChromeStyle { it.copy(bgStyle = 3f) }
+                            "gradient" -> {
+                                viewModel.setChromeStyle { it.copy(bgStyle = 3f) }
+                                openGradientBox()
+                            }
                             else -> openCustomBackground()
                         }
                     }
@@ -1222,5 +1259,88 @@ private fun CustomBackgroundBoxContent(
                 modifier = Modifier.fillMaxWidth()
             )
         }
+    }
+}
+
+
+/** Body of the Gradient box: live preview, style chips, angle, two colours. */
+@Composable
+private fun GradientBoxContent(
+    style: Int,
+    angle: Float,
+    c1: String,
+    c2: String,
+    onStyle: (Int) -> Unit,
+    onAngle: (Float) -> Unit,
+    onC1: (String) -> Unit,
+    onC2: (String) -> Unit
+) {
+    val colors = XvoxTheme.colors
+    val scroll = rememberScrollState()
+    val names = listOf("Mesh", "Rays", "Patches", "Aurora", "Linear", "Spotlight")
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .verticalScroll(scroll)
+            .xvoxBoxScroll(scroll)
+            .padding(vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Box(Modifier.fillMaxWidth().height(170.dp).clip(RoundedCornerShape(18.dp))) {
+            com.xvox.music.core.ui.chrome.XvoxGeneratedBackground(
+                accent = colors.primaryAccent,
+                base = colors.background,
+                isLight = colors.isLight,
+                style = 0f,
+                blurDp = 0.dp,
+                modifier = Modifier.fillMaxSize(),
+                custom = listOfNotNull(
+                    com.xvox.music.core.ui.chrome.parseHexColor(c1),
+                    com.xvox.music.core.ui.chrome.parseHexColor(c2)
+                ),
+                gradStyle = style,
+                angle = angle
+            )
+        }
+        names.chunked(3).forEachIndexed { row, group ->
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                group.forEachIndexed { i, name ->
+                    val index = row * 3 + i
+                    val active = index == style
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(38.dp)
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(if (active) colors.primaryAccent else colors.cardElevated)
+                            .xvoxPressScale { onStyle(index) },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            name,
+                            color = if (active) xvoxOnAccent(colors.primaryAccent) else colors.primaryText,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+        }
+        Text(
+            "Angle · ${angle.roundToInt()}°",
+            color = colors.secondaryText, fontSize = 11.sp, fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(start = 4.dp)
+        )
+        XvoxSlider(
+            value = angle,
+            onValueChange = onAngle,
+            valueRange = 0f..360f,
+            defaultValue = 35f,
+            snapRadius = 4f,
+            valueLabel = { "${it.roundToInt()} degrees gradient angle" },
+            modifier = Modifier.fillMaxWidth()
+        )
+        ColorPickerRow(label = "Colour 1", hex = c1, onColorChange = onC1)
+        ColorPickerRow(label = "Colour 2", hex = c2, onColorChange = onC2)
     }
 }

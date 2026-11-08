@@ -134,7 +134,6 @@ fun SearchScreen(
     // Portrait: the field sits slightly below the Header and scrolls away WITH the page. The offset is
     // read in the layout phase only, so scrolling never recomposes the whole Search screen.
     val portraitSearchTopPx = with(density) { (headerSearchTop + 6.dp).roundToPx() }
-    val statusLaneVisible by remember { androidx.compose.runtime.derivedStateOf { searchScrollDistancePx > 0 } }
     // The search bar no longer travels up with the header: it stays put while the Header leaves
     // through the status bar, and results/status lane stay visibly blurred around it.
     val searchFieldTop = headerSearchTop
@@ -710,18 +709,6 @@ fun SearchScreen(
         // Once Search begins travelling, reserve an opaque system-status lane above it. This
         // prevents result cards/text from becoming visible behind the status icons while keeping
         // the accepted Search-field clamp and movement unchanged.
-        if (statusLaneVisible) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .fillMaxWidth()
-                    // Cover the full status-safe lane, including Search's small clamp gap, so
-                    // fractional-pixel edges cannot leave a visible horizontal hairline.
-                    .height(statusSafeSearchTop)
-                    .xvoxBarBlur(contentSky)
-                    .zIndex(10f)
-            )
-        }
     }
 }
 

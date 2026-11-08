@@ -1,3 +1,4 @@
+// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/core/ui/components/XvoxImageCropDialog.kt
 package com.xvox.music.core.ui.components
 
 import android.graphics.RectF
@@ -142,7 +143,7 @@ fun XvoxImageCropDialog(
                         Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                             Text(title, color = colors.primaryText, fontSize = 19.sp, fontWeight = FontWeight.ExtraBold)
                             Text(
-                                text = if (isGif) "Animated GIF · crop keeps motion and samples up to 90 frames" else "Pinch to zoom and drag to position the crop",
+                                text = if (isGif) "Animated GIF · kept as-is with its motion, shown centred" else "Pinch to zoom and drag to position the crop",
                                 color = colors.secondaryText,
                                 fontSize = 11.sp,
                                 lineHeight = 15.sp
@@ -161,7 +162,7 @@ fun XvoxImageCropDialog(
                             modifier = Modifier.weight(1f).fillMaxWidth()
                         )
 
-                        Row(
+                        if (!isGif) Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -192,7 +193,7 @@ fun XvoxImageCropDialog(
                         ) {
                             XvoxCropButton("Cancel", Modifier.weight(1f), enabled = !saving, onClick = onDismiss)
                             XvoxCropButton(
-                                label = if (saving) "Saving…" else if (isGif) "Save GIF" else "Save crop",
+                                label = if (saving) "Saving…" else if (isGif) "Okay" else "Save crop",
                                 modifier = Modifier.weight(1f),
                                 prominent = true,
                                 enabled = !saving,
@@ -236,6 +237,11 @@ private fun CropViewport(
 ) {
     val colors = XvoxTheme.colors
     val density = LocalDensity.current
+    // Gesture lambdas must always see the CURRENT zoom/pan (the pointerInput block is not restarted
+    // on every change), otherwise pinching and dragging fight a stale value and feel stuck.
+    val latestZoom by androidx.compose.runtime.rememberUpdatedState(zoom)
+    val latestPan by androidx.compose.runtime.rememberUpdatedState(pan)
+    val isGifSource = source is XvoxGifCrop.CropSource.Gif
     val preview = when (source) {
         is XvoxGifCrop.CropSource.Static -> source.bitmap
         is XvoxGifCrop.CropSource.Gif -> source.firstFrame
@@ -257,23 +263,27 @@ private fun CropViewport(
         Canvas(
             modifier = Modifier
                 .fillMaxSize()
-                .pointerInput(source, cropWidth, cropHeight, aspect) {
-                    detectTransformGestures { _, gesturePan, gestureZoom, _ ->
-                        val nextZoom = (zoom * gestureZoom).coerceIn(1f, 6f)
-                        val baseScale = max(cropWidth / source.width, cropHeight / source.height)
-                        val displayWidth = source.width * baseScale * nextZoom
-                        val displayHeight = source.height * baseScale * nextZoom
-                        val maxPanX = ((displayWidth - cropWidth) * .5f).coerceAtLeast(0f)
-                        val maxPanY = ((displayHeight - cropHeight) * .5f).coerceAtLeast(0f)
-                        onZoomChange(nextZoom)
-                        onPanChange(
-                            Offset(
-                                (pan.x + gesturePan.x).coerceIn(-maxPanX, maxPanX),
-                                (pan.y + gesturePan.y).coerceIn(-maxPanY, maxPanY)
-                            )
-                        )
+                .then(
+                    if (isGifSource) Modifier else Modifier.pointerInput(source, cropWidth, cropHeight, aspect) {
+                        detectTransformGestures { centroid, gesturePan, gestureZoom, _ ->
+                            val z = latestZoom
+                            val nextZoom = (z * gestureZoom).coerceIn(1f, 6f)
+                            val ratio = nextZoom / z
+                            // Zoom around the fingers: the image point under the centroid stays put.
+                            val centre = Offset(size.width * .5f, size.height * .5f)
+                            val c = centroid - centre
+                            val o = latestPan
+                            val moved = c - (c - o) * ratio + gesturePan
+                            val baseScale = max(cropWidth / source.width, cropHeight / source.height)
+                            val displayWidth = source.width * baseScale * nextZoom
+                            val displayHeight = source.height * baseScale * nextZoom
+                            val maxPanX = ((displayWidth - cropWidth) * .5f).coerceAtLeast(0f)
+                            val maxPanY = ((displayHeight - cropHeight) * .5f).coerceAtLeast(0f)
+                            onZoomChange(nextZoom)
+                            onPanChange(Offset(moved.x.coerceIn(-maxPanX, maxPanX), moved.y.coerceIn(-maxPanY, maxPanY)))
+                        }
                     }
-                }
+                )
         ) {
             val cropLeft = (size.width - cropWidth) * .5f
             val cropTop = (size.height - cropHeight) * .5f

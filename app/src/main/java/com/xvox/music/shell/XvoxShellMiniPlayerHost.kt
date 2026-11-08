@@ -86,10 +86,15 @@ fun BoxScope.XvoxShellMiniPlayerHost(
         // after its page has started to enter; Now Playing keeps its separate handoff lifecycle.
         enter = EnterTransition.None,
         exit = if (settingsExit) {
+            // Visible, unhurried descent at the card's own speed (like the Header's route
+            // handoff): no fade, no delay, it travels down behind the navbar.
             slideOutVertically(
                 targetOffsetY = { fullHeight -> fullHeight + settingsExitExtraPx },
-                animationSpec = tween(260, delayMillis = 72)
-            ) + fadeOut(tween(150, delayMillis = 72))
+                animationSpec = tween(
+                    durationMillis = 420,
+                    easing = androidx.compose.animation.core.CubicBezierEasing(.22f, .0f, .12f, 1f)
+                )
+            )
         } else {
             ExitTransition.None
         },
@@ -97,7 +102,7 @@ fun BoxScope.XvoxShellMiniPlayerHost(
         // complete arrival/departure passes behind the navbar pill instead of over that surface.
         modifier = Modifier
             .align(Alignment.BottomCenter)
-            .zIndex(if (aboveNavbar) 11f else 0f)
+            .zIndex(0f)
     ) {
         if (currentSongId != null) {
             val density = LocalDensity.current

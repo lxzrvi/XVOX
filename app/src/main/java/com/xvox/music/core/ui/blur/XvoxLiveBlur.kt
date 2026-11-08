@@ -65,6 +65,9 @@ val LocalXvoxSurfaceSky = staticCompositionLocalOf<Sky?> { null }
 val LocalXvoxOverlaySky = staticCompositionLocalOf<Sky?> { null }
 /** True inside sheet/box content: controls there are flat theme material (no blur) in every mode. */
 val LocalXvoxInSheet = staticCompositionLocalOf { false }
+
+/** True while the app background is a custom PHOTO: cards then blur it live (a gradient/flat background looks identical without the pass). */
+val LocalXvoxPhotoWallpaper = staticCompositionLocalOf { false }
 /** Actual tab/body content used by the persistent Mini Player, navbar, and active tab pill. */
 val LocalXvoxShellContentSky = staticCompositionLocalOf<Sky?> { null }
 /** Header artwork/material used only by the avatar and Header action controls. */
@@ -203,13 +206,13 @@ fun Modifier.xvoxLiveBlur(
                 saturation = 1.05f
             )
         }
-        return textureBlur(backdrop = sky!!.backdrop, shape = shape, blurRadius = 14f.coerceAtMost(tier.maxBlurDp), colors = light)
+        return textureBlur(backdrop = sky!!.backdrop, shape = shape, blurRadius = 18f.coerceAtMost(tier.maxBlurDp), colors = light)
     }
 
     val inNowPlaying = sky != null && (sky === npSky || sky === npBottomSky)
     // Now Playing glass: HEAVY blur (x1.7), still capped by the device tier.
     val blurDp = remember(level, tier, inNowPlaying) {
-        (level.radius.value * BlurPerRadius * .7f * (if (inNowPlaying) 1.15f else 1f)).coerceIn(1f, tier.maxBlurDp)
+        (level.radius.value * BlurPerRadius * (if (level == XvoxBlurLevel.Card || level == XvoxBlurLevel.Selection) .95f else .7f) * (if (inNowPlaying) 1.15f else 1f)).coerceIn(1f, tier.maxBlurDp)
     }
     val tint = remember(baseColor, level) {
         baseColor.copy(alpha = (baseColor.alpha * level.tintAlpha).coerceIn(0f, 1f))
@@ -225,7 +228,8 @@ fun Modifier.xvoxLiveBlur(
     // that is already blurred, so a flat frosted tint looks the same there without a GPU pass each.
     // Live blur stays on everything that floats over MOVING content (header, navbar, mini player,
     // search bar, lyrics pill, Now Playing bottom box, sheet scrim).
-    val flatStatic = blurMode && surfaceSky != null && sky === surfaceSky &&
+    val photoWallpaper = LocalXvoxPhotoWallpaper.current
+    val flatStatic = blurMode && !photoWallpaper && surfaceSky != null && sky === surfaceSky &&
         (level == XvoxBlurLevel.Card || level == XvoxBlurLevel.Selection)
     val flatNowPlaying = blurMode && inNowPlaying && level != XvoxBlurLevel.Bar
     val flatTint = remember(baseColor, level) {
@@ -252,7 +256,8 @@ fun Modifier.xvoxLiveBlur(
     if (inNowPlaying) return surface
     // Blur mode: bottom bar / mini player = reflective rim; every other blurred element = a very
     // thin, white-ish (not grey) hairline. Default mode keeps the call-site's normal border.
-    if (blurMode && glassEdge) return surface.xvoxGlassEdge(shape)
+    // Navbar-style rim: the Mini Player uses it in BOTH modes so it always matches the navbar.
+    if (glassEdge) return surface.xvoxGlassEdge(shape)
     if (blurMode && (edgeInBlur || (borderAlpha > 0f && borderWidth > 0.dp))) return surface.xvoxThinEdge(shape)
     if (borderWidth <= 0.dp || borderAlpha <= 0f) return surface
     return surface.xvoxPlainBorder(shape, borderColor, borderAlpha, borderWidth)
@@ -348,7 +353,7 @@ private fun Modifier.xvoxThinEdge(shape: Shape): Modifier {
  * a thin specular rim, bright on the light-facing corner and fading across the surface.
  */
 @Composable
-private fun Modifier.xvoxGlassEdge(shape: Shape): Modifier {
+fun Modifier.xvoxGlassEdge(shape: Shape): Modifier {
     val colors = XvoxTheme.colors
     val rim = if (colors.isLight) colors.primaryText else Color.White
     val strong = rim.copy(alpha = if (colors.isLight) .42f else .78f)

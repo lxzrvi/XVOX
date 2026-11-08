@@ -264,6 +264,7 @@ fun XvoxNowPlaying(
 
     // These are intentionally composition-local, not saveable: every prepared handoff must begin
     // below the viewport rather than restoring a prior open player's settled position.
+    val npSheetSky = com.xvox.music.core.ui.blur.rememberSky()
     var screenY by remember { mutableFloatStateOf(belowBottomY) }
     var entered by remember { mutableStateOf(false) }
     // Drag dismissal is intentionally armed only after the entrance has settled. A touch that
@@ -716,6 +717,10 @@ fun XvoxNowPlaying(
                 if (activeSettingsBox != "Customize") detectTapGestures { }
             }
     ) {
+        // Everything the player draws is ONE capture source for its option sheets, so their empty
+        // (scrim) area can live-blur the real player. The sheets are siblings of this Box and never
+        // sit inside the layer they sample.
+        Box(Modifier.fillMaxSize().xvoxBlurSource(npSheetSky)) {
         // This sibling is the sole capture source for Now Playing top chrome. It contains the
         // literal player backdrop and responds to cover/palette changes, but never captures the
         // controls that consume it.
@@ -1438,6 +1443,7 @@ fun XvoxNowPlaying(
             }
         }
 
+        }
         // Alignment guides sit over the exact live player layout, never in a separate preview.
         if (isCustomizing) {
             NowPlayingAlignmentGuideOverlay(
@@ -1448,6 +1454,10 @@ fun XvoxNowPlaying(
 
         // Dedicated contextual Settings / Options Boxes on Long-Press of bottom buttons
         if (activeSettingsBox != null) {
+          androidx.compose.runtime.CompositionLocalProvider(
+            com.xvox.music.core.ui.blur.LocalXvoxOverlaySky provides npSheetSky,
+            com.xvox.music.core.ui.overlay.LocalXvoxLiveScrim provides true
+          ) {
             if (activeSettingsBox == "Style") {
                 NowPlayingOptionsBox(
                     backgroundStyle = settingsState.nowPlayingBackgroundStyle,
@@ -1626,6 +1636,7 @@ fun XvoxNowPlaying(
                     }
                 }
             }
+          }
         }
     }
     }

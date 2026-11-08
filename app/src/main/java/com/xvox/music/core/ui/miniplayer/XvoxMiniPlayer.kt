@@ -35,6 +35,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import top.yukonga.miuix.kmp.blur.layerBackdrop
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.TransformOrigin
@@ -407,6 +408,10 @@ fun XvoxMiniPlayer(
                         rotationZ = transitionLayer.rotationZ
                         rotationY = transitionLayer.rotationY
                     }
+                    .then(
+                        com.xvox.music.core.ui.blur.LocalXvoxMiniBackdrop.current
+                            ?.let { Modifier.layerBackdrop(it) } ?: Modifier
+                    )
             )
         }
 

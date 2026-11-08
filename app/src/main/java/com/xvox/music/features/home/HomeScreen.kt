@@ -265,7 +265,9 @@ fun HomeScreen(
     // during a fling, while the exact same 256px/512px artwork request classes are prefetched.
     // Keep every normal vertical page on a full row boundary. In particular, six columns need
     // twelve items for two complete rows; the old ten-item cap produced a recurring 6 + 4 pattern.
-    else (activeAllSongsColumns * 2).coerceIn(6, 12)
+    // A page must always be a whole number of rows. With 7+ columns (typical in landscape) two rows
+    // exceed the old 12-item cap and the second row came out short, so those use one row per page.
+    else activeAllSongsColumns * (if (activeAllSongsColumns >= 7) 1 else 2)
     val plans = remember(state.songs, config.style, config.rows, config.direction, activeAllSongsColumns, flowingPageLimit) {
         buildMosaicPagePlans(
             state.songs,

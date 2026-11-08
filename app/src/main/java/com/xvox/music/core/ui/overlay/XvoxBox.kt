@@ -156,6 +156,9 @@ val LocalXvoxSheetGrowthLimitReporter = staticCompositionLocalOf<((Float) -> Uni
  * routes through [XvoxSheet] so Profile, pickers, confirmations, Song Options, and Equalizer all
  * share the same full-width, bottom-touching behaviour.
  */
+/** Sheets composed inline (e.g. inside Now Playing) opt into a live scrim by providing this plus their own overlay sky. */
+val LocalXvoxLiveScrim = androidx.compose.runtime.staticCompositionLocalOf { false }
+
 @Composable
 fun XvoxBox(
     onDismiss: () -> Unit,
@@ -302,7 +305,7 @@ fun XvoxSheet(
                     // Only the host-level sheet (a sibling OUTSIDE the captured app layer) may
                     // sample the app. A sheet composed INSIDE the captured layer (Now Playing,
                     // Settings) would sample itself recursively and crash natively.
-                    sky = if (liveScrim) LocalXvoxOverlaySky.current else null,
+                    sky = if (liveScrim || LocalXvoxLiveScrim.current) LocalXvoxOverlaySky.current else null,
                     borderWidth = 0.dp
                 )
                 .drawBehind { drawRect(scrimColor, alpha = scrimAlpha) }
@@ -703,7 +706,7 @@ private fun XvoxCenteredBox(
                     // Only the host-level sheet (a sibling OUTSIDE the captured app layer) may
                     // sample the app. A sheet composed INSIDE the captured layer (Now Playing,
                     // Settings) would sample itself recursively and crash natively.
-                    sky = if (liveScrim) LocalXvoxOverlaySky.current else null,
+                    sky = if (liveScrim || LocalXvoxLiveScrim.current) LocalXvoxOverlaySky.current else null,
                     borderWidth = 0.dp
                 )
                 .drawBehind { drawRect(scrimColor, alpha = scrimAlpha) }

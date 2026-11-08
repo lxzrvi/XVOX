@@ -234,6 +234,9 @@ fun XvoxAppRoot(
             com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle provides effectiveChrome,
             LocalXvoxHaptics provides haptics,
             LocalXvoxSurfaceSky provides surfaceSky,
+            com.xvox.music.core.ui.blur.LocalXvoxPhotoWallpaper provides (
+                effectiveChrome.backgroundMode(backgroundImage.isNotBlank()) == com.xvox.music.core.ui.chrome.XvoxBackgroundMode.Custom
+            ),
             LocalXvoxOverlaySky provides overlaySky,
             LocalXvoxGlassTransparency provides effectiveCardTransparency
         ) {
@@ -272,9 +275,13 @@ fun XvoxAppRoot(
                                 accent = colors.primaryAccent,
                                 base = colors.background,
                                 isLight = colors.isLight,
-                                style = 0f, // Mesh only
-                                blurDp = 0.dp, // default gradient is never blurred
-                                modifier = Modifier.fillMaxSize()
+                                style = 0f,
+                                blurDp = 0.dp, // gradient is never blurred
+                                modifier = Modifier.fillMaxSize(),
+                                custom = effectiveChrome.bgColors.split(",")
+                                    .mapNotNull { com.xvox.music.core.ui.chrome.parseHexColor(it.trim()) },
+                                gradStyle = effectiveChrome.bgGradStyle.toInt(),
+                                angle = effectiveChrome.bgGradAngle
                             )
                         }
                         if (bgMode == com.xvox.music.core.ui.chrome.XvoxBackgroundMode.Custom && backgroundImage.isNotBlank()) {

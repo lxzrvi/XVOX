@@ -13,6 +13,7 @@ import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.graphicsLayer
@@ -37,9 +38,13 @@ fun XvoxGeneratedBackground(
     style: Float,
     blurDp: Dp,
     modifier: Modifier = Modifier,
-    custom: List<Color> = emptyList()
+    custom: List<Color> = emptyList(),
+    /** 0 Mesh, 1 Rays, 2 Patches, 3 Aurora, 4 Linear, 5 Spotlight. */
+    gradStyle: Int = 0,
+    /** Rotation of the whole pattern in degrees. */
+    angle: Float = 35f
 ) {
-    val s = style.coerceIn(0f, 1f)
+    val s = when (gradStyle) { 0 -> 0f; 1 -> .5f; 2 -> 1f; else -> -1f }
     val strength = if (isLight) .26f else .34f
     val a1 = remember(accent, custom) { custom.getOrNull(0) ?: shiftHue(accent, 0f) }
     val a2 = remember(accent, custom) { custom.getOrNull(1) ?: shiftHue(a1, 38f) }
@@ -61,6 +66,43 @@ fun XvoxGeneratedBackground(
             val diag = max(w, h)
             val drift = s * 2f * PI.toFloat()
 
+            val centre = Offset(w / 2f, h / 2f)
+            withTransform({
+                rotate(angle - 35f, centre)
+                scale(1.45f, 1.45f, centre)
+            }) {
+            if (gradStyle == 3) {
+                // Aurora: soft diagonal ribbons.
+                val k = strength * 1.1f
+                val cols = listOf(a1, a2, a3, a1)
+                for (i in 0 until 4) {
+                    val y = h * (.12f + .26f * i)
+                    drawRect(
+                        Brush.linearGradient(
+                            listOf(Color.Transparent, cols[i].copy(alpha = k), Color.Transparent),
+                            start = Offset(0f, y - diag * .12f), end = Offset(w, y + diag * .12f)
+                        )
+                    )
+                }
+            }
+            if (gradStyle == 4) {
+                val k = strength * 1.5f
+                drawRect(
+                    Brush.linearGradient(
+                        listOf(a1.copy(alpha = k), a2.copy(alpha = k * .85f), a3.copy(alpha = k * .7f)),
+                        start = Offset(w * .1f, h * .05f), end = Offset(w * .9f, h * .95f)
+                    )
+                )
+            }
+            if (gradStyle == 5) {
+                val k = strength * 1.6f
+                drawRect(
+                    Brush.radialGradient(
+                        listOf(a1.copy(alpha = k), a2.copy(alpha = k * .5f), Color.Transparent),
+                        center = Offset(w * .5f, h * .22f), radius = diag * .85f
+                    )
+                )
+            }
             if (wMesh > 0.01f) {
                 val k = strength * wMesh
                 drawRect(Brush.radialGradient(listOf(a1.copy(alpha = k), Color.Transparent),
@@ -104,6 +146,7 @@ fun XvoxGeneratedBackground(
                     drawCircle(Brush.radialGradient(listOf(col.copy(alpha = k), col.copy(alpha = k * .35f), Color.Transparent),
                         center = c, radius = r), radius = r, center = c)
                 }
+            }
             }
         }
     }

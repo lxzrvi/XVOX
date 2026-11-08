@@ -1,3 +1,4 @@
+// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/core/ui/components/XvoxGifCrop.kt
 package com.xvox.music.core.ui.components
 
 import android.content.Context
@@ -79,8 +80,11 @@ internal object XvoxGifCrop {
                         Uri.fromFile(file)
                     }
                     is CropSource.Gif -> {
+                        // GIFs are kept byte-for-byte (animation, colours and timing untouched). The old
+                        // frame-by-frame re-encode produced broken/banded files; the image is centre-cropped
+                        // by the view that displays it.
                         val file = File(destination, "xvox-crop-${System.nanoTime()}.gif")
-                        cropGif(source, crop, aspect, file)
+                        FileOutputStream(file).use { it.write(source.bytes) }
                         Uri.fromFile(file)
                     }
                 }

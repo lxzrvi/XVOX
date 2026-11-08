@@ -569,6 +569,11 @@ fun XvoxMainShell(
         if (resetScroll) homeScrollResetKey++
     }
 
+    // Status pill is shown ONLY when the user changes the page from the Header, never when Home is
+    // merely re-entered from another tab.
+    var pillRequestMode by remember { mutableStateOf<com.xvox.music.features.playlist.XvoxHomeLibraryMode?>(null) }
+    var pillRequestKey by remember { mutableStateOf(0) }
+
     fun resetHomeNavigationRoot() {
         // An explicit Home-tab tap is never a resume operation: clear every Home-owned detail and
         // land on All Songs at the top, whether Home was already visible or retained off-screen.
@@ -641,9 +646,10 @@ fun XvoxMainShell(
         if (destination != XvoxDestination.HOME) destination = XvoxDestination.HOME
         // Header library pills are toggles: the second tap on the plain list closes it back to
         // All Songs, while a first tap from a detail above already returned to that retained list.
-        homeViewModel.setLibraryMode(
-            if (isAlreadyOpen) com.xvox.music.features.playlist.XvoxHomeLibraryMode.ALL_SONGS else mode
-        )
+        val target = if (isAlreadyOpen) com.xvox.music.features.playlist.XvoxHomeLibraryMode.ALL_SONGS else mode
+        homeViewModel.setLibraryMode(target)
+        pillRequestMode = target
+        pillRequestKey++
         homeScrollResetKey++
     }
 
@@ -664,6 +670,8 @@ fun XvoxMainShell(
         hoistedSelectedPlaylistId = null
         if (destination != XvoxDestination.HOME) destination = XvoxDestination.HOME
         homeViewModel.setLibraryMode(com.xvox.music.features.playlist.XvoxHomeLibraryMode.ALL_SONGS)
+        pillRequestMode = com.xvox.music.features.playlist.XvoxHomeLibraryMode.ALL_SONGS
+        pillRequestKey++
         homeScrollResetKey++
     }
 
@@ -677,11 +685,10 @@ fun XvoxMainShell(
     val pillSongCount = homeState.songs.size
     val pillLikedCount = homeState.songs.count { it.id in homeState.likedSongIds }
     val pillArtistCount = remember(homeState.songs) { homeState.songs.map { it.artist }.distinct().size }
-    var pillFirst by remember { mutableStateOf(true) }
-    LaunchedEffect(pillLibraryMode, destination) {
-        if (pillFirst) { pillFirst = false; return@LaunchedEffect }
-        if (destination != XvoxDestination.HOME) return@LaunchedEffect
-        val text = when (pillLibraryMode) {
+    LaunchedEffect(pillRequestKey) {
+        val requested = pillRequestMode ?: return@LaunchedEffect
+        if (pillRequestKey == 0) return@LaunchedEffect
+        val text = when (requested) {
             com.xvox.music.features.playlist.XvoxHomeLibraryMode.ALL_SONGS, com.xvox.music.features.playlist.XvoxHomeLibraryMode.SPLIT -> "All songs : $pillSongCount songs"
             com.xvox.music.features.playlist.XvoxHomeLibraryMode.RECENT -> "Recently played : ${homeState.recentlyPlayed.size} songs"
             com.xvox.music.features.playlist.XvoxHomeLibraryMode.LIKED -> "Liked songs : $pillLikedCount songs"
@@ -970,6 +977,15 @@ fun XvoxMainShell(
         // before it appears or remaining mounted after it settles.
         val settingsMiniExit = destination == XvoxDestination.SETTINGS && miniVisibleBase
         val miniVisible = miniVisibleBase && destination != XvoxDestination.SETTINGS
+        // Pre-mount Now Playing below the viewport once the mini player has been idle for a moment.
+        // The heavy first composition then never competes with the mini player's own travel, so
+        // tap / swipe-up open is pure animation (this was the stutter on every open).
+        LaunchedEffect(miniVisible, player.nowPlayingPrepared) {
+            if (miniVisible && !player.nowPlayingPrepared) {
+                kotlinx.coroutines.delay(900)
+                playerViewModel.prepareNowPlaying()
+            }
+        }
         var landscapeQuickActionsVisible by remember(currentSongId) { mutableStateOf(false) }
         LaunchedEffect(miniVisible) {
             if (!miniVisible) landscapeQuickActionsVisible = false
@@ -1081,6 +1097,10 @@ fun XvoxMainShell(
             }
         } else {
             // Portrait Mode: Stacked layout
+            val miniBackdrop = top.yukonga.miuix.kmp.blur.rememberLayerBackdrop()
+            androidx.compose.runtime.CompositionLocalProvider(
+                com.xvox.music.core.ui.blur.LocalXvoxMiniBackdrop provides miniBackdrop
+            ) {
             XvoxShellMiniPlayerHost(
                 // Now Playing retains a prepared below-screen surface. Settings instead keeps
                 // this card visible for the first route frames, then lets its host descend above
@@ -1131,6 +1151,7 @@ fun XvoxMainShell(
                     onSelected = ::selectNavigationDestination,
                     onLongPressSettings = {}
                 )
+            }
             }
         }
 

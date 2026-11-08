@@ -1,3 +1,4 @@
+// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/features/artist/ArtistInfoDialog.kt
 package com.xvox.music.features.artist
 
 import android.net.Uri
@@ -164,204 +165,108 @@ fun ArtistInfoBox(
                 modifier = Modifier.padding(bottom = 2.dp)
             )
 
-            // 1. Play Next Action
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(colors.card)
-                    .xvoxPressScale {
-                        haptics.tap()
-                        onPlayNext()
-                        onDismiss()
-                    }
-                    .padding(horizontal = 14.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_xvox_play),
-                    contentDescription = null,
-                    tint = colors.primaryAccent,
-                    modifier = Modifier.size(19.dp)
+            // Group 1: quick actions in a 2 x 2 grid.
+            ArtistGroupLabel("Actions")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                ArtistActionTile(
+                    iconRes = R.drawable.ic_xvox_play,
+                    title = "Play next",
+                    subtitle = "${artist.songs.size} songs",
+                    onClick = { haptics.tap(); onPlayNext(); onDismiss() },
+                    modifier = Modifier.weight(1f)
                 )
-                Spacer(modifier = Modifier.width(14.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Play next",
-                        color = colors.primaryText,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "Play all ${artist.songs.size} songs next in queue",
-                        color = colors.secondaryText,
-                        fontSize = 11.sp
+                ArtistActionTile(
+                    iconRes = R.drawable.ic_xvox_queue,
+                    title = "Add to queue",
+                    subtitle = "Append all",
+                    onClick = { haptics.tap(); onDismiss(); onAddToQueue() },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                if (onSelectArtist != null) {
+                    ArtistActionTile(
+                        iconRes = R.drawable.ic_xvox_check,
+                        title = "Select",
+                        subtitle = "Batch actions",
+                        onClick = { haptics.tap(); onDismiss(); onSelectArtist() },
+                        modifier = Modifier.weight(1f)
                     )
                 }
+                ArtistActionTile(
+                    iconRes = null,
+                    title = if (liked) "Unlike" else "Like artist",
+                    subtitle = if (liked) "Pinned on top" else "Pin on top",
+                    onClick = { haptics.tap(); onToggleLiked() },
+                    modifier = Modifier.weight(1f),
+                    leading = { XvoxLikedHeartBadge(badgeSize = 22.dp) }
+                )
             }
 
-            // 2. Add to Queue Action
-            Row(
+            // Group 2: grid layout. Column boxes share the full width equally.
+            ArtistGroupLabel("Grid layout")
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
+                    .clip(RoundedCornerShape(14.dp))
                     .background(colors.card)
-                    .xvoxPressScale {
-                        haptics.tap()
-                        onDismiss()
-                        onAddToQueue()
-                    }
                     .padding(horizontal = 14.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_xvox_queue),
-                    contentDescription = null,
-                    tint = colors.primaryAccent,
-                    modifier = Modifier.size(19.dp)
-                )
-                Spacer(modifier = Modifier.width(14.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Add to queue",
-                        color = colors.primaryText,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "Append all ${artist.songs.size} songs to active or saved queue",
-                        color = colors.secondaryText,
-                        fontSize = 11.sp
-                    )
-                }
-            }
-
-            // 3. Select Songs for Batch Actions
-            if (onSelectArtist != null) {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(colors.card)
-                        .xvoxPressScale {
-                            haptics.tap()
-                            onDismiss()
-                            onSelectArtist()
-                        }
-                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                    modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_xvox_check),
-                        contentDescription = null,
-                        tint = colors.primaryAccent,
-                        modifier = Modifier.size(19.dp)
-                    )
-                    Spacer(modifier = Modifier.width(14.dp))
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Select",
-                            color = colors.primaryText,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = "Select this artist for collection actions",
-                            color = colors.secondaryText,
-                            fontSize = 11.sp
-                        )
+                        Text("Hide artist names", color = colors.primaryText, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold)
+                        Text("Show only circular artwork", color = colors.secondaryText, fontSize = 11.sp)
                     }
-                }
-            }
-
-            // Pin liked artists above the rest of the collection and expose the same marker
-            // used on the artist artwork itself.
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(colors.card)
-                    .xvoxPressScale {
-                        haptics.tap()
-                        onToggleLiked()
-                    }
-                    .padding(horizontal = 14.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                XvoxLikedHeartBadge(badgeSize = 24.dp)
-                Spacer(Modifier.width(14.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        if (liked) "Remove from liked" else "Like artist",
-                        color = colors.primaryText,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        if (liked) "Artist is pinned at the top" else "Pin this artist at the top with a red heart",
-                        color = colors.secondaryText,
-                        fontSize = 11.sp
+                    Switch(
+                        checked = hideText,
+                        onCheckedChange = onHideTextChange,
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = colors.background,
+                            checkedTrackColor = colors.primaryAccent,
+                            uncheckedThumbColor = colors.secondaryText,
+                            uncheckedTrackColor = colors.cardElevated
+                        )
                     )
                 }
-            }
-
-            // 4. Artist Layout Settings Card
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(colors.card)
-                    .padding(horizontal = 14.dp, vertical = 11.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Hide artist names", color = colors.primaryText, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold)
-                    Text("Show only circular artwork in grid", color = colors.secondaryText, fontSize = 11.sp)
-                    Spacer(Modifier.height(9.dp))
-                    Text("Columns", color = colors.secondaryText, fontSize = 11.sp)
-                    Spacer(Modifier.height(5.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        (2..7).forEach { option ->
-                            val selected = columns.coerceIn(2, 7) == option
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(7.dp))
-                                    .background(if (selected) colors.primaryAccent else colors.cardElevated)
-                                    .xvoxPressScale {
-                                        haptics.tap()
-                                        onColumnsChange(option)
-                                    }
-                                    .padding(horizontal = 7.dp, vertical = 5.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    option.toString(),
-                                    color = if (selected) colors.background else colors.primaryText,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
+                Text("Columns", color = colors.secondaryText, fontSize = 11.sp)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    (2..7).forEach { option ->
+                        val selected = columns.coerceIn(2, 7) == option
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(36.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(if (selected) colors.primaryAccent else colors.cardElevated)
+                                .xvoxPressScale {
+                                    haptics.tap()
+                                    onColumnsChange(option)
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                option.toString(),
+                                color = if (selected) colors.background else colors.primaryText,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
                         }
                     }
                 }
-                Switch(
-                    checked = hideText,
-                    onCheckedChange = onHideTextChange,
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = colors.background,
-                        checkedTrackColor = colors.primaryAccent,
-                        uncheckedThumbColor = colors.secondaryText,
-                        uncheckedTrackColor = colors.cardElevated
-                    )
-                )
             }
 
-            // 5. Hide / Delete Artist Action
+            // Group 3: destructive.
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
+                    .clip(RoundedCornerShape(14.dp))
                     .background(colors.card)
                     .xvoxPressScale {
                         haptics.tap()
@@ -385,5 +290,51 @@ fun ArtistInfoBox(
                 )
             }
         }
+    }
+}
+
+
+@Composable
+private fun ArtistGroupLabel(text: String) {
+    Text(
+        text = text.uppercase(),
+        color = XvoxTheme.colors.secondaryText,
+        fontSize = 10.5.sp,
+        fontWeight = FontWeight.Bold,
+        letterSpacing = .8.sp,
+        modifier = Modifier.padding(start = 4.dp, top = 2.dp)
+    )
+}
+
+@Composable
+private fun ArtistActionTile(
+    iconRes: Int?,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    leading: (@Composable () -> Unit)? = null
+) {
+    val colors = XvoxTheme.colors
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(14.dp))
+            .background(colors.card)
+            .xvoxPressScale(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        if (leading != null) {
+            Box(Modifier.size(22.dp), contentAlignment = Alignment.CenterStart) { leading() }
+        } else if (iconRes != null) {
+            Icon(
+                painter = painterResource(iconRes),
+                contentDescription = null,
+                tint = colors.primaryAccent,
+                modifier = Modifier.size(21.dp)
+            )
+        }
+        Text(title, color = colors.primaryText, fontSize = 13.5.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+        Text(subtitle, color = colors.secondaryText, fontSize = 11.sp, maxLines = 1)
     }
 }
