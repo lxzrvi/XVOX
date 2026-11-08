@@ -206,6 +206,8 @@ fun XvoxMainShell(
     // Live mirror for the compact chrome sheet. It makes slider drags coherent even before the
     // asynchronous persistence flow emits its matching composition-local value.
     var miniPlayerNavLive by remember { mutableStateOf(baseChrome) }
+    // Always the CURRENT stored chrome, even when an old lambda opens the sheet later.
+    val latestBaseChrome by androidx.compose.runtime.rememberUpdatedState(baseChrome)
     // The Header below is one shell overlay that receives scroll state from its active route.
 
     fun publishProfileHeaderPreview(draft: ProfileEditorDraft) {
@@ -308,7 +310,7 @@ fun XvoxMainShell(
     }
 
     fun showMiniPlayerSettings() {
-        miniPlayerNavLive = baseChrome
+        miniPlayerNavLive = com.xvox.music.core.ui.chrome.XvoxChromePreview.value ?: latestBaseChrome
         overlays.showBox(
             title = "Mini Player / Navbar Settings",
             bottomAction = {
@@ -1305,5 +1307,6 @@ private fun com.xvox.music.core.ui.chrome.XvoxChromeStyle.keepingGlobalsFrom(
     bgColors = cur.bgColors,
     bgImageBlur = cur.bgImageBlur,
     bgGradStyle = cur.bgGradStyle,
-    bgGradAngle = cur.bgGradAngle
+    bgGradAngle = cur.bgGradAngle,
+    bgGradSpread = cur.bgGradSpread
 )

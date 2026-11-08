@@ -78,7 +78,7 @@ import com.xvox.music.core.ui.blur.LocalXvoxSurfaceSky
 import com.xvox.music.core.ui.blur.innerShadow
 import com.xvox.music.core.ui.blur.lens
 import com.xvox.music.core.ui.blur.xvoxGlassEdge
-import com.xvox.music.core.ui.blur.xvoxThinEdge
+import com.xvox.music.core.ui.blur.xvoxGreyEdge
 import com.xvox.music.core.ui.blur.rememberCombinedBackdrop
 import com.xvox.music.core.ui.blur.vibrancy
 import com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle
@@ -511,7 +511,7 @@ private fun LiquidBar(
                         )
                     } else {
                         Modifier.background(containerColor, pillShape)
-                            .xvoxThinEdge(pillShape)
+                            .xvoxGreyEdge(pillShape)
                     }
                 )
                 .then(

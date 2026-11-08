@@ -153,7 +153,9 @@ data class XvoxChromeStyle(
     /** Gradient background style 0..5 (Mesh, Rays, Patches, Aurora, Linear, Spotlight). */
     val bgGradStyle: Float = 0f,
     /** Gradient angle in degrees 0..360. */
-    val bgGradAngle: Float = 35f
+    val bgGradAngle: Float = 35f,
+    /** Gradient 'oil paint' spread 0..1: bigger, smeared, flowing colour fields. */
+    val bgGradSpread: Float = .5f
 ) {
     fun encode(): String = listOf(
         optionBoxBgAlpha, optionBoxBorder, optionBoxBorderAlpha,
@@ -197,7 +199,7 @@ data class XvoxChromeStyle(
         glassBorderEnabled, glassBorderWidth, glassBorderColor, glassBorderAlpha, glassBorderBlur,
         // Appended after the global-border record so earlier installations retain their values.
         glassBlurEnabled, glassBlurIntensity,
-        bgBlur, bgStyle, bgColors, bgImageBlur, bgGradStyle, bgGradAngle
+        bgBlur, bgStyle, bgColors, bgImageBlur, bgGradStyle, bgGradAngle, bgGradSpread
     ).joinToString("|")
 
     fun resetNowPlayingLayout(): XvoxChromeStyle = copy(
@@ -330,6 +332,7 @@ data class XvoxChromeStyle(
                 bgImageBlur = flt(87, 0f).coerceIn(0f, 1f),
                 bgGradStyle = number(88, 0f).coerceIn(0f, 5f),
                 bgGradAngle = number(89, 35f).coerceIn(0f, 360f),
+                bgGradSpread = number(90, .5f).coerceIn(0f, 1f),
                 nowPlayingSeekStyle = seekStyle(31),
                 nowPlayingPillSide = side(32, "left"),
                 nowPlayingChangingActionsSide = side(33, "right"),
@@ -442,6 +445,17 @@ object XvoxChromePreview {
     fun clearWhenPersisted(style: XvoxChromeStyle) {
         if (state.value == style) state.value = null
     }
+}
+
+/**
+ * Drag-time Header transparency. Only the Header reads it, so a slider drag repaints just the
+ * Header instead of recomposing the whole app through the chrome CompositionLocal.
+ */
+object XvoxHeaderAlphaPreview {
+    private val state = mutableStateOf<Float?>(null)
+    val value: Float? get() = state.value
+    fun publish(alpha: Float) { state.value = alpha }
+    fun clear() { state.value = null }
 }
 
 /** A non-persistent Profile-editor presentation reflected by the real app Header immediately. */

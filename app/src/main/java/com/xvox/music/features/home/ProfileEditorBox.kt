@@ -1,6 +1,7 @@
 // EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/features/home/ProfileEditorBox.kt
 package com.xvox.music.features.home
 
+import kotlinx.coroutines.flow.first
 import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -342,9 +343,11 @@ fun ProfileEditorBox(
 
         // Header transparency lives with the other Header controls and works in every mode.
         val chromePersisted by prefs.chromeStyle.collectAsState(initial = null)
-        val chromeNow = com.xvox.music.core.ui.chrome.XvoxChromePreview.value
-            ?: chromePersisted
-            ?: com.xvox.music.core.ui.chrome.XvoxChromeStyle()
+        val persistedAlpha = chromePersisted?.headerBgAlpha ?: 1f
+        // Drag value lives in a Header-only preview: no app-wide recomposition, no disk write per frame.
+        val chromeNow = com.xvox.music.core.ui.chrome.XvoxChromeStyle(
+            headerBgAlpha = com.xvox.music.core.ui.chrome.XvoxHeaderAlphaPreview.value ?: persistedAlpha
+        )
         run {
             Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
                 Row(
@@ -363,11 +366,17 @@ fun ProfileEditorBox(
                 XvoxContinuousSlider(
                     value = 1f - chromeNow.headerBgAlpha.coerceIn(0f, 1f),
                     onValueChange = { t ->
-                        val a = (1f - t).coerceIn(0f, 1f)
-                        com.xvox.music.core.ui.chrome.XvoxChromePreview.publish(chromeNow.copy(headerBgAlpha = a))
-                        scope.launch {
-                            val stored = prefs.updateChromeStyle { it.copy(headerBgAlpha = a) }
-                            com.xvox.music.core.ui.chrome.XvoxChromePreview.publish(stored)
+                        com.xvox.music.core.ui.chrome.XvoxHeaderAlphaPreview.publish((1f - t).coerceIn(0f, 1f))
+                    },
+                    onValueChangeFinished = {
+                        val a = com.xvox.music.core.ui.chrome.XvoxHeaderAlphaPreview.value
+                        if (a != null) scope.launch {
+                            prefs.updateChromeStyle { it.copy(headerBgAlpha = a) }
+                            // Release the drag preview once the stored value is what the Header reads.
+                            kotlinx.coroutines.withTimeoutOrNull(1500) {
+                                prefs.chromeStyle.first { kotlin.math.abs(it.headerBgAlpha - a) < .002f }
+                            }
+                            com.xvox.music.core.ui.chrome.XvoxHeaderAlphaPreview.clear()
                         }
                     },
                     modifier = Modifier.fillMaxWidth()

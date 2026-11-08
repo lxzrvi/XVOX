@@ -1452,6 +1452,7 @@ fun XvoxNowPlaying(
         }
 
         }
+        } // end of blurred player layer: sheets below are siblings, never blurred
         // Alignment guides sit over the exact live player layout, never in a separate preview.
         if (isCustomizing) {
             NowPlayingAlignmentGuideOverlay(
@@ -1642,6 +1643,5 @@ fun XvoxNowPlaying(
             }
           
         }
-    }
     }
 }

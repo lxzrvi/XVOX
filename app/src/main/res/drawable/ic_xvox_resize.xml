@@ -1,15 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="24dp"
-    android:height="24dp"
-    android:viewportWidth="24"
-    android:viewportHeight="24">
-    <!-- Deliberate, high-contrast < > resize glyph: unlike diagonal arrows it reads clearly at
-         the small bottom-right Customize handle size. -->
-    <path
-        android:fillColor="#00000000"
-        android:strokeColor="#FFFFFFFF"
-        android:strokeWidth="2.25"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round"
-        android:pathData="M10,5L4,12L10,19M14,5L20,12L14,19" />
+  android:width="24dp" android:height="24dp"
+  android:viewportWidth="256" android:viewportHeight="256" android:autoMirrored="false">
+  <path android:fillColor="#FFFFFFFF" android:pathData="M32 56V200A24 24 0 0 0 56 224H200A24 24 0 0 0 224 200V56A24 24 0 0 0 200 32H56A24 24 0 0 0 32 56ZM205.66 50.34A8 8 0 0 1 208 56V200A8 8 0 0 1 200 208H56A8 8 0 0 1 48 200V56A8 8 0 0 1 56 48H200A8 8 0 0 1 205.66 50.34ZM124.94 80.61A8 8 0 0 0 128 96H148.69L96 148.69V128A8 8 0 0 0 80.61 124.94A8 8 0 0 0 80 128V168A8 8 0 0 0 88 176H128A8 8 0 0 0 131.06 160.61A8 8 0 0 0 128 160H107.31L160 107.31V128A8 8 0 0 0 175.39 131.06A8 8 0 0 0 176 128V88A8 8 0 0 0 168 80H128A8 8 0 0 0 124.94 80.61Z"/>
 </vector>

@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="24dp" android:height="24dp" android:viewportWidth="256" android:viewportHeight="256">
-    <path android:pathData="M60,96v64a12,12,0,0,1-24,0V96a12,12,0,0,1,24,0ZM88,20A12,12,0,0,0,76,32V224a12,12,0,0,0,24,0V32A12,12,0,0,0,88,20Zm40,32a12,12,0,0,0-12,12V192a12,12,0,0,0,24,0V64A12,12,0,0,0,128,52Zm40,32a12,12,0,0,0-12,12v64a12,12,0,0,0,24,0V96A12,12,0,0,0,168,84Zm40-16a12,12,0,0,0-12,12v96a12,12,0,0,0,24,0V80A12,12,0,0,0,208,68Z" android:fillColor="#FFFFFFFF" />
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+  android:width="24dp" android:height="24dp"
+  android:viewportWidth="256" android:viewportHeight="256" android:autoMirrored="false">
+  <path android:fillColor="#FFFFFFFF" android:pathData="M117.66 30.34A8 8 0 0 0 104 36V220A8 8 0 0 0 119.39 223.06A8 8 0 0 0 120 220V36A8 8 0 0 0 117.66 30.34ZM181.66 46.34A8 8 0 0 0 168 52V204A8 8 0 0 0 183.39 207.06A8 8 0 0 0 184 204V52A8 8 0 0 0 181.66 46.34ZM85.66 62.34A8 8 0 0 0 72 68V188A8 8 0 0 0 87.39 191.06A8 8 0 0 0 88 188V68A8 8 0 0 0 85.66 62.34ZM149.66 66.34A8 8 0 0 0 136 72V184A8 8 0 0 0 151.39 187.06A8 8 0 0 0 152 184V72A8 8 0 0 0 149.66 66.34ZM213.66 94.34A8 8 0 0 0 200 100V156A8 8 0 0 0 215.39 159.06A8 8 0 0 0 216 156V100A8 8 0 0 0 213.66 94.34ZM53.66 98.34A8 8 0 0 0 40 104V152A8 8 0 0 0 55.39 155.06A8 8 0 0 0 56 152V104A8 8 0 0 0 53.66 98.34Z"/>
 </vector>

@@ -144,7 +144,8 @@ fun XvoxShellTopHeader(
     // The avatar and Header action pills must read this Header's own artwork/material—not the
     // global wallpaper. The source below is a sibling of those controls, avoiding a self-capture.
     val headerSky = rememberXvoxContentSky()
-    LaunchedEffect(visibleHeaderImage, headerDimAlpha, chrome.headerBgAlpha, colors.background, colors.isLight) {
+    val headerAlpha = com.xvox.music.core.ui.chrome.XvoxHeaderAlphaPreview.value ?: chrome.headerBgAlpha
+    LaunchedEffect(visibleHeaderImage, headerDimAlpha, headerAlpha, colors.background, colors.isLight) {
         headerSky.invalidate()
     }
 
@@ -172,7 +173,7 @@ fun XvoxShellTopHeader(
                     onSuccess = { headerSky.invalidate() },
                     // Header Transparency applies to default AND custom (image/GIF) headers.
                     modifier = Modifier.matchParentSize()
-                        .graphicsLayer { alpha = chrome.headerBgAlpha.coerceIn(0f, 1f) }
+                        .graphicsLayer { alpha = headerAlpha.coerceIn(0f, 1f) }
                 )
             } else {
                 // The Header itself retains its ordinary live backdrop using the real root source.
@@ -183,7 +184,7 @@ fun XvoxShellTopHeader(
                         .xvoxLiveBlur(
                             shape = RectangleShape,
                             level = XvoxBlurLevel.Chrome,
-                            baseColor = colors.background.copy(alpha = chrome.headerBgAlpha.coerceIn(0f, 1f)),
+                            baseColor = colors.background.copy(alpha = headerAlpha.coerceIn(0f, 1f)),
                             sky = LocalXvoxSurfaceSky.current,
                             borderAlpha = 0f,
                             borderWidth = 0.dp

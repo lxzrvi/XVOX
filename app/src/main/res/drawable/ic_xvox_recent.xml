@@ -1,11 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="24dp"
-    android:height="24dp"
-    android:viewportWidth="24"
-    android:viewportHeight="24">
-    <!-- Dedicated listening-history mark: rewind arrow wrapped around a clock. -->
-    <path
-        android:fillColor="#FFFFFFFF"
-        android:pathData="M13,3c-4.97,0 -9,4.03 -9,9L1,12l3.89,3.89 0.07,0.14L9,12L6,12c0,-3.87 3.13,-7 7,-7s7,3.13 7,7 -3.13,7 -7,7c-1.93,0 -3.68,-0.79 -4.95,-2.05l-1.42,1.42C8.27,19.99 10.51,21 13,21c4.97,0 9,-4.03 9,-9s-4.03,-9 -9,-9zM12.5,7L12.5,12.25l4.5,2.67 0.75,-1.23 -3.75,-2.22L14,7z" />
+  android:width="24dp" android:height="24dp"
+  android:viewportWidth="256" android:viewportHeight="256" android:autoMirrored="false">
+  <path android:fillColor="#FFFFFFFF" android:pathData="M109.06 81.39A8 8 0 0 0 106 66H89.81A79.46 79.46 0 0 1 120.46 56.81A80 80 0 1 1 48 136.04A8 8 0 0 0 32.62 132.9A8 8 0 0 0 32 135.96A96 96 0 1 0 118.95 40.88Q93.83 43.26 74 56.95V34A8 8 0 0 0 58.61 30.94A8 8 0 0 0 58 34V74A8 8 0 0 0 58.61 77.06V77.06A8 8 0 0 0 62.93 81.39H62.94A8 8 0 0 0 65.99 82H66H106A8 8 0 0 0 109.06 81.39ZM133.66 86.34A8 8 0 0 0 120 92V131.57L91.76 149.22A8 8 0 0 0 97.32 163.89A8 8 0 0 0 100.24 162.78L132.24 142.78A8 8 0 0 0 136 136V92A8 8 0 0 0 133.66 86.34Z"/>
 </vector>

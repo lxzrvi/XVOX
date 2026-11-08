@@ -288,7 +288,8 @@ fun XvoxAppRoot(
                                 custom = effectiveChrome.bgColors.split(",")
                                     .mapNotNull { com.xvox.music.core.ui.chrome.parseHexColor(it.trim()) },
                                 gradStyle = effectiveChrome.bgGradStyle.toInt(),
-                                angle = effectiveChrome.bgGradAngle
+                                angle = effectiveChrome.bgGradAngle,
+                                spread = effectiveChrome.bgGradSpread
                             )
                         }
                         if (bgMode == com.xvox.music.core.ui.chrome.XvoxBackgroundMode.Custom && backgroundImage.isNotBlank()) {
@@ -324,7 +325,6 @@ fun XvoxAppRoot(
                     modifier = Modifier
                         .fillMaxSize()
                         .then(appBlurMod)
-                        .sky(overlaySky)
                 ) {
                     if (state == AppUiState.Setup) {
                         SetupScreen(onSetupComplete = { viewModel.onSetupFinished() })

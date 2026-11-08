@@ -230,12 +230,13 @@ fun Modifier.xvoxLiveBlur(
     // search bar, lyrics pill, Now Playing bottom box, sheet scrim).
     val photoWallpaper = LocalXvoxPhotoWallpaper.current
     val flatStatic = blurMode && !photoWallpaper && surfaceSky != null && sky === surfaceSky &&
-        (level == XvoxBlurLevel.Card || level == XvoxBlurLevel.Selection)
+        (level == XvoxBlurLevel.Card || level == XvoxBlurLevel.Selection || level == XvoxBlurLevel.Chrome)
     val flatNowPlaying = blurMode && inNowPlaying && level != XvoxBlurLevel.Bar
     val flatTint = remember(baseColor, level) {
         val a = when (level) {
             XvoxBlurLevel.Card -> .62f
             XvoxBlurLevel.Selection -> .55f
+            XvoxBlurLevel.Chrome -> .74f
             else -> .50f
         }
         baseColor.copy(alpha = (baseColor.alpha * a).coerceIn(0f, 1f))
@@ -257,6 +258,8 @@ fun Modifier.xvoxLiveBlur(
     // Blur mode: bottom bar / mini player = reflective rim; every other blurred element = a very
     // thin, white-ish (not grey) hairline. Default mode keeps the call-site's normal border.
     // Navbar-style rim: the Mini Player uses it in BOTH modes so it always matches the navbar.
+    // Blur OFF: theme-grey hairline (dark grey in dark mode, light grey in light mode).
+    if (glassEdge && !blurMode) return surface.xvoxGreyEdge(shape)
     if (glassEdge) return surface.xvoxThinEdge(shape)
     if (blurMode && (edgeInBlur || (borderAlpha > 0f && borderWidth > 0.dp))) return surface.xvoxThinEdge(shape)
     if (borderWidth <= 0.dp || borderAlpha <= 0f) return surface
@@ -332,6 +335,16 @@ private fun Modifier.xvoxPlainBorder(
     return drawWithContent {
         drawContent()
         drawPath(outlinePath(shape.createOutline(size, layoutDirection, this)), c, style = Stroke(width = width.toPx() * 2f))
+    }
+}
+
+/** Blur-off rim for navbar / mini player: dark grey on dark themes, light grey on light themes. */
+@Composable
+fun Modifier.xvoxGreyEdge(shape: Shape): Modifier {
+    val grey = if (XvoxTheme.colors.isLight) Color(0xFFCFCFD4) else Color(0xFF3A3A3F)
+    return drawWithContent {
+        drawContent()
+        drawPath(outlinePath(shape.createOutline(size, layoutDirection, this)), grey, style = Stroke(width = .5.dp.toPx() * 2f))
     }
 }
 

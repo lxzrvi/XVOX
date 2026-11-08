@@ -80,7 +80,7 @@ fun XvoxP(
                     shape = RoundedCornerShape(24.dp),
                     level = XvoxBlurLevel.Chrome,
                     baseColor = colors.cardElevated.copy(alpha = colors.cardElevated.alpha * .88f),
-                    sky = LocalXvoxOverlaySky.current
+                    sky = com.xvox.music.core.ui.blur.LocalXvoxSurfaceSky.current
                 )
                 .padding(horizontal = 20.dp, vertical = 10.dp)
         ) {

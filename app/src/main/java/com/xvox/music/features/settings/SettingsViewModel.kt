@@ -460,9 +460,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         com.xvox.music.core.ui.chrome.XvoxChromePreview.publish(optimistic)
         viewModelScope.launch {
             // Atomic against the stored value: other writers (Profile editor) never get clobbered.
-            val stored = prefs.updateChromeStyle(change)
-            _state.update { it.copy(chromeStyle = stored) }
-            com.xvox.music.core.ui.chrome.XvoxChromePreview.publish(stored)
+            prefs.updateChromeStyle(change)
         }
     }
     fun setBackgroundBrightness(value: Float) = viewModelScope.launch { prefs.setBackgroundBrightness(value) }
