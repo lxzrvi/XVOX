@@ -341,7 +341,10 @@ fun ProfileEditorBox(
         }
 
         // Header transparency lives with the other Header controls and works in every mode.
-        val chromeNow by prefs.chromeStyle.collectAsState(initial = com.xvox.music.core.ui.chrome.XvoxChromeStyle())
+        val chromePersisted by prefs.chromeStyle.collectAsState(initial = null)
+        val chromeNow = com.xvox.music.core.ui.chrome.XvoxChromePreview.value
+            ?: chromePersisted
+            ?: com.xvox.music.core.ui.chrome.XvoxChromeStyle()
         run {
             Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
                 Row(
@@ -360,9 +363,12 @@ fun ProfileEditorBox(
                 XvoxContinuousSlider(
                     value = 1f - chromeNow.headerBgAlpha.coerceIn(0f, 1f),
                     onValueChange = { t ->
-                        val next = chromeNow.copy(headerBgAlpha = (1f - t).coerceIn(0f, 1f))
-                        com.xvox.music.core.ui.chrome.XvoxChromePreview.publish(next)
-                        scope.launch { prefs.setChromeStyle(next) }
+                        val a = (1f - t).coerceIn(0f, 1f)
+                        com.xvox.music.core.ui.chrome.XvoxChromePreview.publish(chromeNow.copy(headerBgAlpha = a))
+                        scope.launch {
+                            val stored = prefs.updateChromeStyle { it.copy(headerBgAlpha = a) }
+                            com.xvox.music.core.ui.chrome.XvoxChromePreview.publish(stored)
+                        }
                     },
                     modifier = Modifier.fillMaxWidth()
                 )

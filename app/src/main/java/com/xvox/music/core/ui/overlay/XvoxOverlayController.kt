@@ -35,6 +35,9 @@ class XvoxOverlayController {
     var listKey by mutableLongStateOf(0L)
         private set
 
+    /** True while a root-hosted sheet is open (not closing): the app layer blurs behind it. */
+    var sheetBlurActive by mutableStateOf(false)
+
     internal var boxTitle by mutableStateOf("XVOX")
         private set
 

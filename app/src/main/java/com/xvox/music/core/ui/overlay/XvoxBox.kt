@@ -260,6 +260,13 @@ fun XvoxSheet(
     // added a visible beat before every sheet began its upward entrance.
     val visibility = remember { MutableTransitionState(false).apply { targetState = true } }
     var closing by remember { mutableStateOf(false) }
+    run {
+        val ctl = LocalXvoxOverlayController.current
+        if (liveScrim) {
+            androidx.compose.runtime.LaunchedEffect(closing) { ctl.sheetBlurActive = !closing }
+            androidx.compose.runtime.DisposableEffect(Unit) { onDispose { ctl.sheetBlurActive = false } }
+        }
+    }
     // The scrim is immediately opaque on open, then fades independently as the sheet closes.
     // This leaves the sheet as the only travelling layer while the host owns one dim layer.
     val scrimAlpha by animateFloatAsState(
@@ -305,7 +312,7 @@ fun XvoxSheet(
                     // Only the host-level sheet (a sibling OUTSIDE the captured app layer) may
                     // sample the app. A sheet composed INSIDE the captured layer (Now Playing,
                     // Settings) would sample itself recursively and crash natively.
-                    sky = if (liveScrim || LocalXvoxLiveScrim.current) LocalXvoxOverlaySky.current else null,
+                    sky = null,
                     borderWidth = 0.dp
                 )
                 .drawBehind { drawRect(scrimColor, alpha = scrimAlpha) }
@@ -626,6 +633,13 @@ private fun XvoxCenteredBox(
     // bottom sheets while still fading smoothly.
     val visibility = remember { MutableTransitionState(false).apply { targetState = true } }
     var closing by remember { mutableStateOf(false) }
+    run {
+        val ctl = LocalXvoxOverlayController.current
+        if (liveScrim) {
+            androidx.compose.runtime.LaunchedEffect(closing) { ctl.sheetBlurActive = !closing }
+            androidx.compose.runtime.DisposableEffect(Unit) { onDispose { ctl.sheetBlurActive = false } }
+        }
+    }
     // Centered choices paint their dim layer immediately and fade it only while closing.
     val scrimAlpha by animateFloatAsState(
         targetValue = if (closing) 0f else .28f,
@@ -706,7 +720,7 @@ private fun XvoxCenteredBox(
                     // Only the host-level sheet (a sibling OUTSIDE the captured app layer) may
                     // sample the app. A sheet composed INSIDE the captured layer (Now Playing,
                     // Settings) would sample itself recursively and crash natively.
-                    sky = if (liveScrim || LocalXvoxLiveScrim.current) LocalXvoxOverlaySky.current else null,
+                    sky = null,
                     borderWidth = 0.dp
                 )
                 .drawBehind { drawRect(scrimColor, alpha = scrimAlpha) }

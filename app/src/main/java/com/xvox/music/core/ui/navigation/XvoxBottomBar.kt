@@ -78,6 +78,7 @@ import com.xvox.music.core.ui.blur.LocalXvoxSurfaceSky
 import com.xvox.music.core.ui.blur.innerShadow
 import com.xvox.music.core.ui.blur.lens
 import com.xvox.music.core.ui.blur.xvoxGlassEdge
+import com.xvox.music.core.ui.blur.xvoxThinEdge
 import com.xvox.music.core.ui.blur.rememberCombinedBackdrop
 import com.xvox.music.core.ui.blur.vibrancy
 import com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle
@@ -459,7 +460,7 @@ private fun LiquidBar(
     val pillHighlight = rememberGravityRotatedHighlight(iosIndicatorSpecular, extraDegrees = 90f)
     val combinedBackdrop = rememberCombinedBackdrop(backdrop ?: tabsBackdrop, tabsBackdrop)
 
-    val emphasisFn: ((Int) -> Float)? = if (useBlur) null else { i -> (1f - kotlin.math.abs(dampedDragAnimation.value - i)).coerceIn(0f, 1f) }
+    val emphasisFn: ((Int) -> Float)? = if (useBlur) null else { i -> if (i == selectedIndex) (1f - kotlin.math.abs(dampedDragAnimation.value - i)).coerceIn(0f, 1f) else 0f }
     val tabs: @Composable RowScope.() -> Unit = {
         destinations.forEachIndexed { index, destination ->
             LiquidTab(
@@ -510,7 +511,7 @@ private fun LiquidBar(
                         )
                     } else {
                         Modifier.background(containerColor, pillShape)
-                            .xvoxGlassEdge(pillShape)
+                            .xvoxThinEdge(pillShape)
                     }
                 )
                 .then(

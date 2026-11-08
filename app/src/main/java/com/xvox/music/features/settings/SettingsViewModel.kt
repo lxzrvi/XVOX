@@ -455,10 +455,15 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setWidgetCornerRadius(r: Int) = viewModelScope.launch { prefs.setWidgetCornerRadius(r) }
 
     fun setChromeStyle(change: (com.xvox.music.core.ui.chrome.XvoxChromeStyle) -> com.xvox.music.core.ui.chrome.XvoxChromeStyle) {
-        val next = change(_state.value.chromeStyle)
-        _state.update { it.copy(chromeStyle = next) }
-        com.xvox.music.core.ui.chrome.XvoxChromePreview.publish(next)
-        viewModelScope.launch { prefs.setChromeStyle(next) }
+        val optimistic = change(com.xvox.music.core.ui.chrome.XvoxChromePreview.value ?: _state.value.chromeStyle)
+        _state.update { it.copy(chromeStyle = optimistic) }
+        com.xvox.music.core.ui.chrome.XvoxChromePreview.publish(optimistic)
+        viewModelScope.launch {
+            // Atomic against the stored value: other writers (Profile editor) never get clobbered.
+            val stored = prefs.updateChromeStyle(change)
+            _state.update { it.copy(chromeStyle = stored) }
+            com.xvox.music.core.ui.chrome.XvoxChromePreview.publish(stored)
+        }
     }
     fun setBackgroundBrightness(value: Float) = viewModelScope.launch { prefs.setBackgroundBrightness(value) }
     fun setAudioOutputRoute(route: String) = viewModelScope.launch { prefs.setAudioOutputRoute(route) }

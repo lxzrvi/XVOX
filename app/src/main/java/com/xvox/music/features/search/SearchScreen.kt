@@ -313,57 +313,45 @@ fun SearchScreen(
                 .padding(bottom = bottomInset + 6.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Left pane: it does not independently scroll, but it tracks the right list/Header
-            // travel and then rests at the same safe top line as the portrait Search field.
+
+
+            // One full-width column: search bar on top, everything else below it.
             Box(
                 modifier = Modifier
-                    .weight(0.40f)
-                    .fillMaxSize()
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .offset(y = searchFieldTop)
-                        .padding(start = 16.dp, end = 4.dp)
-                ) {
-                    SearchBarComponent(
-                        query = query,
-                        onQueryChange = { query = it },
-                        onClear = { query = "" },
-                        focusRequester = focusRequester,
-                        onSearch = {
-                            if (trimmedQuery.isNotBlank()) homeViewModel.addRecentSearch(trimmedQuery)
-                            focusManager.clearFocus()
-                        }
-                    )
-
-                    Spacer(Modifier.height(10.dp))
-
-                    RecentSearchesSection(
-                        searches = recentSearches,
-                        onSelect = { q ->
-                            query = q
-                            focusManager.clearFocus()
-                        },
-                        onRemove = { q -> homeViewModel.removeRecentSearch(q) },
-                        onClearAll = { homeViewModel.clearRecentSearches() },
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
-                    )
-                }
-            }
-
-            // Right pane: Search results
-            Box(
-                modifier = Modifier
-                    .weight(0.60f)
+                    .weight(1f)
                     .fillMaxSize()
             ) {
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.fillMaxSize().xvoxBlurSource(contentSky),
-                    contentPadding = PaddingValues(start = 0.dp, end = 0.dp, top = topInset + 2.dp, bottom = 16.dp),
+                    contentPadding = PaddingValues(start = 10.dp, end = 10.dp, top = topInset + 2.dp, bottom = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+                    item(key = "land_search_bar") {
+                        SearchBarComponent(
+                            query = query,
+                            onQueryChange = { query = it },
+                            onClear = { query = "" },
+                            focusRequester = focusRequester,
+                            onSearch = {
+                                if (trimmedQuery.isNotBlank()) homeViewModel.addRecentSearch(trimmedQuery)
+                                focusManager.clearFocus()
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                    item(key = "land_recent") {
+                        RecentSearchesSection(
+                            searches = recentSearches,
+                            onSelect = { q ->
+                                query = q
+                                focusManager.clearFocus()
+                            },
+                            onRemove = { q -> homeViewModel.removeRecentSearch(q) },
+                            onClearAll = { homeViewModel.clearRecentSearches() },
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
+                        )
+                    }
                     if (drillDownPlaylist != null) {
                         item(key = "drill_header_pl") {
                             Row(
@@ -1037,66 +1025,84 @@ private fun androidx.compose.foundation.lazy.LazyListScope.searchResultsContent(
         }
     }
 
-    // Songs list
+    // Songs list: two columns in landscape, one in portrait.
     if (matchingSongs.isNotEmpty()) {
-        items(matchingSongs, key = { "song_${it.id}" }) { song ->
-            val colors = XvoxTheme.colors
-            val cardColor = rememberSongCardColor(song = song, current = false)
-
-            val resultShape = RoundedCornerShape(12.dp)
-            // A 3dp inner frame means 9dp keeps the cover curve parallel to this 12dp card.
-            val artworkShape = RoundedCornerShape(9.dp)
-            SearchPressSurface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 6.dp),
-                shape = resultShape,
-                fill = cardColor,
-                border = colors.cardBorder.copy(alpha = .55f),
-                onClick = { onSongClick(song) },
-                onLongClick = { onSongLongClick(song) }
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        // Use the same tight portrait All Songs artwork frame everywhere.
-                        .padding(3.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(44.dp)
-                            .clip(artworkShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        XvoxSongArtwork(
-                            artwork = song.artworkUri,
-                            fallbackSeed = song.id.hashCode(),
-                            requestSize = 100,
-                            modifier = Modifier.fillMaxSize()
+        if (isLandscape) {
+            items(matchingSongs.chunked(2), key = { "song_row_${it.first().id}" }) { pair ->
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    pair.forEach { song ->
+                        SearchResultSongCard(
+                            song = song,
+                            modifier = Modifier.weight(1f),
+                            onClick = { onSongClick(song) },
+                            onLongClick = { onSongLongClick(song) }
                         )
                     }
-
-                    Spacer(Modifier.width(12.dp))
-
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = song.title,
-                            color = colors.primaryText,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Medium,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            text = song.artist,
-                            color = colors.secondaryText,
-                            fontSize = 11.5.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
+                    if (pair.size == 1) Spacer(Modifier.weight(1f))
                 }
+            }
+        } else {
+            items(matchingSongs, key = { "song_${it.id}" }) { song ->
+                SearchResultSongCard(
+                    song = song,
+                    modifier = Modifier.fillMaxWidth(),
+                    onClick = { onSongClick(song) },
+                    onLongClick = { onSongLongClick(song) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SearchResultSongCard(
+    song: Song,
+    modifier: Modifier,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit
+) {
+    val colors = XvoxTheme.colors
+    val cardColor = rememberSongCardColor(song = song, current = false)
+    val resultShape = RoundedCornerShape(12.dp)
+    // A 3dp inner frame means 9dp keeps the cover curve parallel to this 12dp card.
+    val artworkShape = RoundedCornerShape(9.dp)
+    SearchPressSurface(
+        modifier = modifier.padding(horizontal = 6.dp),
+        shape = resultShape,
+        fill = cardColor,
+        border = colors.cardBorder.copy(alpha = .55f),
+        onClick = onClick,
+        onLongClick = onLongClick
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(3.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(Modifier.size(44.dp).clip(artworkShape), contentAlignment = Alignment.Center) {
+                XvoxSongArtwork(
+                    artwork = song.artworkUri,
+                    fallbackSeed = song.id.hashCode(),
+                    requestSize = 100,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = song.title,
+                    color = colors.primaryText,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = song.artist,
+                    color = colors.secondaryText,
+                    fontSize = 11.5.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
         }
     }

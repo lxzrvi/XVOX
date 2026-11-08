@@ -829,6 +829,20 @@ class UserPreferencesRepository(
     suspend fun setWidgetShowLogo(v: Boolean) { context.xvoxDataStore.edit { it[Keys.widgetShowLogo] = v } }
     suspend fun setWidgetCornerRadius(v: Int) { context.xvoxDataStore.edit { it[Keys.widgetCornerRadius] = v } }
 
+    /** Atomic read-modify-write on the persisted chrome, so no writer can clobber another's fields
+     *  (e.g. header transparency) with a stale copy. */
+    suspend fun updateChromeStyle(
+        change: (com.xvox.music.core.ui.chrome.XvoxChromeStyle) -> com.xvox.music.core.ui.chrome.XvoxChromeStyle
+    ): com.xvox.music.core.ui.chrome.XvoxChromeStyle {
+        var result = com.xvox.music.core.ui.chrome.XvoxChromeStyle()
+        context.xvoxDataStore.edit {
+            val cur = com.xvox.music.core.ui.chrome.XvoxChromeStyle.decode(it[Keys.chromeStyle].orEmpty())
+            result = change(cur)
+            it[Keys.chromeStyle] = result.encode()
+        }
+        return result
+    }
+
     suspend fun setChromeStyle(v: com.xvox.music.core.ui.chrome.XvoxChromeStyle) {
         context.xvoxDataStore.edit { it[Keys.chromeStyle] = v.encode() }
     }

@@ -341,7 +341,7 @@ fun XvoxMainShell(
                                 pillAlpha = 1f
                             )
                             miniPlayerNavLive = reset
-                            settingsViewModel.setChromeStyle { reset }
+                            settingsViewModel.setChromeStyle { cur -> reset.keepingGlobalsFrom(cur) }
                         }
                     )
                     ProfileSheetFooterButton(
@@ -358,7 +358,7 @@ fun XvoxMainShell(
                 chrome = miniPlayerNavLive,
                 onChromeChange = { updated ->
                     miniPlayerNavLive = updated
-                    settingsViewModel.setChromeStyle { updated }
+                    settingsViewModel.setChromeStyle { cur -> updated.keepingGlobalsFrom(cur) }
                 }
             )
         }
@@ -1289,3 +1289,21 @@ private fun TabSurface(content: @Composable () -> Unit) {
     // and lets the shell-content Sky see the same moving surface the user sees.
     Box(Modifier.fillMaxSize()) { content() }
 }
+
+
+/** Mini/navbar editors hold a local copy; never let it overwrite header or background settings. */
+private fun com.xvox.music.core.ui.chrome.XvoxChromeStyle.keepingGlobalsFrom(
+    cur: com.xvox.music.core.ui.chrome.XvoxChromeStyle
+) = copy(
+    headerBgAlpha = cur.headerBgAlpha,
+    headerBorder = cur.headerBorder,
+    headerBorderAlpha = cur.headerBorderAlpha,
+    headerDimEnabled = cur.headerDimEnabled,
+    headerDimAmount = cur.headerDimAmount,
+    bgBlur = cur.bgBlur,
+    bgStyle = cur.bgStyle,
+    bgColors = cur.bgColors,
+    bgImageBlur = cur.bgImageBlur,
+    bgGradStyle = cur.bgGradStyle,
+    bgGradAngle = cur.bgGradAngle
+)

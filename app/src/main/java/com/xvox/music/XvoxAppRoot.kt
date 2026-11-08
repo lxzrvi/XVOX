@@ -255,13 +255,20 @@ fun XvoxAppRoot(
             ) {
                 surfaceSky.invalidate()
             }
+            val sheetBlurTarget = if (overlays.sheetBlurActive && effectiveChrome.glassBlurEnabled && android.os.Build.VERSION.SDK_INT >= 31) 16.dp else 0.dp
+            val sheetBlur by androidx.compose.animation.core.animateDpAsState(
+                targetValue = sheetBlurTarget,
+                animationSpec = tween(if (sheetBlurTarget > 0.dp) 240 else 200),
+                label = "appSheetBlur"
+            )
+            val appBlurMod = if (sheetBlur > 0.dp) Modifier.blur(sheetBlur, androidx.compose.ui.draw.BlurredEdgeTreatment.Rectangle) else Modifier
             Box(modifier = Modifier.fillMaxSize()) {
                 // Source 1: the literal app backdrop.  It contains no synthetic accent/radial
                 // layer, so blur on a plain background remains faithful instead of turning red.
                 // The image is blurred only when the master blur setting is enabled; scaling it
                 // slightly avoids hard image edges during the platform blur and keeps this static
                 // source cheap while page/chrome motion uses its own local Sky layers.
-                Box(modifier = Modifier.fillMaxSize().sky(surfaceSky)) {
+                Box(modifier = Modifier.fillMaxSize().then(appBlurMod).sky(surfaceSky)) {
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
@@ -316,6 +323,7 @@ fun XvoxAppRoot(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
+                        .then(appBlurMod)
                         .sky(overlaySky)
                 ) {
                     if (state == AppUiState.Setup) {

@@ -257,7 +257,7 @@ fun Modifier.xvoxLiveBlur(
     // Blur mode: bottom bar / mini player = reflective rim; every other blurred element = a very
     // thin, white-ish (not grey) hairline. Default mode keeps the call-site's normal border.
     // Navbar-style rim: the Mini Player uses it in BOTH modes so it always matches the navbar.
-    if (glassEdge) return surface.xvoxGlassEdge(shape)
+    if (glassEdge) return surface.xvoxThinEdge(shape)
     if (blurMode && (edgeInBlur || (borderAlpha > 0f && borderWidth > 0.dp))) return surface.xvoxThinEdge(shape)
     if (borderWidth <= 0.dp || borderAlpha <= 0f) return surface
     return surface.xvoxPlainBorder(shape, borderColor, borderAlpha, borderWidth)
@@ -337,7 +337,7 @@ private fun Modifier.xvoxPlainBorder(
 
 /** Hairline used by every normal blurred element in blur mode: 0.5dp, light, never grey. */
 @Composable
-private fun Modifier.xvoxThinEdge(shape: Shape): Modifier {
+fun Modifier.xvoxThinEdge(shape: Shape): Modifier {
     val colors = XvoxTheme.colors
     val hi = Color.White.copy(alpha = if (colors.isLight) .85f else .34f)
     val lo = Color.White.copy(alpha = if (colors.isLight) .35f else .10f)

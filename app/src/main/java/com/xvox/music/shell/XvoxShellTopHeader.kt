@@ -170,7 +170,9 @@ fun XvoxShellTopHeader(
                     contentScale = androidx.compose.ui.layout.ContentScale.Crop,
                     // A completed photo replaces the source pixels asynchronously.
                     onSuccess = { headerSky.invalidate() },
+                    // Header Transparency applies to default AND custom (image/GIF) headers.
                     modifier = Modifier.matchParentSize()
+                        .graphicsLayer { alpha = chrome.headerBgAlpha.coerceIn(0f, 1f) }
                 )
             } else {
                 // The Header itself retains its ordinary live backdrop using the real root source.

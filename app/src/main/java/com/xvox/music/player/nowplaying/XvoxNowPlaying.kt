@@ -27,6 +27,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.TransformOrigin
@@ -264,7 +265,6 @@ fun XvoxNowPlaying(
 
     // These are intentionally composition-local, not saveable: every prepared handoff must begin
     // below the viewport rather than restoring a prior open player's settled position.
-    val npSheetSky = com.xvox.music.core.ui.blur.rememberSky()
     var screenY by remember { mutableFloatStateOf(belowBottomY) }
     var entered by remember { mutableStateOf(false) }
     // Drag dismissal is intentionally armed only after the entrance has settled. A touch that
@@ -292,6 +292,14 @@ fun XvoxNowPlaying(
     }
 
     var activeSettingsBox by rememberSaveable { mutableStateOf<String?>(null) }
+    // Real (RenderEffect) blur of the whole player while an option sheet is open: smooth, not
+    // pixelated, and no capture-layer recursion. Only with liquid glass ON.
+    val npGlassOn = com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle.current.glassBlurEnabled
+    val npSheetBlur by animateDpAsState(
+        targetValue = if (activeSettingsBox != null && npGlassOn && android.os.Build.VERSION.SDK_INT >= 31) 14.dp else 0.dp,
+        animationSpec = androidx.compose.animation.core.tween(260),
+        label = "npSheetBlur"
+    )
     // Ordinary setting sheets are live: this local value only supplies immediate UI state while
     // the persisted Settings flow catches up. Closing, Cancel, and Okay never roll back a change.
     var optionDraft by remember { mutableStateOf(settingsState) }
@@ -720,7 +728,7 @@ fun XvoxNowPlaying(
         // Everything the player draws is ONE capture source for its option sheets, so their empty
         // (scrim) area can live-blur the real player. The sheets are siblings of this Box and never
         // sit inside the layer they sample.
-        Box(Modifier.fillMaxSize().xvoxBlurSource(npSheetSky)) {
+        Box(Modifier.fillMaxSize().then(if (npSheetBlur > 0.dp) Modifier.blur(npSheetBlur) else Modifier)) {
         // This sibling is the sole capture source for Now Playing top chrome. It contains the
         // literal player backdrop and responds to cover/palette changes, but never captures the
         // controls that consume it.
@@ -1454,10 +1462,6 @@ fun XvoxNowPlaying(
 
         // Dedicated contextual Settings / Options Boxes on Long-Press of bottom buttons
         if (activeSettingsBox != null) {
-          androidx.compose.runtime.CompositionLocalProvider(
-            com.xvox.music.core.ui.blur.LocalXvoxOverlaySky provides npSheetSky,
-            com.xvox.music.core.ui.overlay.LocalXvoxLiveScrim provides true
-          ) {
             if (activeSettingsBox == "Style") {
                 NowPlayingOptionsBox(
                     backgroundStyle = settingsState.nowPlayingBackgroundStyle,
@@ -1636,7 +1640,7 @@ fun XvoxNowPlaying(
                     }
                 }
             }
-          }
+          
         }
     }
     }
