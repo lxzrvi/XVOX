@@ -1,3 +1,4 @@
+// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/player/playback/PlayerQueueReorderHelper.kt
 package com.xvox.music.player.playback
 
 import com.xvox.music.core.model.Song
@@ -54,6 +55,37 @@ object PlayerQueueReorderHelper {
             }
         }
         return null
+    }
+
+    /**
+     * Orders [base] by [method], starting at the audible song. Patterns walk the queue circularly
+     * from the current song, so "every other" really means every other song AFTER this one.
+     */
+    fun arrangeQueue(method: String, base: List<Song>, activeIndex: Int): List<Song>? {
+        val n = base.size
+        if (n < 3 || activeIndex !in base.indices) return null
+        val r = List(n) { base[(activeIndex + it) % n] }
+        val order: List<Int> = when (method) {
+            "EVERY_OTHER" -> (0 until n step 2) + (1 until n step 2)
+            "PAIRS" -> (0 until n).filter { (it / 2) % 2 == 0 } + (0 until n).filter { (it / 2) % 2 == 1 }
+            "GROWING_JUMP" -> {
+                // a, b, d, g, k ... (gaps 1,2,3,4...), then everything skipped, in order.
+                val picked = ArrayList<Int>()
+                var i = 0
+                var gap = 1
+                picked.add(0)
+                while (true) {
+                    i += gap
+                    gap++
+                    if (i >= n) break
+                    picked.add(i)
+                }
+                picked + (0 until n).filter { it !in picked }
+            }
+            "REVERSE" -> listOf(0) + (n - 1 downTo 1).toList()
+            else -> listOf(0) + (1 until n).shuffled()
+        }
+        return order.map { r[it] }
     }
 
     fun unshuffleQueue(

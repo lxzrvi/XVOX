@@ -1,3 +1,4 @@
+// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/features/playlist/XvoxPlaylistCard.kt
 package com.xvox.music.features.playlist
 
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -63,17 +64,23 @@ fun XvoxPlaylistCard(
             .padding(3.dp)
     ) {
         Column(if (longCard) Modifier.fillMaxSize() else Modifier.fillMaxWidth()) {
-            XvoxPlaylistCover(
-                songs = songs,
-                coverSongIds = playlist.coverSongIds,
-                customCoverUri = playlist.customCoverUri,
-                requestSize = 192,
-                coverShape = coverShape,
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .then(if (longCard) Modifier.weight(1f) else Modifier.aspectRatio(1f))
-                    .clip(coverShape)
-            )
+            ) {
+                XvoxPlaylistCover(
+                    songs = songs,
+                    coverSongIds = playlist.coverSongIds,
+                    customCoverUri = playlist.customCoverUri,
+                    requestSize = 192,
+                    coverShape = coverShape,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(coverShape)
+                )
+                com.xvox.music.core.ui.components.XvoxSelectionTick(selected, coverShape)
+            }
             Column(
                 modifier = Modifier
                     .fillMaxWidth()

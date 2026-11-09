@@ -158,7 +158,7 @@ fun HomeMultiSelectBar(
                             .xvoxLiveBlur(
                                 shape = railShape,
                                 level = com.xvox.music.core.ui.blur.XvoxBlurLevel.Chrome,
-                                baseColor = railSurface,
+                                baseColor = railSurface.copy(alpha = .94f),
                                 // Sits inside the page it floats over, so no live sample (that would
                                 // recurse); a frosted glass tint + the shared rim keeps it glassy.
                                 sky = null,
@@ -237,15 +237,15 @@ fun HomeMultiSelectBar(
                         } else if (onDeleteSelected != null) {
                             MultiActionItem(actionHeight, R.drawable.ic_xvox_delete, "Delete selected songs", onDeleteSelected)
                         }
-                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.fillMaxWidth()) {
-                            MultiActionItem(actionHeight, R.drawable.ic_xvox_close, "Clear selection", onClearSelection, modifier = Modifier.weight(1f))
+                        Column(verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.fillMaxWidth()) {
+                            MultiActionItem(actionHeight, R.drawable.ic_xvox_close, "Clear selection", onClearSelection, modifier = Modifier.fillMaxWidth())
                             MultiActionItem(
                                 actionHeight,
                                 R.drawable.ic_xvox_arrow_left,
                                 if (side == XvoxSelectionRailSide.RIGHT) "Move selection rail to left" else "Move selection rail to right",
                                 onClick = { railOnLeft = side == XvoxSelectionRailSide.RIGHT },
                                 mirrorIcon = side == XvoxSelectionRailSide.LEFT,
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.fillMaxWidth()
                             )
                         }
                     }
@@ -307,8 +307,6 @@ private fun MultiActionItem(
             .graphicsLayer { scaleX = pressScale; scaleY = pressScale }
             .height(height)
             .clip(actionShape)
-            .background(if (destructive) actionTint.copy(alpha = .10f) else colors.background.copy(alpha = .72f))
-            .border(.8.dp, if (destructive) actionTint.copy(alpha = .48f) else colors.cardBorder.copy(alpha = .88f), actionShape)
             .combinedClickable(
                 interactionSource = interaction,
                 indication = null,

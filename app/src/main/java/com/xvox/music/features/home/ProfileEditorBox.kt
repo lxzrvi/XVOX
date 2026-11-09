@@ -371,7 +371,8 @@ fun ProfileEditorBox(
                     onValueChangeFinished = {
                         val a = com.xvox.music.core.ui.chrome.XvoxHeaderAlphaPreview.value
                         if (a != null) scope.launch {
-                            prefs.updateChromeStyle { it.copy(headerBgAlpha = a) }
+                            val stored = prefs.updateChromeStyle { it.copy(headerBgAlpha = a) }
+                            if (com.xvox.music.core.ui.chrome.XvoxChromePreview.value != null) com.xvox.music.core.ui.chrome.XvoxChromePreview.publish(stored)
                             // Release the drag preview once the stored value is what the Header reads.
                             kotlinx.coroutines.withTimeoutOrNull(1500) {
                                 prefs.chromeStyle.first { kotlin.math.abs(it.headerBgAlpha - a) < .002f }

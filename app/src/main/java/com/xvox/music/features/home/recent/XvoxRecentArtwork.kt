@@ -1,5 +1,7 @@
+// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/features/home/recent/XvoxRecentArtwork.kt
 package com.xvox.music.features.home.recent
 
+import com.xvox.music.core.ui.components.XvoxSelectionTick
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -66,6 +68,7 @@ fun XvoxRecentArtwork(
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize()
         )
+        XvoxSelectionTick(selected, shape)
 
         Box(
             modifier = Modifier

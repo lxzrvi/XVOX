@@ -1,3 +1,4 @@
+// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/player/playback/MainPlayerUiState.kt
 package com.xvox.music.player.playback
 
 import com.xvox.music.core.model.Song
@@ -30,6 +31,13 @@ data class MainPlayerUiState(
     val nowPlayingVisible: Boolean = false,
     val isShuffleEnabled: Boolean = false,
     val repeatMode: RepeatMode = RepeatMode.OFF,
+    /** RANDOM, EVERY_OTHER, PAIRS, GROWING_JUMP, REVERSE. */
+    val shuffleMethod: String = "RANDOM",
+    /** Song repeats still to play (Repeat One with a count). 0 = no counted repeat; -1 = forever. */
+    val repeatTimesLeft: Int = 0,
+    /** A-B loop inside the current song (ms); -1 = unset. */
+    val abLoopStartMs: Long = -1L,
+    val abLoopEndMs: Long = -1L,
     val sleepTimerMinutes: Int? = null,
     val playerStyle: XvoxPlayerStyle = XvoxPlayerStyle.NORMAL,
     val sleepTimerProgress: Float? = null, // 0..1 while timer active, null when off

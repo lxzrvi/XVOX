@@ -1,6 +1,7 @@
 // EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/features/artist/XvoxArtistSection.kt
 package com.xvox.music.features.artist
 
+import com.xvox.music.core.ui.components.XvoxSelectionTick
 import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -171,6 +172,7 @@ fun ArtistCircleItem(
                     requestSize = 256,
                     modifier = Modifier.fillMaxSize()
                 )
+                XvoxSelectionTick(selected, CircleShape)
             }
             if (liked) {
                 XvoxLikedHeartBadge(Modifier.align(Alignment.TopEnd), badgeSize = 18.dp)

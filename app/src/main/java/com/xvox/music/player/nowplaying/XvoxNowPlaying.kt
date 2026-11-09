@@ -175,6 +175,14 @@ fun XvoxNowPlaying(
     repeatMode: RepeatMode = RepeatMode.OFF,
     onToggleShuffle: (() -> Unit)? = null,
     onToggleRepeat: (() -> Unit)? = null,
+    shuffleMethod: String = "RANDOM",
+    repeatTimesLeft: Int = 0,
+    abLoopStartMs: Long = -1L,
+    abLoopEndMs: Long = -1L,
+    onApplyShuffleMethod: ((String) -> Unit)? = null,
+    onSetRepeatSong: ((Int) -> Unit)? = null,
+    onSetRepeatPlain: ((RepeatMode) -> Unit)? = null,
+    onSetAbLoop: ((Long, Long) -> Unit)? = null,
     playerStyle: XvoxPlayerStyle = XvoxPlayerStyle.NORMAL,
     sleepTimerProgress: Float? = null,
     playingSource: String = "All Songs",
@@ -1051,6 +1059,8 @@ fun XvoxNowPlaying(
                             onCommitPreview = ::commitPreview,
                             onCancelPreview = ::cancelPreview,
                             onRepeat = { onToggleRepeat?.invoke() },
+                            onShuffleLongPress = { openSettingsBox("ShuffleMethod") },
+                            onRepeatLongPress = { openSettingsBox("RepeatOptions") },
                             previewIndex = previewIndex,
                             queueSize = queue.size,
                             shuffleRepeatSide = chrome.nowPlayingShuffleRepeatSide,
@@ -1405,6 +1415,8 @@ fun XvoxNowPlaying(
                     onCommitPreview = ::commitPreview,
                     onCancelPreview = ::cancelPreview,
                     onRepeat = { onToggleRepeat?.invoke() },
+                            onShuffleLongPress = { openSettingsBox("ShuffleMethod") },
+                            onRepeatLongPress = { openSettingsBox("RepeatOptions") },
                     previewIndex = previewIndex,
                     queueSize = queue.size,
                     shuffleRepeatSide = chrome.nowPlayingShuffleRepeatSide,
@@ -1463,7 +1475,29 @@ fun XvoxNowPlaying(
 
         // Dedicated contextual Settings / Options Boxes on Long-Press of bottom buttons
         if (activeSettingsBox != null) {
-            if (activeSettingsBox == "Style") {
+            if (activeSettingsBox == "ShuffleMethod") {
+                com.xvox.music.player.nowplaying.components.NowPlayingShuffleBox(
+                    shuffleEnabled = isShuffleEnabled,
+                    method = shuffleMethod,
+                    onApplyMethod = { onApplyShuffleMethod?.invoke(it) },
+                    onTurnOff = { if (isShuffleEnabled) onToggleShuffle?.invoke() },
+                    onDismiss = { activeSettingsBox = null }
+                )
+            } else if (activeSettingsBox == "RepeatOptions") {
+                com.xvox.music.player.nowplaying.components.NowPlayingRepeatBox(
+                    repeatMode = repeatMode,
+                    repeatTimesLeft = repeatTimesLeft,
+                    durationMs = duration,
+                    positionMs = position,
+                    abStartMs = abLoopStartMs,
+                    abEndMs = abLoopEndMs,
+                    onRepeatOff = { onSetRepeatPlain?.invoke(RepeatMode.OFF) },
+                    onRepeatAll = { onSetRepeatPlain?.invoke(RepeatMode.ALL) },
+                    onRepeatSong = { onSetRepeatSong?.invoke(it) },
+                    onAbLoop = { a, b -> onSetAbLoop?.invoke(a, b) },
+                    onDismiss = { activeSettingsBox = null }
+                )
+            } else if (activeSettingsBox == "Style") {
                 NowPlayingOptionsBox(
                     backgroundStyle = settingsState.nowPlayingBackgroundStyle,
                     coverBlur = settingsState.nowPlayingCoverBlur,

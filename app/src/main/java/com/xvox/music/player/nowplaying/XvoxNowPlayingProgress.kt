@@ -23,6 +23,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -69,6 +70,14 @@ fun XvoxNowPlayingProgress(
 
     var dragging by remember { mutableStateOf(false) }
     var dragFraction by remember { mutableFloatStateOf(0f) }
+    // Finger on the rail anywhere (played OR still-empty part), even before it moves: the rail
+    // swells at once, so every touch gives instant feedback.
+    var touching by remember { mutableStateOf(false) }
+    // A tap seek glides to its target (spring) instead of jumping.
+    val glide = remember { androidx.compose.animation.core.Animatable(0f) }
+    var gliding by remember { mutableStateOf(false) }
+    var glideStart by remember { mutableFloatStateOf(0f) }
+    val glideScope = androidx.compose.runtime.rememberCoroutineScope()
 
     // A tap/drag seek paints its chosen position immediately and holds it until the controller
     // confirms the seek. It is deliberately not released on a timer: a paused or buffered player
@@ -178,12 +187,15 @@ fun XvoxNowPlayingProgress(
 
     val visibleFraction = when {
         dragging -> dragFraction
+        gliding -> glide.value
         // A user target owns the visible rail immediately in both play and pause states. Keeping
         // it direct until controller confirmation prevents any old-position replay or double move.
         pendingSeekFraction != null -> pendingSeekFraction!!
         !isPlaying -> pausedFraction ?: renderedFraction.value
         else -> renderedFraction.value
     }
+
+    androidx.compose.runtime.SideEffect { if (!gliding) glideStart = visibleFraction }
 
     val visiblePosition = if (stableDuration > 0L) {
         (stableDuration * visibleFraction).toLong()
@@ -194,8 +206,8 @@ fun XvoxNowPlayingProgress(
     val activeColor = colors.primaryAccent
     // Touching / scrubbing: the rail swells with a soft springy overshoot, then relaxes.
     val thickState = androidx.compose.animation.core.animateFloatAsState(
-        targetValue = if (dragging) 1f else 0f,
-        animationSpec = androidx.compose.animation.core.spring(dampingRatio = .6f, stiffness = 520f),
+        targetValue = if (dragging || touching) 1f else 0f,
+        animationSpec = androidx.compose.animation.core.spring(dampingRatio = .58f, stiffness = 650f),
         label = "seekThick"
     )
 
@@ -241,7 +253,7 @@ fun XvoxNowPlayingProgress(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(if (showTime) 18.dp else 12.dp)
+                .height(if (showTime) 22.dp else 16.dp)
                 .pointerInput(stableDuration) {
                     // A single recognizer owns this rail.  The previous independent tap and drag
                     // detectors could both report one release, producing a second seek sample and
@@ -258,6 +270,7 @@ fun XvoxNowPlayingProgress(
                             return@awaitEachGesture
                         }
 
+                        touching = true
                         val start = down.position
                         val slop = viewConfiguration.touchSlop
                         var mode = 0 // 0 = tap candidate, 1 = horizontal seek, 2 = another gesture
@@ -281,13 +294,27 @@ fun XvoxNowPlayingProgress(
                             }
                             if (!change.pressed || event.changes.none { it.pressed }) {
                                 when (mode) {
-                                    0 -> requestSeek((start.x / size.width).coerceIn(0f, 1f))
+                                    0 -> {
+                                        val tapTarget = (start.x / size.width).coerceIn(0f, 1f)
+                                        val from = glideStart
+                                        glideScope.launch {
+                                            gliding = true
+                                            glide.snapTo(from)
+                                            glide.animateTo(
+                                                tapTarget,
+                                                androidx.compose.animation.core.spring(dampingRatio = .85f, stiffness = 420f)
+                                            )
+                                            gliding = false
+                                        }
+                                        requestSeek(tapTarget)
+                                    }
                                     1 -> requestSeek(dragFraction)
                                 }
                                 released = true
                             }
                         }
                         dragging = false
+                        touching = false
                     }
                 },
             contentAlignment = Alignment.Center
@@ -295,7 +322,7 @@ fun XvoxNowPlayingProgress(
             Canvas(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(if (showTime) 18.dp else 12.dp)
+                    .height(if (showTime) 22.dp else 16.dp)
             ) {
                 val y = size.height / 2f
                 val thick = thickState.value

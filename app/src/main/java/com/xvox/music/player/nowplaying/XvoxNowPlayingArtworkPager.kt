@@ -1,3 +1,4 @@
+// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/player/nowplaying/XvoxNowPlayingArtworkPager.kt
 package com.xvox.music.player.nowplaying
 
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -16,6 +17,8 @@ import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -372,13 +375,66 @@ private fun XvoxNowPlayingArtworkPage(
 ) {
     val song = queue.getOrNull(songIndex) ?: return
     val shape = remember(artworkCornerRadius) { RoundedCornerShape(artworkCornerRadius) }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val transitionFlow = remember(context) {
+        com.xvox.music.data.preferences.UserPreferencesRepository(context.applicationContext).coverTransition
+    }
+    val transition by transitionFlow.collectAsState(initial = "slide")
     Box(
         Modifier
             .fillMaxSize()
             .graphicsLayer {
                 val offset = ((pager.currentPage - page) + pager.currentPageOffsetFraction)
                     .coerceIn(-1f, 1f)
-                val scale = if (applyDepth) 1f - .08f * abs(offset) else 1f
+                val a = abs(offset)
+                var scale = if (applyDepth) 1f - .08f * a else 1f
+                val w = size.width
+                // offset > 0: page is leaving to the left; offset < 0: page is arriving from the right.
+                when (transition) {
+                    "crossfade" -> {
+                        translationX = offset * w          // cancel the pager slide: pages stay put
+                        alpha = 1f - a
+                        scale = 1f - .04f * a
+                    }
+                    "tumble" -> {
+                        transformOrigin = androidx.compose.ui.graphics.TransformOrigin(.5f, 1f)
+                        rotationZ = -offset * 28f
+                        alpha = 1f - .6f * a
+                        scale = 1f - .12f * a
+                    }
+                    "page" -> {
+                        // Like turning a page: the leaving page folds about its left edge.
+                        cameraDistance = 14f * density
+                        if (offset > 0f) {
+                            transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0f, .5f)
+                            rotationY = -offset * 78f
+                            translationX = offset * w * .55f
+                            alpha = 1f - .35f * a
+                        } else {
+                            translationX = offset * w * -.0f
+                        }
+                    }
+                    "cascade" -> {
+                        // The leaving page sinks back under the arriving one.
+                        if (offset > 0f) {
+                            translationX = offset * w * .72f
+                            scale = 1f - .14f * a
+                            alpha = 1f - .5f * a
+                        }
+                    }
+                    "rotate" -> {
+                        translationX = offset * w
+                        rotationZ = -offset * 90f
+                        alpha = 1f - .85f * a
+                        scale = 1f - .25f * a
+                    }
+                    "cube" -> {
+                        cameraDistance = 16f * density
+                        transformOrigin = androidx.compose.ui.graphics.TransformOrigin(if (offset > 0f) 1f else 0f, .5f)
+                        rotationY = -offset * 88f
+                        alpha = 1f - .25f * a
+                    }
+                }
                 scaleX = scale
                 scaleY = scale
                 // Apply one offscreen-shaped clip to the scaled pager page. This prevents the

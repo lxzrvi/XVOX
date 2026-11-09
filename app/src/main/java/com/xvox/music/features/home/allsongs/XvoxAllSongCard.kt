@@ -1,5 +1,7 @@
+// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/features/home/allsongs/XvoxAllSongCard.kt
 package com.xvox.music.features.home.allsongs
 
+import com.xvox.music.core.ui.components.XvoxSelectionTick
 import com.xvox.music.core.ui.effects.xvoxSongPress
 import com.xvox.music.features.home.rememberSongCardColor
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -79,6 +81,7 @@ fun XvoxAllSongCard(
                     .fillMaxSize()
                     .clip(artworkShape)
             )
+            XvoxSelectionTick(selected, artworkShape)
         }
 
         // Keep title/artist clear of the outer rounded corners, especially on compact cards

@@ -1,3 +1,4 @@
+// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/player/playback/MainPlayerViewModel.kt
 package com.xvox.music.player.playback
 
 import android.app.Application
@@ -70,7 +71,79 @@ class MainPlayerViewModel(
                         duration = playback.duration
                     )
                 }
+                enforceLoopsAndCounts(playback.currentSongId, playback.position, playback.duration)
             }
+        }
+    }
+
+    private var lastLoopPos = 0L
+    private var lastLoopSongId: Long? = null
+
+    /** A-B loop and counted Repeat One, driven by the same position ticks that move the rail. */
+    private fun enforceLoopsAndCounts(songId: Long?, pos: Long, dur: Long) {
+        val s = _state.value
+        if (songId != lastLoopSongId) {
+            lastLoopSongId = songId
+            if (s.abLoopStartMs >= 0L || s.abLoopEndMs >= 0L) {
+                _state.update { it.copy(abLoopStartMs = -1L, abLoopEndMs = -1L) }
+            }
+        }
+        if (s.abLoopStartMs >= 0L && s.abLoopEndMs > s.abLoopStartMs && pos >= s.abLoopEndMs) {
+            controller.seekTo(s.abLoopStartMs)
+        }
+        // Counted repeat: the player loops (Repeat One); a wrap back to the start uses one up.
+        if (s.repeatMode == RepeatMode.ONE && s.repeatTimesLeft > 0 && dur > 4000L) {
+            val wrapped = lastLoopPos > dur - 2500L && pos < 2500L && lastLoopPos - pos > dur / 2
+            if (wrapped) {
+                val left = s.repeatTimesLeft - 1
+                if (left <= 0) {
+                    _state.update { it.copy(repeatMode = RepeatMode.OFF, repeatTimesLeft = 0) }
+                    controller.setRepeatMode(RepeatMode.OFF)
+                } else {
+                    _state.update { it.copy(repeatTimesLeft = left) }
+                }
+            }
+        }
+        lastLoopPos = pos
+    }
+
+    /** Shuffle methods: re-orders the queue from its ORIGINAL order using [method]. */
+    fun applyShuffleMethod(method: String) {
+        val cur = _state.value
+        val base = originalQueueBeforeShuffle ?: cur.queue.toList()
+        val active = cur.queue.getOrNull(cur.currentIndex)
+        val baseIdx = base.indexOfFirst { it === active }.takeIf { it >= 0 }
+            ?: base.indexOfFirst { it.id == cur.currentSongId }
+        val arranged = PlayerQueueReorderHelper.arrangeQueue(method, base, baseIdx) ?: return
+        originalQueueBeforeShuffle = base
+        controller.setQueue(arranged)
+        _state.update {
+            it.copy(
+                isShuffleEnabled = true,
+                shuffleMethod = method,
+                queue = arranged,
+                queueOccurrenceIds = controller.currentQueueOccurrenceIds(),
+                currentIndex = 0
+            )
+        }
+    }
+
+    /** [times]: 1,2,3 = repeat this song that many more times; -1 = forever. */
+    fun setRepeatSong(times: Int) {
+        val left = if (times < 0) -1 else times
+        _state.update { it.copy(repeatMode = RepeatMode.ONE, repeatTimesLeft = left) }
+        controller.setRepeatMode(RepeatMode.ONE)
+    }
+
+    fun setRepeatPlain(mode: RepeatMode) {
+        _state.update { it.copy(repeatMode = mode, repeatTimesLeft = 0) }
+        controller.setRepeatMode(mode)
+    }
+
+    fun setAbLoop(startMs: Long, endMs: Long) {
+        _state.update { it.copy(abLoopStartMs = startMs, abLoopEndMs = endMs) }
+        if (startMs >= 0L && endMs > startMs && _state.value.position !in startMs until endMs) {
+            controller.seekTo(startMs)
         }
     }
 
@@ -785,7 +858,7 @@ class MainPlayerViewModel(
             RepeatMode.ALL -> RepeatMode.ONE
             RepeatMode.ONE -> RepeatMode.OFF
         }
-        _state.update { it.copy(repeatMode = next) }
+        _state.update { it.copy(repeatMode = next, repeatTimesLeft = 0) }
         controller.setRepeatMode(next)
     }
 

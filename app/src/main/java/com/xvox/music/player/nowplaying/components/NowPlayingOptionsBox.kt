@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/player/nowplaying/components/NowPlayingOptionsBox.kt
 // EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/player/nowplaying/components/NowPlayingOptionsBox.kt
 package com.xvox.music.player.nowplaying.components
 
@@ -14,6 +16,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.collectAsState
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -52,6 +56,11 @@ fun NowPlayingOptionsBox(
     } else {
         XvoxNowPlayingBackgroundStyles.DEFAULT
     }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val prefs = remember(context) { com.xvox.music.data.preferences.UserPreferencesRepository(context.applicationContext) }
+    val savedTransition by prefs.coverTransition.collectAsState(initial = "slide")
+    var draftTransition by remember(savedTransition) { mutableStateOf(savedTransition) }
+    val saveScope = androidx.compose.runtime.rememberCoroutineScope()
     var draftBackgroundStyle by remember(backgroundStyle) { mutableStateOf(initialStyle) }
     var draftCoverBlur by remember(coverBlur) {
         mutableFloatStateOf(coverBlur.coerceIn(blurMin, blurMax))
@@ -68,9 +77,13 @@ fun NowPlayingOptionsBox(
                     // at exactly 50%, rather than quietly resetting a hidden Default-only value.
                     draftBackgroundStyle = XvoxNowPlayingBackgroundStyles.COVER
                     draftCoverBlur = resetCoverBlur
+                    draftTransition = "slide"
                 },
                 onOkay = {
                     onApplyBackground(draftBackgroundStyle, draftCoverBlur)
+                    if (draftTransition != savedTransition) {
+                        saveScope.launch { prefs.setCoverTransition(draftTransition) }
+                    }
                     onDismiss()
                 }
             )
@@ -149,6 +162,48 @@ fun NowPlayingOptionsBox(
                         defaultValue = defaultBlurFraction,
                         contentDescription = "Cover blur $blurPercent percent"
                     )
+                }
+            }
+
+            Text(
+                text = "Cover transition",
+                color = colors.primaryText,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(top = 4.dp)
+            )
+            val options = listOf(
+                "slide" to "Slide", "crossfade" to "Crossfade", "tumble" to "Tumble",
+                "page" to "Page", "cascade" to "Cascade", "rotate" to "Rotate", "cube" to "Cube"
+            )
+            androidx.compose.foundation.layout.FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                options.forEach { (key, label) ->
+                    val active = draftTransition == key
+                    Box(
+                        modifier = Modifier
+                            .height(36.dp)
+                            .clip(RoundedCornerShape(50))
+                            .background(if (active) colors.accentSoft else colors.cardElevated.copy(alpha = .58f))
+                            .border(
+                                if (active) 1.dp else .8.dp,
+                                if (active) colors.primaryAccent else colors.cardBorder.copy(alpha = .84f),
+                                RoundedCornerShape(50)
+                            )
+                            .xvoxPressScale(onClick = { draftTransition = key })
+                            .padding(horizontal = 14.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            label,
+                            color = if (active) colors.primaryAccent else colors.primaryText,
+                            fontSize = 12.sp,
+                            fontWeight = if (active) FontWeight.Bold else FontWeight.Medium
+                        )
+                    }
                 }
             }
         }

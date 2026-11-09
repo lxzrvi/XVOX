@@ -3,6 +3,7 @@ package com.xvox.music.player.nowplaying
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
@@ -63,6 +64,8 @@ fun XvoxNowPlayingControls(
     onCommitPreview: () -> Unit,
     onCancelPreview: () -> Unit,
     onRepeat: () -> Unit,
+    onShuffleLongPress: (() -> Unit)? = null,
+    onRepeatLongPress: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     isShuffleEnabled: Boolean = false,
     repeatMode: RepeatMode = RepeatMode.OFF,
@@ -100,6 +103,7 @@ fun XvoxNowPlayingControls(
             resource = R.drawable.ic_xvox_shuffle,
             iconSize = 20,
             onClick = onShuffle,
+            onLongClick = onShuffleLongPress,
             tint = if (isShuffleEnabled) colors.primaryAccent else colors.primaryText,
             showDot = isShuffleEnabled
         )
@@ -114,6 +118,7 @@ fun XvoxNowPlayingControls(
             },
             iconSize = 20,
             onClick = onRepeat,
+            onLongClick = onRepeatLongPress,
             tint = if (repeatMode != RepeatMode.OFF) colors.primaryAccent else colors.primaryText
         )
     }
@@ -231,22 +236,31 @@ fun XvoxNowPlayingControls(
     }
 }
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 private fun SimpleControl(
     resource: Int,
     iconSize: Int,
     onClick: () -> Unit,
     tint: Color? = null,
-    showDot: Boolean = false
+    showDot: Boolean = false,
+    onLongClick: (() -> Unit)? = null
 ) {
     val colors = XvoxTheme.colors
+    val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
     Box(
         modifier = Modifier
             .size(42.dp)
-            .clickable(
+            .combinedClickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
-                onClick = onClick
+                onClick = onClick,
+                onLongClick = onLongClick?.let { lc ->
+                    {
+                        haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                        lc()
+                    }
+                }
             ),
         contentAlignment = Alignment.Center
     ) {

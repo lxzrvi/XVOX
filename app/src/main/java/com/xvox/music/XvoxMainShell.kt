@@ -234,6 +234,7 @@ fun XvoxMainShell(
             // the real profile/chrome flows have caught up.
             onDismiss = {
                 profileDraft = baseline
+                com.xvox.music.core.ui.chrome.XvoxHeaderAlphaPreview.clear()
                 if (!profileHeaderPreviewAwaitingPersistence) {
                     com.xvox.music.core.ui.chrome.XvoxHeaderPreview.clear()
                 }
@@ -280,11 +281,15 @@ fun XvoxMainShell(
                                 homePreferences.setShowProfileLines(saved.showProfileLines)
                                 settingsViewModel.setChromeStyle {
                                     it.copy(
+                                        // Commit the transparency chosen with the slider, whatever
+                                        // happened to the slider's own finish callback.
+                                        headerBgAlpha = com.xvox.music.core.ui.chrome.XvoxHeaderAlphaPreview.value ?: it.headerBgAlpha,
                                         headerDimEnabled = saved.headerDimEnabled,
                                         headerDimAmount = saved.headerDimAmount.coerceIn(0f, 1f)
                                     )
                                 }
                                 homeViewModel.saveProfile(saved.username.trim(), saved.selectedPfp, saved.customPfpUri) {
+                                    com.xvox.music.core.ui.chrome.XvoxHeaderAlphaPreview.clear()
                                     overlays.hideBox()
                                     overlays.showP("Profile updated")
                                 }
@@ -1223,6 +1228,14 @@ fun XvoxMainShell(
                     repeatMode = player.repeatMode,
                     onToggleShuffle = { playerViewModel.toggleShuffle() },
                     onToggleRepeat = { playerViewModel.toggleRepeat() },
+                    shuffleMethod = player.shuffleMethod,
+                    repeatTimesLeft = player.repeatTimesLeft,
+                    abLoopStartMs = player.abLoopStartMs,
+                    abLoopEndMs = player.abLoopEndMs,
+                    onApplyShuffleMethod = { playerViewModel.applyShuffleMethod(it) },
+                    onSetRepeatSong = { playerViewModel.setRepeatSong(it) },
+                    onSetRepeatPlain = { playerViewModel.setRepeatPlain(it) },
+                    onSetAbLoop = { a, b -> playerViewModel.setAbLoop(a, b) },
                     playerStyle = player.playerStyle,
                     sleepTimerProgress = player.sleepTimerProgress,
                     playingSource = player.playingSource,

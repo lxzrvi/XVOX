@@ -458,11 +458,19 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         val optimistic = change(com.xvox.music.core.ui.chrome.XvoxChromePreview.value ?: _state.value.chromeStyle)
         _state.update { it.copy(chromeStyle = optimistic) }
         com.xvox.music.core.ui.chrome.XvoxChromePreview.publish(optimistic)
+        val seq = ++chromeWriteSeq
         viewModelScope.launch {
             // Atomic against the stored value: other writers (Profile editor) never get clobbered.
-            prefs.updateChromeStyle(change)
+            val stored = prefs.updateChromeStyle(change)
+            // Newest write wins: settle the live preview on the TRUE merged value, so a stale
+            // optimistic copy (e.g. old header transparency) can never stick around.
+            if (seq == chromeWriteSeq) {
+                _state.update { it.copy(chromeStyle = stored) }
+                com.xvox.music.core.ui.chrome.XvoxChromePreview.publish(stored)
+            }
         }
     }
+    private var chromeWriteSeq = 0
     fun setBackgroundBrightness(value: Float) = viewModelScope.launch { prefs.setBackgroundBrightness(value) }
     fun setAudioOutputRoute(route: String) = viewModelScope.launch { prefs.setAudioOutputRoute(route) }
     fun setPlaybackSpeed(value: Float) = viewModelScope.launch { prefs.setPlaybackSpeed(value) }

@@ -1,5 +1,7 @@
+// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/features/home/allsongs/XvoxAllSongMosaicCard.kt
 package com.xvox.music.features.home.allsongs
 
+import com.xvox.music.core.ui.components.XvoxSelectionTick
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -97,16 +99,19 @@ fun XvoxAllSongMosaicCard(
     fun Cover(modifier: Modifier = Modifier) {
         // Single-unit tiles share the same exact 256px request/cache key as the standard All
         // Songs card. Larger mosaic tiles keep their 512px request rather than a softened preview.
-        XvoxGridArtwork(
-            artwork = song.artworkUri,
-            fallbackSeed = song.id.hashCode(),
-            requestSize = if (widthUnits == 1f && heightUnits == 1f) {
-                XvoxGridArtworkSize
-            } else {
-                XvoxRecentArtworkSize
-            },
-            modifier = modifier.clip(artShape)
-        )
+        Box(modifier) {
+            XvoxGridArtwork(
+                artwork = song.artworkUri,
+                fallbackSeed = song.id.hashCode(),
+                requestSize = if (widthUnits == 1f && heightUnits == 1f) {
+                    XvoxGridArtworkSize
+                } else {
+                    XvoxRecentArtworkSize
+                },
+                modifier = Modifier.fillMaxSize().clip(artShape)
+            )
+            XvoxSelectionTick(selected, artShape)
+        }
     }
 
     Box(

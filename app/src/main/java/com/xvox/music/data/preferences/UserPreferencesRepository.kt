@@ -171,6 +171,7 @@ class UserPreferencesRepository(
         val backgroundBrightness = floatPreferencesKey("background_brightness")
         val audioOutputRoute = stringPreferencesKey("audio_output_route")
         val playbackSpeed = floatPreferencesKey("playback_speed")
+        val coverTransition = androidx.datastore.preferences.core.stringPreferencesKey("np_cover_transition")
         val playbackPitch = floatPreferencesKey("playback_pitch")
         val headerImageUri = stringPreferencesKey("header_image_uri")
         val savedCustomHeaderUri = stringPreferencesKey("saved_custom_header_uri")
@@ -554,6 +555,14 @@ class UserPreferencesRepository(
     val audioOutputRoute: Flow<String> = context.xvoxDataStore.data
         .map { (it[Keys.audioOutputRoute] ?: "auto").let { route -> if (route == "headset" || route == "phone") route else "auto" } }
         .distinctUntilChanged()
+    /** Now Playing cover swipe transition: slide, crossfade, tumble, page, cascade, rotate, cube. */
+    val coverTransition: Flow<String> = context.xvoxDataStore.data
+        .map { it[Keys.coverTransition] ?: "slide" }.distinctUntilChanged()
+
+    suspend fun setCoverTransition(v: String) {
+        context.xvoxDataStore.edit { it[Keys.coverTransition] = v }
+    }
+
     val playbackSpeed: Flow<Float> = context.xvoxDataStore.data
         .map { (it[Keys.playbackSpeed] ?: 1f).coerceIn(.25f, 3f) }.distinctUntilChanged()
     val playbackPitch: Flow<Float> = context.xvoxDataStore.data
