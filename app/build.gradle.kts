@@ -14,9 +14,9 @@ android {
         minSdk = 33
         targetSdk = 37
 
-        // v1.02.3: post-release media fixes plus GIF crop, playback, and Settings refinements.
-        versionCode = 10203
-        versionName = "1.02.3"
+        // v1.02.4: post-release media fixes plus GIF crop, playback, and Settings refinements.
+        versionCode = 10204
+        versionName = "1.02.4"
     }
 
     compileOptions {

@@ -28,6 +28,7 @@ import com.xvox.music.core.ui.blur.LocalXvoxSurfaceSky
 import com.xvox.music.core.ui.blur.XvoxBlurLevel
 import com.xvox.music.core.ui.blur.xvoxLiveBlur
 import com.xvox.music.core.ui.components.XvoxLikedHeartBadge
+import com.xvox.music.core.ui.components.XvoxSelectionTick
 import com.xvox.music.core.ui.effects.xvoxSongPress
 import com.xvox.music.data.preferences.XvoxPlaylist
 
@@ -79,7 +80,7 @@ fun XvoxPlaylistCard(
                         .fillMaxSize()
                         .clip(coverShape)
                 )
-                com.xvox.music.core.ui.components.XvoxSelectionTick(selected, coverShape)
+                XvoxSelectionTick(selected, coverShape)
             }
             Column(
                 modifier = Modifier
