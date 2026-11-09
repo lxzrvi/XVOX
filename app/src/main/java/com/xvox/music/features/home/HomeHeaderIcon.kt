@@ -1,3 +1,4 @@
+// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/features/home/HomeHeaderIcon.kt
 package com.xvox.music.features.home
 
 import androidx.compose.foundation.layout.padding
@@ -5,7 +6,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
+import com.xvox.music.core.ui.icons.painterResource
 import androidx.compose.ui.unit.dp
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme

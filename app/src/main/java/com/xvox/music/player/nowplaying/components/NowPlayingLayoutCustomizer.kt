@@ -1,3 +1,4 @@
+// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/player/nowplaying/components/NowPlayingLayoutCustomizer.kt
 package com.xvox.music.player.nowplaying.components
 
 import androidx.compose.foundation.Canvas
@@ -26,7 +27,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.res.painterResource
+import com.xvox.music.core.ui.icons.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.material3.Icon
 import com.xvox.music.R

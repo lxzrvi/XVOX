@@ -74,7 +74,7 @@ fun XvoxArtistGrid(
             contentPadding = PaddingValues(horizontal = 6.dp),
             horizontalArrangement = Arrangement.spacedBy(gap.dp)
         ) {
-            items(chunkedCols) { colArtists ->
+            items(chunkedCols, key = { col -> col.firstOrNull()?.name ?: col.hashCode() }, contentType = { "artist_col" }) { colArtists ->
                 Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                     colArtists.forEach { artist ->
                         ArtistCircleItem(

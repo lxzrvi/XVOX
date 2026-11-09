@@ -24,7 +24,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
-import androidx.compose.ui.res.painterResource
+import com.xvox.music.core.ui.icons.painterResource
 
 /**
  * Selection mark shown over the CENTER of a cover (song, playlist, artist): a soft dim over the
