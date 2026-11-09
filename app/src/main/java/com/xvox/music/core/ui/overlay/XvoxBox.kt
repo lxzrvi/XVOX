@@ -81,7 +81,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 val XvoxBoxEasing = CubicBezierEasing(0.2f, 0f, 0f, 1f)
-const val XvoxSheetEnterMs = 280
+/** Ease-out-expo: the sheet lands fast and settles softly, like a physical glass panel. */
+val XvoxSheetEnterEasing = CubicBezierEasing(0.16f, 1f, 0.3f, 1f)
+const val XvoxSheetEnterMs = 340
 const val XvoxSheetExitMs = 240
 
 /**
@@ -418,7 +420,7 @@ fun XvoxSheet(
                 // faded backdrop itself was sliding upward with the content.
                 enter = slideInVertically(
                     initialOffsetY = { it },
-                    animationSpec = tween(XvoxSheetEnterMs, easing = XvoxBoxEasing)
+                    animationSpec = tween(XvoxSheetEnterMs, easing = XvoxSheetEnterEasing)
                 ),
                 exit = slideOutVertically(
                     targetOffsetY = { it },
@@ -732,7 +734,7 @@ private fun XvoxCenteredBox(
             // rises and falls independently; no background pixel participates in that motion.
             enter = slideInVertically(
                 initialOffsetY = { (constraints.maxHeight + it) / 2 },
-                animationSpec = tween(XvoxSheetEnterMs, easing = XvoxBoxEasing)
+                animationSpec = tween(XvoxSheetEnterMs, easing = XvoxSheetEnterEasing)
             ),
             exit = slideOutVertically(
                 targetOffsetY = { (constraints.maxHeight + it) / 2 },

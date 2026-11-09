@@ -227,9 +227,17 @@ fun XvoxAppRoot(
         // covers. Neither effect is nested inside the Sky it samples.
         val surfaceSky = rememberSky()
         val overlaySky = rememberSky()
+        val photoWallpaperOn = effectiveChrome.backgroundMode(backgroundImage.isNotBlank()) ==
+            com.xvox.music.core.ui.chrome.XvoxBackgroundMode.Custom
+        val wallpaperGlass = com.xvox.music.core.ui.blur.rememberBlurredWallpaper(
+            uri = backgroundImage,
+            enabled = photoWallpaperOn && effectiveChrome.glassBlurEnabled,
+            dim = (1f - backgroundBrightness).coerceIn(0f, .95f)
+        )
         CompositionLocalProvider(
             LocalDensity provides customDensity,
             LocalXvoxOverlayController provides overlays,
+            com.xvox.music.core.ui.blur.LocalXvoxWallpaperGlass provides wallpaperGlass,
             com.xvox.music.core.ui.chrome.LocalXvoxBaseChromeStyle provides effectiveChrome,
             com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle provides effectiveChrome,
             LocalXvoxHaptics provides haptics,

@@ -1,3 +1,4 @@
+// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/player/nowplaying/XvoxNowPlayingProgress.kt
 package com.xvox.music.player.nowplaying
 
 import android.os.SystemClock
@@ -191,6 +192,12 @@ fun XvoxNowPlayingProgress(
     }
 
     val activeColor = colors.primaryAccent
+    // Touching / scrubbing: the rail swells with a soft springy overshoot, then relaxes.
+    val thickState = androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (dragging) 1f else 0f,
+        animationSpec = androidx.compose.animation.core.spring(dampingRatio = .6f, stiffness = 520f),
+        label = "seekThick"
+    )
 
     val blendProjection = remember(currentSongId) {
         XvoxBlendMonitor.state.map { visual ->
@@ -291,6 +298,7 @@ fun XvoxNowPlayingProgress(
                     .height(if (showTime) 18.dp else 12.dp)
             ) {
                 val y = size.height / 2f
+                val thick = thickState.value
                 val normalizedStyle = when (style) {
                     "pill", "android_wave", "pulse", "aurora" -> style
                     else -> "classic"
@@ -328,10 +336,10 @@ fun XvoxNowPlayingProgress(
 
                 fun drawAndroidWave(color: androidx.compose.ui.graphics.Color, alpha: Float, phaseOffset: Float = 0f) {
                     drawPath(
-                        path = signalWave(3.8.dp.toPx(), phaseOffset),
+                        path = signalWave(3.8.dp.toPx() * (1f + .30f * thick), phaseOffset),
                         color = color.copy(alpha = alpha),
                         style = androidx.compose.ui.graphics.drawscope.Stroke(
-                            width = 2.2.dp.toPx(),
+                            width = 2.2.dp.toPx() * (1f + 1.0f * thick),
                             cap = StrokeCap.Round
                         )
                     )
@@ -374,14 +382,14 @@ fun XvoxNowPlayingProgress(
                             val energy = .42f + .58f * kotlin.math.abs(
                                 sin(index * .86f + phase * 1.18f).toFloat()
                             )
-                            val height = 1.8.dp.toPx() + energy * 4.4.dp.toPx()
+                            val height = (1.8.dp.toPx() + energy * 4.4.dp.toPx()) * (1f + .1f * thick)
                             val zoneColor = crossfadeColorAt(x)
                             val color = if (x <= progressX) zoneColor else zoneColor.copy(alpha = .25f)
                             drawLine(
                                 color = color,
                                 start = Offset(x, y - height),
                                 end = Offset(x, y + height),
-                                strokeWidth = 1.8.dp.toPx(),
+                                strokeWidth = 1.8.dp.toPx() * (1f + .7f * thick),
                                 cap = StrokeCap.Round
                             )
                         }
@@ -403,7 +411,7 @@ fun XvoxNowPlayingProgress(
                     "pill" -> {
                         // The capsule is deliberately thumb-free; blend zones remain visible on
                         // both inactive and active portions without adding a progress dot.
-                        val railHeight = 8.dp.toPx()
+                        val railHeight = 8.dp.toPx() * (1f + .45f * thick)
                         val top = y - railHeight / 2f
                         drawRoundRect(
                             color = activeColor.copy(alpha = .22f),
@@ -428,7 +436,7 @@ fun XvoxNowPlayingProgress(
                     }
 
                     else -> {
-                        val stroke = 2.5.dp.toPx()
+                        val stroke = 2.5.dp.toPx() * (1f + 1.7f * thick)
                         drawLine(
                             color = activeColor.copy(alpha = .28f),
                             start = Offset(0f, y),

@@ -286,6 +286,27 @@ fun XvoxShellTopHeader(
                                     edgeInBlur = true
                                 )
                         ) {
+                            // One accent capsule glides (spring, slight overshoot) to the chosen pill.
+                            val selectedPill = libraryActions.indexOfFirst { it.mode == libraryMode }
+                            val pillX = animateFloatAsState(
+                                targetValue = if (selectedPill >= 0) selectedPill.toFloat() else 0f,
+                                animationSpec = androidx.compose.animation.core.spring(dampingRatio = .66f, stiffness = 430f),
+                                label = "headerPillX"
+                            )
+                            val pillAlpha = animateFloatAsState(
+                                targetValue = if (selectedPill >= 0) 1f else 0f,
+                                animationSpec = tween(170),
+                                label = "headerPillAlpha"
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.CenterStart)
+                                    .padding(start = 3.dp)
+                                    .offset { androidx.compose.ui.unit.IntOffset((pillX.value * 36.dp.roundToPx()).toInt(), 0) }
+                                    .size(36.dp)
+                                    .graphicsLayer { alpha = pillAlpha.value }
+                                    .background(colors.primaryAccent.copy(alpha = .20f), CircleShape)
+                            )
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -297,24 +318,20 @@ fun XvoxShellTopHeader(
                                     val isCurrentLibrary = libraryMode == action.mode
                                     // Active pill: slight zoom + accent tint (no vertical slide).
                                     val iconZoom by animateFloatAsState(
-                                        targetValue = if (isCurrentLibrary) 1.16f else 1f,
-                                        animationSpec = tween(190),
+                                        targetValue = if (isCurrentLibrary) 1.2f else 1f,
+                                        animationSpec = androidx.compose.animation.core.spring(dampingRatio = .5f, stiffness = 520f),
                                         label = "headerLibraryZoom_${action.mode}"
                                     )
                                     val iconTint by animateColorAsState(
                                         targetValue = if (isCurrentLibrary) colors.primaryAccent else colors.primaryText.copy(alpha = .70f),
-                                        animationSpec = tween(190),
+                                        animationSpec = tween(240),
                                         label = "headerLibraryTint_${action.mode}"
                                     )
                                     Box(
                                         modifier = Modifier
                                             .size(36.dp)
                                             .clip(CircleShape)
-                                            .clickable(
-                                                interactionSource = remember(action.mode) { MutableInteractionSource() },
-                                                indication = null,
-                                                onClick = action.onClick
-                                            ),
+                                            .xvoxPressScale(pressedScale = .84f, onClick = action.onClick),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Icon(

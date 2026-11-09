@@ -1,3 +1,4 @@
+// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/features/home/HomeMultiSelectBar.kt
 package com.xvox.music.features.home
 
 import android.content.Context
@@ -27,6 +28,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.layout.Row
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -35,6 +38,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import com.xvox.music.core.ui.blur.xvoxLiveBlur
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
@@ -111,14 +115,14 @@ fun HomeMultiSelectBar(
                 initialOffsetX = { fullWidth ->
                     if (railSide == XvoxSelectionRailSide.RIGHT) fullWidth else -fullWidth
                 },
-                animationSpec = tween(190)
-            ) + fadeIn(tween(120)),
+                animationSpec = tween(360, easing = androidx.compose.animation.core.CubicBezierEasing(.22f, 1f, .36f, 1f))
+            ) + fadeIn(tween(160)),
             exit = slideOutHorizontally(
                 targetOffsetX = { fullWidth ->
                     if (railSide == XvoxSelectionRailSide.RIGHT) fullWidth else -fullWidth
                 },
-                animationSpec = tween(150)
-            ) + fadeOut(tween(100))
+                animationSpec = tween(240, easing = androidx.compose.animation.core.CubicBezierEasing(.4f, 0f, .9f, .6f))
+            ) + fadeOut(tween(140))
         ) {
             AnimatedContent(
                 targetState = railSide,
@@ -129,12 +133,12 @@ fun HomeMultiSelectBar(
                     // right-out → left-in and left-out → right-in instead of overlapping rails.
                     (slideInHorizontally(
                         initialOffsetX = { fullWidth -> fullWidth * enterDirection },
-                        animationSpec = tween(190, delayMillis = 150)
-                    ) + fadeIn(tween(110, delayMillis = 150))).togetherWith(
+                        animationSpec = tween(340, delayMillis = 170, easing = androidx.compose.animation.core.CubicBezierEasing(.22f, 1f, .36f, 1f))
+                    ) + fadeIn(tween(150, delayMillis = 170))).togetherWith(
                         slideOutHorizontally(
                             targetOffsetX = { fullWidth -> fullWidth * exitDirection },
-                            animationSpec = tween(150)
-                        ) + fadeOut(tween(100))
+                            animationSpec = tween(230, easing = androidx.compose.animation.core.CubicBezierEasing(.4f, 0f, .9f, .6f))
+                        ) + fadeOut(tween(130))
                     )
                 },
                 modifier = Modifier.fillMaxSize(),
@@ -151,10 +155,15 @@ fun HomeMultiSelectBar(
                     Column(
                         modifier = modifier
                             .width(70.dp)
-                            .clip(railShape)
-                            .background(railSurface)
-                            .border(.8.dp, colors.cardBorder, railShape)
-                            .padding(start = 3.dp, top = 7.dp, end = 3.dp, bottom = 7.dp),
+                            .xvoxLiveBlur(
+                                shape = railShape,
+                                level = com.xvox.music.core.ui.blur.XvoxBlurLevel.Chrome,
+                                baseColor = railSurface,
+                                // Sits inside the page it floats over, so no live sample (that would
+                                // recurse); a frosted glass tint + the shared rim keeps it glassy.
+                                sky = null,
+                                glassEdge = true
+                            )                            .padding(start = 3.dp, top = 7.dp, end = 3.dp, bottom = 7.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(railSpacing)
                     ) {
@@ -228,18 +237,17 @@ fun HomeMultiSelectBar(
                         } else if (onDeleteSelected != null) {
                             MultiActionItem(actionHeight, R.drawable.ic_xvox_delete, "Delete selected songs", onDeleteSelected)
                         }
-                        MultiActionItem(actionHeight, R.drawable.ic_xvox_close, "Clear selection", onClearSelection)
-                        MultiActionItem(
-                            actionHeight,
-                            R.drawable.ic_xvox_arrow_left,
-                            if (side == XvoxSelectionRailSide.RIGHT) {
-                                "Move selection rail to left"
-                            } else {
-                                "Move selection rail to right"
-                            },
-                            onClick = { railOnLeft = side == XvoxSelectionRailSide.RIGHT },
-                            mirrorIcon = side == XvoxSelectionRailSide.LEFT
-                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.fillMaxWidth()) {
+                            MultiActionItem(actionHeight, R.drawable.ic_xvox_close, "Clear selection", onClearSelection, modifier = Modifier.weight(1f))
+                            MultiActionItem(
+                                actionHeight,
+                                R.drawable.ic_xvox_arrow_left,
+                                if (side == XvoxSelectionRailSide.RIGHT) "Move selection rail to left" else "Move selection rail to right",
+                                onClick = { railOnLeft = side == XvoxSelectionRailSide.RIGHT },
+                                mirrorIcon = side == XvoxSelectionRailSide.LEFT,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
                     }
                 }
             }
@@ -279,21 +287,31 @@ private fun MultiActionItem(
     iconRes: Int,
     label: String,
     onClick: () -> Unit,
-    mirrorIcon: Boolean = false
+    mirrorIcon: Boolean = false,
+    modifier: Modifier = Modifier.fillMaxWidth()
 ) {
     val colors = XvoxTheme.colors
     val overlays = LocalXvoxOverlayController.current
     val actionShape = RoundedCornerShape(10.dp)
+    val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val pressScale by androidx.compose.animation.core.animateFloatAsState(
+        if (pressed) .88f else 1f,
+        androidx.compose.animation.core.spring(dampingRatio = .55f, stiffness = 700f),
+        label = "railPress"
+    )
     val destructive = label.startsWith("Delete") || label.startsWith("Remove from recently")
     val actionTint = if (destructive) androidx.compose.ui.graphics.Color(0xFFE85B5B) else colors.primaryAccent
     Box(
-        modifier = Modifier
-            .fillMaxWidth()
+        modifier = modifier
+            .graphicsLayer { scaleX = pressScale; scaleY = pressScale }
             .height(height)
             .clip(actionShape)
             .background(if (destructive) actionTint.copy(alpha = .10f) else colors.background.copy(alpha = .72f))
             .border(.8.dp, if (destructive) actionTint.copy(alpha = .48f) else colors.cardBorder.copy(alpha = .88f), actionShape)
             .combinedClickable(
+                interactionSource = interaction,
+                indication = null,
                 onClick = onClick,
                 onLongClick = { overlays.showP(label) }
             ),

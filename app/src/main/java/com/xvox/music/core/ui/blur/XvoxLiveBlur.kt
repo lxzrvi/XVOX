@@ -211,8 +211,12 @@ fun Modifier.xvoxLiveBlur(
 
     val inNowPlaying = sky != null && (sky === npSky || sky === npBottomSky)
     // Now Playing glass: HEAVY blur (x1.7), still capped by the device tier.
-    val blurDp = remember(level, tier, inNowPlaying) {
-        (level.radius.value * BlurPerRadius * (if (level == XvoxBlurLevel.Card || level == XvoxBlurLevel.Selection) .95f else .7f) * (if (inNowPlaying) 1.15f else 1f)).coerceIn(1f, tier.maxBlurDp)
+    val densityValue = androidx.compose.ui.platform.LocalDensity.current.density
+    val blurDp = remember(level, tier, inNowPlaying, densityValue) {
+        xvoxBandSafeDp(
+            (level.radius.value * BlurPerRadius * (if (level == XvoxBlurLevel.Card || level == XvoxBlurLevel.Selection) .95f else .7f) * (if (inNowPlaying) 1.15f else 1f)).coerceIn(1f, tier.maxBlurDp),
+            densityValue
+        )
     }
     val tint = remember(baseColor, level) {
         baseColor.copy(alpha = (baseColor.alpha * level.tintAlpha).coerceIn(0f, 1f))
@@ -231,6 +235,10 @@ fun Modifier.xvoxLiveBlur(
     val photoWallpaper = LocalXvoxPhotoWallpaper.current
     val flatStatic = blurMode && !photoWallpaper && surfaceSky != null && sky === surfaceSky &&
         (level == XvoxBlurLevel.Card || level == XvoxBlurLevel.Selection || level == XvoxBlurLevel.Chrome)
+    val wallpaperGlass = LocalXvoxWallpaperGlass.current
+    // Photo wallpaper: each surface paints its window of ONE pre-blurred copy (no per-card GPU pass).
+    val useWallpaperGlass = blurMode && photoWallpaper && wallpaperGlass != null &&
+        surfaceSky != null && sky === surfaceSky && level != XvoxBlurLevel.Bar
     val flatNowPlaying = blurMode && inNowPlaying && level != XvoxBlurLevel.Bar
     val flatTint = remember(baseColor, level) {
         val a = when (level) {
@@ -249,9 +257,10 @@ fun Modifier.xvoxLiveBlur(
     val surface = when {
         !blurMode -> clipped.background(plainColor)
         flatStatic || flatNowPlaying -> clipped.background(flatTint)
+        useWallpaperGlass -> clipped.xvoxWallpaperGlass(wallpaperGlass!!, tint)
         !canBlur || (!tier.liveCards && (level == XvoxBlurLevel.Card || level == XvoxBlurLevel.Selection)) ->
             clipped.background(fallback)
-        else -> clipped.textureBlur(backdrop = sky!!.backdrop, shape = shape, blurRadius = blurDp, colors = colors)
+        else -> clipped.textureBlur(backdrop = sky!!.backdrop, shape = shape, blurRadius = blurDp, noiseCoefficient = 0f, colors = colors)
     }
     // Now Playing glass is ALWAYS borderless.
     if (inNowPlaying) return surface
@@ -346,6 +355,25 @@ fun Modifier.xvoxGreyEdge(shape: Shape): Modifier {
         drawContent()
         drawPath(outlinePath(shape.createOutline(size, layoutDirection, this)), grey, style = Stroke(width = .5.dp.toPx() * 2f))
     }
+}
+
+/**
+ * The blur engine renders TWO full blur passes and cross-fades them when the radius sits within
+ * +-12% of a downscale boundary (sigma 3.5 / 9.5 / 20 / 44). Nudging the radius just outside that
+ * band (<=12%, visually identical) halves the cost of that surface.
+ */
+fun xvoxBandSafeDp(dp: Float, density: Float): Float {
+    if (dp <= 0f || density <= 0f) return dp
+    val sigma = dp * density * 0.45f
+    for (b in floatArrayOf(3.5496478f, 9.5f, 20f, 44.10215f)) {
+        val lo = b * .88f
+        val hi = b * 1.12f
+        if (sigma > lo && sigma < hi) {
+            val target = if (sigma < b) lo * .99f else hi * 1.01f
+            return target / .45f / density
+        }
+    }
+    return dp
 }
 
 /** Hairline used by every normal blurred element in blur mode: 0.5dp, light, never grey. */

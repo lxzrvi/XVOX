@@ -815,7 +815,7 @@ fun XvoxMainShell(
             if (settledHeaderRoute == null) {
                 sharedHeaderTranslation.snapTo(targetHeaderTranslationY)
             } else {
-                sharedHeaderTranslation.animateTo(targetHeaderTranslationY, tween(300))
+                sharedHeaderTranslation.animateTo(targetHeaderTranslationY, tween(340, easing = CubicBezierEasing(0.22f, 1f, 0.36f, 1f)))
             }
             settledHeaderRoute = destination
         }
@@ -888,7 +888,7 @@ fun XvoxMainShell(
                     val dir = if (forward) 1 else -1
                     // Both pages travel one full width on the same spec, so they push together
                     // without exposing a gap between the opaque tab surfaces.
-                    val spec = tween<IntOffset>(300, easing = CubicBezierEasing(0.25f, 0.1f, 0.25f, 1f))
+                    val spec = tween<IntOffset>(340, easing = CubicBezierEasing(0.22f, 1f, 0.36f, 1f))
                     (slideInHorizontally(spec) { fullWidth -> fullWidth * dir } togetherWith
                         slideOutHorizontally(spec) { fullWidth -> -fullWidth * dir })
                         .using(null)

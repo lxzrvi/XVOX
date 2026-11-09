@@ -272,7 +272,7 @@ fun XvoxBottomBar(
         !com.xvox.music.core.ui.blur.XvoxGpuGuard.safeMode &&
         contentSky != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
     // Real frost: 8dp (light) .. 26dp (max) controlled by the global blur intensity.
-    val blurDp = 8f + 10f * intensity
+    val blurDp = com.xvox.music.core.ui.blur.xvoxBandSafeDp(8f + 10f * intensity, LocalDensity.current.density)
     // With blur on, the material is a light tint so the blurred page shows THROUGH the glass.
     val containerColor = colors.background.copy(
         alpha = if (blurOn) navSurfaceAlpha * .5f else navSurfaceAlpha
@@ -421,7 +421,7 @@ private fun LiquidBar(
                         onTickUpdated()
                     }
                     updateValue(next)
-                    animationScope.launch {
+                    animationScope.launch(start = kotlinx.coroutines.CoroutineStart.UNDISPATCHED) {
                         offsetAnimation.snapTo(offsetAnimation.value + dragAmount.x)
                     }
                 }
