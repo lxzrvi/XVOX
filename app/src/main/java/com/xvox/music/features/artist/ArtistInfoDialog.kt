@@ -167,40 +167,51 @@ fun ArtistInfoBox(
 
             // Group 1: quick actions in a 2 x 2 grid.
             ArtistGroupLabel("Actions")
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                ArtistActionTile(
-                    iconRes = R.drawable.ic_xvox_play,
-                    title = "Play next",
-                    subtitle = "${artist.songs.size} songs",
-                    onClick = { haptics.tap(); onPlayNext(); onDismiss() },
-                    modifier = Modifier.weight(1f)
-                )
-                ArtistActionTile(
-                    iconRes = R.drawable.ic_xvox_queue,
-                    title = "Add to queue",
-                    subtitle = "Append all",
-                    onClick = { haptics.tap(); onDismiss(); onAddToQueue() },
-                    modifier = Modifier.weight(1f)
-                )
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                if (onSelectArtist != null) {
+            // One grouped card holds every quick action; tiles sit flat on it.
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(colors.card)
+                    .padding(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                     ArtistActionTile(
-                        iconRes = R.drawable.ic_xvox_check,
-                        title = "Select",
-                        subtitle = "Batch actions",
-                        onClick = { haptics.tap(); onDismiss(); onSelectArtist() },
+                        iconRes = R.drawable.ic_xvox_play,
+                        title = "Play next",
+                        subtitle = "${artist.songs.size} songs",
+                        onClick = { haptics.tap(); onPlayNext(); onDismiss() },
+                        modifier = Modifier.weight(1f)
+                    )
+                    ArtistActionTile(
+                        iconRes = R.drawable.ic_xvox_queue,
+                        title = "Add to queue",
+                        subtitle = "Append all",
+                        onClick = { haptics.tap(); onDismiss(); onAddToQueue() },
                         modifier = Modifier.weight(1f)
                     )
                 }
-                ArtistActionTile(
-                    iconRes = null,
-                    title = if (liked) "Unlike" else "Like artist",
-                    subtitle = if (liked) "Pinned on top" else "Pin on top",
-                    onClick = { haptics.tap(); onToggleLiked() },
-                    modifier = Modifier.weight(1f),
-                    leading = { XvoxLikedHeartBadge(badgeSize = 22.dp) }
-                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    if (onSelectArtist != null) {
+                        ArtistActionTile(
+                            iconRes = R.drawable.ic_xvox_check,
+                            title = "Select",
+                            subtitle = "Batch actions",
+                            onClick = { haptics.tap(); onDismiss(); onSelectArtist() },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    ArtistActionTile(
+                        iconRes = null,
+                        title = if (liked) "Unlike" else "Like artist",
+                        subtitle = if (liked) "Pinned on top" else "Pin on top",
+                        onClick = { haptics.tap(); onToggleLiked() },
+                        modifier = Modifier.weight(1f),
+                        leading = { XvoxLikedHeartBadge(badgeSize = 22.dp) }
+                    )
+                }
+
             }
 
             // Group 2: grid layout. Column boxes share the full width equally.
@@ -318,8 +329,8 @@ private fun ArtistActionTile(
     val colors = XvoxTheme.colors
     Column(
         modifier = modifier
-            .clip(RoundedCornerShape(14.dp))
-            .background(colors.card)
+            .clip(RoundedCornerShape(12.dp))
+            .background(colors.cardElevated.copy(alpha = .72f))
             .xvoxPressScale(onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp)

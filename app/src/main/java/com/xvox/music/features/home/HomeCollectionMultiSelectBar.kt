@@ -76,7 +76,7 @@ fun HomeCollectionMultiSelectBar(
     var railOnLeft by rememberSaveable { mutableStateOf(false) }
     val railSide = if (railOnLeft) XvoxSelectionRailSide.LEFT else XvoxSelectionRailSide.RIGHT
     // Match the counter and action-box radius; the rail is no longer a separate large edge arc.
-    val railShape = RoundedCornerShape(10.dp)
+    val railShape = RoundedCornerShape(24.dp)
     val screenHeightDp = LocalConfiguration.current.screenHeightDp
     val actionCount = actions.size + 3 // select/unselect all + clear + side switch
     val railSpacing = if (screenHeightDp < 560) 3.dp else 6.dp
@@ -127,7 +127,7 @@ fun HomeCollectionMultiSelectBar(
                 label = "collectionSelectionRailSide"
             ) { side ->
                 Box(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 6.dp),
                     contentAlignment = if (side == XvoxSelectionRailSide.LEFT) {
                         Alignment.CenterStart
                     } else {
@@ -145,7 +145,15 @@ fun HomeCollectionMultiSelectBar(
                                 // recurse); a frosted glass tint + the shared rim keeps it glassy.
                                 sky = null,
                                 glassEdge = true
-                            )                            .padding(start = 3.dp, top = 7.dp, end = 3.dp, bottom = 7.dp),
+                            )
+                            .clip(railShape)
+                            .background(
+                                androidx.compose.ui.graphics.Brush.verticalGradient(
+                                    listOf(androidx.compose.ui.graphics.Color.White.copy(alpha = .09f), androidx.compose.ui.graphics.Color.Transparent)
+                                ),
+                                railShape
+                            )
+                            .padding(start = 3.dp, top = 13.dp, end = 3.dp, bottom = 13.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(railSpacing)
                     ) {

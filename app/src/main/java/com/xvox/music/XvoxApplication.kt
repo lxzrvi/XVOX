@@ -1,3 +1,4 @@
+// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/XvoxApplication.kt
 package com.xvox.music
 
 import android.app.Application
@@ -56,7 +57,7 @@ class XvoxApplication : Application() {
                     MemoryCache.Builder()
                         .maxSizePercent(
                             context,
-                            0.25
+                            0.32
                         )
                         .build()
                 }

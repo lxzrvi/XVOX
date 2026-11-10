@@ -655,22 +655,20 @@ fun HomeScreen(
             onCreate = { showCreatePlaylistOverlay(overlays, viewModel, state.songs) },
             onOpen = { setSelectedPlaylistId(it.id) },
             onOptions = { playlist ->
-                showPlaylistActions(
-                    overlays = overlays,
-                    viewModel = viewModel,
-                    playlist = playlist,
-                    onSelect = {
-                        selectedSongIds = emptySet()
-                        selectedArtistNames = emptySet()
-                        selectedPlaylistIds = setOf(playlist.id)
-                        selectionCategoryName = "Playlists"
-                        selectionLibraryMode = XvoxHomeLibraryMode.PLAYLISTS
-                    },
-                    onDeleted = {
-                        if (effectiveSelectedPlaylistId == playlist.id) setSelectedPlaylistId(null)
-                    },
-                    selectTitle = "Select playlist"
-                )
+                // Long press selects straight away (like songs); the rail's info action opens options.
+                selectedSongIds = emptySet()
+                selectedArtistNames = emptySet()
+                selectedPlaylistIds = if (playlist.id in selectedPlaylistIds) {
+                    selectedPlaylistIds - playlist.id
+                } else {
+                    selectedPlaylistIds + playlist.id
+                }
+                if (selectedPlaylistIds.isEmpty()) {
+                    selectionCategoryName = null
+                } else {
+                    selectionCategoryName = "Playlists"
+                    selectionLibraryMode = XvoxHomeLibraryMode.PLAYLISTS
+                }
             }
         )
     }
@@ -956,7 +954,7 @@ fun HomeScreen(
                                         overlays = overlays,
                                         viewModel = viewModel,
                                         playlist = playlist,
-                                        onSelect = { },
+                                        onSelect = null,
                                         onDeleted = {
                                             selectedPlaylistIds = selectedPlaylistIds - playlist.id
                                             if (selectedPlaylistIds.isEmpty()) selectionCategoryName = null

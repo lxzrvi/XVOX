@@ -332,6 +332,7 @@ fun XvoxNowPlayingArtworkPager(
                 artworkHorizontalInset = artworkHorizontalInset,
                 artworkCornerRadius = artworkCornerRadius,
                 applyDepth = applyDepth,
+                verticalPaging = verticalPaging,
                 onArtworkTap = { if (!pager.isScrollInProgress) tap() }
             )
         }
@@ -354,6 +355,7 @@ fun XvoxNowPlayingArtworkPager(
                 artworkHorizontalInset = artworkHorizontalInset,
                 artworkCornerRadius = artworkCornerRadius,
                 applyDepth = applyDepth,
+                verticalPaging = verticalPaging,
                 onArtworkTap = { if (!pager.isScrollInProgress) tap() }
             )
         }
@@ -371,6 +373,7 @@ private fun XvoxNowPlayingArtworkPage(
     artworkHorizontalInset: Dp,
     artworkCornerRadius: Dp,
     applyDepth: Boolean,
+    verticalPaging: Boolean,
     onArtworkTap: () -> Unit
 ) {
     val song = queue.getOrNull(songIndex) ?: return
@@ -388,13 +391,19 @@ private fun XvoxNowPlayingArtworkPage(
                     .coerceIn(-1f, 1f)
                 val a = abs(offset)
                 var scale = if (applyDepth) 1f - .08f * a else 1f
-                val w = size.width
-                // offset > 0: page is leaving to the left; offset < 0: page is arriving from the right.
+                val w = if (verticalPaging) size.height else size.width
+                // offset > 0: page sits before centre; offset < 0: page sits after centre.
+                // The pager already slides pages by -offset*extent; `cancel(f)` removes that
+                // fraction of the slide (f = 1 pins the page in place).
+                fun cancel(f: Float) {
+                    if (verticalPaging) translationY = offset * w * f else translationX = offset * w * f
+                }
                 when (transition) {
                     "crossfade" -> {
-                        translationX = offset * w          // cancel the pager slide: pages stay put
+                        cancel(1f)
                         alpha = 1f - a
                         scale = 1f - .04f * a
+                        zIndex = if (offset < 0f) 1f else 0f
                     }
                     "tumble" -> {
                         transformOrigin = androidx.compose.ui.graphics.TransformOrigin(.5f, 1f)
@@ -403,35 +412,44 @@ private fun XvoxNowPlayingArtworkPage(
                         scale = 1f - .12f * a
                     }
                     "page" -> {
-                        // Like turning a page: the leaving page folds about its left edge.
                         cameraDistance = 14f * density
                         if (offset > 0f) {
-                            transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0f, .5f)
-                            rotationY = -offset * 78f
-                            translationX = offset * w * .55f
+                            // Leaving page folds about its trailing edge, above the static one.
+                            transformOrigin = if (verticalPaging)
+                                androidx.compose.ui.graphics.TransformOrigin(.5f, 0f)
+                            else androidx.compose.ui.graphics.TransformOrigin(0f, .5f)
+                            if (verticalPaging) rotationX = offset * 78f else rotationY = -offset * 78f
+                            cancel(-.45f)
                             alpha = 1f - .35f * a
+                            zIndex = 2f
                         } else {
-                            translationX = offset * w * -.0f
+                            cancel(1f)
+                            scale = 1f - .06f * (1f - a)
+                            zIndex = 0f
                         }
                     }
                     "cascade" -> {
-                        // The leaving page sinks back under the arriving one.
                         if (offset > 0f) {
-                            translationX = offset * w * .72f
+                            cancel(.28f)
                             scale = 1f - .14f * a
                             alpha = 1f - .5f * a
+                            zIndex = 0f
+                        } else {
+                            zIndex = 1f
                         }
                     }
                     "rotate" -> {
-                        translationX = offset * w
+                        cancel(1f)
                         rotationZ = -offset * 90f
                         alpha = 1f - .85f * a
                         scale = 1f - .25f * a
                     }
                     "cube" -> {
                         cameraDistance = 16f * density
-                        transformOrigin = androidx.compose.ui.graphics.TransformOrigin(if (offset > 0f) 1f else 0f, .5f)
-                        rotationY = -offset * 88f
+                        transformOrigin = if (verticalPaging)
+                            androidx.compose.ui.graphics.TransformOrigin(.5f, if (offset > 0f) 1f else 0f)
+                        else androidx.compose.ui.graphics.TransformOrigin(if (offset > 0f) 1f else 0f, .5f)
+                        if (verticalPaging) rotationX = offset * 88f else rotationY = -offset * 88f
                         alpha = 1f - .25f * a
                     }
                 }
