@@ -33,6 +33,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -1682,7 +1683,7 @@ private fun Modifier.xvoxSwipeDownToClose(
     onCancel: () -> Unit
 ): Modifier = pointerInput(enabled) {
     if (!enabled) return@pointerInput
-    androidx.compose.foundation.gestures.awaitEachGesture {
+    awaitEachGesture {
         val down = awaitFirstDown(requireUnconsumed = false, pass = androidx.compose.ui.input.pointer.PointerEventPass.Final)
         val slop = viewConfiguration.touchSlop
         var dragging = false

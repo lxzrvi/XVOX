@@ -30,6 +30,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
@@ -383,8 +384,17 @@ private fun XvoxNowPlayingArtworkPage(
         com.xvox.music.data.preferences.UserPreferencesRepository(context.applicationContext).coverTransition
     }
     val transition by transitionFlow.collectAsState(initial = "slide")
+    val pageOffset = ((pager.currentPage - page) + pager.currentPageOffsetFraction).coerceIn(-1f, 1f)
+    val pageZIndex = when (transition) {
+        "crossfade" -> if (pageOffset < 0f) 1f else 0f
+        "page" -> if (pageOffset > 0f) 2f else 0f
+        "cascade" -> if (pageOffset > 0f) 0f else 1f
+        "zoom" -> if (pageOffset > 0f) 1f else 0f
+        else -> 0f
+    }
     Box(
         Modifier
+            .zIndex(pageZIndex)
             .fillMaxSize()
             .graphicsLayer {
                 val offset = ((pager.currentPage - page) + pager.currentPageOffsetFraction)
@@ -405,7 +415,6 @@ private fun XvoxNowPlayingArtworkPage(
                         cancel(1f)
                         alpha = 1f - a
                         scale = 1f - .04f * a
-                        zIndex = if (offset < 0f) 1f else 0f
                     }
                     "tumble" -> {
                         transformOrigin = androidx.compose.ui.graphics.TransformOrigin(.5f, 1f)
@@ -423,11 +432,9 @@ private fun XvoxNowPlayingArtworkPage(
                             if (verticalPaging) rotationX = offset * 78f else rotationY = -offset * 78f
                             cancel(-.45f)
                             alpha = 1f - .35f * a
-                            zIndex = 2f
                         } else {
                             cancel(1f)
                             scale = 1f - .06f * (1f - a)
-                            zIndex = 0f
                         }
                     }
                     "cascade" -> {
@@ -435,9 +442,6 @@ private fun XvoxNowPlayingArtworkPage(
                             cancel(.28f)
                             scale = 1f - .14f * a
                             alpha = 1f - .5f * a
-                            zIndex = 0f
-                        } else {
-                            zIndex = 1f
                         }
                     }
                     "rotate" -> {
@@ -458,7 +462,6 @@ private fun XvoxNowPlayingArtworkPage(
                         cancel(1f)
                         scale = if (offset > 0f) 1f + .35f * a else .55f + .45f * (1f - a)
                         alpha = 1f - a
-                        zIndex = if (offset > 0f) 1f else 0f
                     }
                     "flip" -> {
                         cameraDistance = 18f * density
