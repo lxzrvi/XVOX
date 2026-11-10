@@ -1,3 +1,4 @@
+// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/artwork/XvoxArtworkPreloader.kt
 package com.xvox.music.artwork
 
 import android.content.Context
@@ -66,6 +67,7 @@ class XvoxArtworkPreloader(context: Context) {
                 val result = loader.execute(builder.build())
                 (result.image as? BitmapImage)?.bitmap?.let { bitmap ->
                     XvoxArtworkCache.markSuccessful(uri)
+                    bitmap.prepareToDraw()
                     XvoxArtworkCache.put(key, bitmap)
                 } ?: XvoxArtworkCache.markFailed(uri)
             } catch (cancelled: CancellationException) {

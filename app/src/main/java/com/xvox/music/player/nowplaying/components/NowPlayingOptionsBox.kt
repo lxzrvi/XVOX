@@ -1,11 +1,11 @@
 @file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 // EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/player/nowplaying/components/NowPlayingOptionsBox.kt
-// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/player/nowplaying/components/NowPlayingOptionsBox.kt
 package com.xvox.music.player.nowplaying.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -82,7 +82,8 @@ fun NowPlayingOptionsBox(
                 onOkay = {
                     onApplyBackground(draftBackgroundStyle, draftCoverBlur)
                     if (draftTransition != savedTransition) {
-                        saveScope.launch { prefs.setCoverTransition(draftTransition) }
+                        @OptIn(kotlinx.coroutines.DelicateCoroutinesApi::class)
+                        kotlinx.coroutines.GlobalScope.launch { prefs.setCoverTransition(draftTransition) }
                     }
                     onDismiss()
                 }
@@ -174,12 +175,14 @@ fun NowPlayingOptionsBox(
             )
             val options = listOf(
                 "slide" to "Slide", "crossfade" to "Crossfade", "tumble" to "Tumble",
-                "page" to "Page", "cascade" to "Cascade", "rotate" to "Rotate", "cube" to "Cube"
+                "page" to "Page", "cascade" to "Cascade", "rotate" to "Rotate", "cube" to "Cube",
+                "zoom" to "Zoom", "flip" to "Flip", "fan" to "Fan", "accordion" to "Accordion", "drift" to "Drift"
             )
-            androidx.compose.foundation.layout.FlowRow(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(androidx.compose.foundation.rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 options.forEach { (key, label) ->
                     val active = draftTransition == key
@@ -193,7 +196,12 @@ fun NowPlayingOptionsBox(
                                 if (active) colors.primaryAccent else colors.cardBorder.copy(alpha = .84f),
                                 RoundedCornerShape(50)
                             )
-                            .xvoxPressScale(onClick = { draftTransition = key })
+                            .xvoxPressScale(onClick = {
+                                draftTransition = key
+                                // Saved at once (and visible on the next swipe); an Okay-time write was
+                                // cancelled when this sheet left composition.
+                                saveScope.launch { prefs.setCoverTransition(key) }
+                            })
                             .padding(horizontal = 14.dp),
                         contentAlignment = Alignment.Center
                     ) {

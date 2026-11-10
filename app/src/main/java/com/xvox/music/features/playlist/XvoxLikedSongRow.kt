@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -26,7 +27,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import com.xvox.music.core.ui.icons.painterResource
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -35,6 +36,7 @@ import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
 import com.xvox.music.core.ui.blur.LocalXvoxSurfaceSky
+import com.xvox.music.core.ui.components.XvoxSelectionTick
 import com.xvox.music.core.ui.blur.XvoxBlurLevel
 import com.xvox.music.core.ui.blur.xvoxLiveBlur
 import com.xvox.music.features.home.XvoxSongArtwork
@@ -75,14 +77,15 @@ fun XvoxLikedSongRow(
         // The 64dp card has a 3dp frame on every side. Fill its remaining 58dp exactly so
         // Liked, playlist-detail, and artist song rows have the same thin top/bottom inset as
         // their left/right artwork edge.
-        XvoxSongArtwork(
-            artwork = song.artworkUri,
-            fallbackSeed = song.id.hashCode(),
-            requestSize = 128,
-            modifier = Modifier
-                .size(58.dp)
-                .clip(artworkShape)
-        )
+        Box(Modifier.size(58.dp).clip(artworkShape)) {
+            XvoxSongArtwork(
+                artwork = song.artworkUri,
+                fallbackSeed = song.id.hashCode(),
+                requestSize = 128,
+                modifier = Modifier.fillMaxSize()
+            )
+            XvoxSelectionTick(selected, artworkShape)
+        }
 
         Spacer(Modifier.size(10.dp))
 

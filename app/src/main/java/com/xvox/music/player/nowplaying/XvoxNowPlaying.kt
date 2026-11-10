@@ -33,6 +33,8 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -717,6 +719,14 @@ fun XvoxNowPlaying(
     Box(
         modifier = modifier
             .fillMaxSize()
+            // Swipe down ANYWHERE closes the player and follows the finger 1:1. It sits OUTSIDE the
+            // graphicsLayer below, so the pointer's coordinate space does not move with the sheet.
+            .xvoxSwipeDownToClose(
+                enabled = !isCustomizing && activeSettingsBox == null && !dismissing,
+                onDrag = { dy -> screenY = (screenY + dy).coerceAtLeast(0f) },
+                onEnd = { finishDragDismissal() },
+                onCancel = { returnToRest() }
+            )
             .graphicsLayer {
                 translationY = screenY
                 // Bottom anchoring makes the Scale close read as a true contraction into the
@@ -938,17 +948,7 @@ fun XvoxNowPlaying(
                                 activeSettingsBox = null
                                 overlays.showP("Layout & cover size applied")
                             },
-                            modifier = if (!isCustomizing) Modifier.pointerInput(Unit) {
-                                detectVerticalDragGestures(
-                                    onVerticalDrag = { _, dragAmount ->
-                                        screenY = (screenY + dragAmount).coerceAtLeast(0f)
-                                    },
-                                    onDragEnd = {
-                                        finishDragDismissal()
-                                    },
-                                    onDragCancel = { returnToRest() }
-                                )
-                            } else Modifier
+                            modifier = Modifier
                         )
 
                         Spacer(Modifier.height(2.dp))
@@ -1230,17 +1230,7 @@ fun XvoxNowPlaying(
                         activeSettingsBox = null
                         overlays.showP("Layout & cover size applied")
                     },
-                    modifier = if (!isCustomizing) Modifier.pointerInput(Unit) {
-                        detectVerticalDragGestures(
-                            onVerticalDrag = { _, dragAmount ->
-                                screenY = (screenY + dragAmount).coerceAtLeast(0f)
-                            },
-                            onDragEnd = {
-                                finishDragDismissal()
-                            },
-                            onDragCancel = { returnToRest() }
-                        )
-                    } else Modifier
+                    modifier = Modifier
                 )
             }
 
@@ -1676,6 +1666,51 @@ fun XvoxNowPlaying(
                 }
             }
           
+        }
+    }
+}
+
+
+/**
+ * Whole-surface swipe-down: starts only when nobody else consumed the gesture (sliders, lists,
+ * the horizontal cover pager keep priority) and the motion is clearly downward.
+ */
+private fun Modifier.xvoxSwipeDownToClose(
+    enabled: Boolean,
+    onDrag: (Float) -> Unit,
+    onEnd: () -> Unit,
+    onCancel: () -> Unit
+): Modifier = pointerInput(enabled) {
+    if (!enabled) return@pointerInput
+    androidx.compose.foundation.gestures.awaitEachGesture {
+        val down = awaitFirstDown(requireUnconsumed = false, pass = androidx.compose.ui.input.pointer.PointerEventPass.Final)
+        val slop = viewConfiguration.touchSlop
+        var dragging = false
+        var tx = 0f
+        var ty = 0f
+        while (true) {
+            val event = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Final)
+            val change = event.changes.firstOrNull { it.id == down.id } ?: break
+            if (!change.pressed) {
+                if (dragging) onEnd()
+                break
+            }
+            val d = change.positionChange()
+            if (!dragging) {
+                if (change.isConsumed) break
+                tx += d.x
+                ty += d.y
+                if (kotlin.math.abs(tx) > slop || kotlin.math.abs(ty) > slop) {
+                    if (ty > slop && ty > kotlin.math.abs(tx) * 1.4f) {
+                        dragging = true
+                        onDrag(ty)
+                        change.consume()
+                    } else break
+                }
+            } else {
+                onDrag(d.y)
+                change.consume()
+            }
         }
     }
 }

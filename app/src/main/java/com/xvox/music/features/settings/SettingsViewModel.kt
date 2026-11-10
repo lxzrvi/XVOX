@@ -82,8 +82,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             launch { prefs.fontSizeScale.collect { v -> _state.update { it.copy(fontSizeScale = v) } } }
             launch { prefs.fontFamily.collect { v -> _state.update { it.copy(fontFamily = v) } } }
             launch { prefs.displaySize.collect { v -> _state.update { it.copy(displaySize = v) } } }
-            launch { prefs.iconPack.collect { v -> com.xvox.music.core.ui.icons.XvoxIconPrefs.pack = v } }
-            launch { prefs.iconStyle.collect { v -> com.xvox.music.core.ui.icons.XvoxIconPrefs.style = v } }
             launch { prefs.appOrientation.collect { v -> _state.update { it.copy(appOrientation = v) } } }
             launch { prefs.fourRowsGrid.collect { v -> _state.update { it.copy(fourRowsGrid = v) } } }
 
@@ -271,14 +269,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setFontSizeScale(scale: Float) = viewModelScope.launch { prefs.setFontSizeScale(scale) }
     fun setFontFamily(key: String) = viewModelScope.launch { prefs.setFontFamily(key) }
     fun setDisplaySize(value: String) = viewModelScope.launch { prefs.setDisplaySize(value) }
-    fun setIconPack(v: String) {
-        com.xvox.music.core.ui.icons.XvoxIconPrefs.pack = v
-        viewModelScope.launch { prefs.setIconPack(v) }
-    }
-    fun setIconStyle(v: String) {
-        com.xvox.music.core.ui.icons.XvoxIconPrefs.style = v
-        viewModelScope.launch { prefs.setIconStyle(v) }
-    }
     fun setAppOrientation(value: String) = viewModelScope.launch { prefs.setAppOrientation(value) }
     fun setFourRowsGrid(enabled: Boolean) = viewModelScope.launch { prefs.setFourRowsGrid(enabled) }
 

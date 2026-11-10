@@ -1,3 +1,4 @@
+// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/features/settings/sections/AboutSettingsSection.kt
 package com.xvox.music.features.settings.sections
 
 import android.content.Context

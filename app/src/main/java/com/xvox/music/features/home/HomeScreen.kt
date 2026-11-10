@@ -869,7 +869,7 @@ fun HomeScreen(
             when {
                 isArtistSelectionMode -> {
                     val artistSongs = selectedArtists.flatMap { it.songs }.distinctBy { it.id }
-                    HomeCollectionMultiSelectBar(
+                    com.xvox.music.core.ui.overlay.XvoxTopRail { HomeCollectionMultiSelectBar(
                         title = "Artists",
                         selectedCount = selectedArtists.size,
                         allSelected = artists.isNotEmpty() && artists.all { it.name in selectedArtistNames },
@@ -923,13 +923,13 @@ fun HomeScreen(
                                 selectionCategoryName = null
                             })
                         }
-                    )
+                    ) }
                 }
                 isPlaylistSelectionMode -> {
                     val collectionSongs = selectedOuterPlaylists
                         .flatMap { playlistContents[it.id].orEmpty() }
                         .distinctBy { it.id }
-                    HomeCollectionMultiSelectBar(
+                    com.xvox.music.core.ui.overlay.XvoxTopRail { HomeCollectionMultiSelectBar(
                         title = "Playlists",
                         selectedCount = selectedOuterPlaylists.size,
                         allSelected = state.playlists.isNotEmpty() && state.playlists.all { it.id in selectedPlaylistIds },
@@ -991,12 +991,12 @@ fun HomeScreen(
                                 overlays.showP("$count playlists deleted")
                             })
                         }
-                    )
+                    ) }
                 }
                 isSongSelectionMode -> {
                     // Song selection uses the same window-level right rail across All Songs,
                     // Recent, Liked, Artist details, and Playlist details.
-                    HomeMultiSelectBar(
+                    com.xvox.music.core.ui.overlay.XvoxTopRail { HomeMultiSelectBar(
                         selectedSongs = selectedSongsList,
                         selectedPlaylist = selectedPlaylist,
                         libraryMode = selectionLibraryMode,
@@ -1022,7 +1022,7 @@ fun HomeScreen(
                             selectionCategoryName = null
                         },
                         onDeleteSelected = { requestDeleteSelected() }
-                    )
+                    ) }
                 }
             }
         }

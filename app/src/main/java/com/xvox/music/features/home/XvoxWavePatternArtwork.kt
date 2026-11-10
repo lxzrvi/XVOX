@@ -9,7 +9,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import com.xvox.music.core.ui.icons.painterResource
+import androidx.compose.ui.res.painterResource
 import com.xvox.music.R
 import com.xvox.music.artwork.XvoxArtworkCache
 import com.xvox.music.core.design.theme.XvoxPalette

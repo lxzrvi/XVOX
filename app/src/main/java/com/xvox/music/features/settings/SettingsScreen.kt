@@ -48,7 +48,7 @@ import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import com.xvox.music.core.ui.icons.painterResource
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -541,22 +541,6 @@ private fun AppearanceSectionCard(
                     onSelect = { key ->
                         scaleOptions.firstOrNull { it.first == key }?.let { viewModel.setFontSizeScale(it.third) }
                     }
-                )
-            }
-
-            SettingsField("Icon pack") {
-                com.xvox.music.features.settings.components.SettingsChoiceRow(
-                    options = com.xvox.music.core.ui.icons.XvoxIconPrefs.packs,
-                    selected = com.xvox.music.core.ui.icons.XvoxIconPrefs.pack,
-                    onSelect = viewModel::setIconPack
-                )
-            }
-
-            SettingsField("Icon style") {
-                XvoxSegmentedPill(
-                    options = com.xvox.music.core.ui.icons.XvoxIconPrefs.styles,
-                    selectedKey = com.xvox.music.core.ui.icons.XvoxIconPrefs.style,
-                    onSelect = viewModel::setIconStyle
                 )
             }
 

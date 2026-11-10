@@ -171,8 +171,6 @@ class UserPreferencesRepository(
         val backgroundBrightness = floatPreferencesKey("background_brightness")
         val audioOutputRoute = stringPreferencesKey("audio_output_route")
         val playbackSpeed = floatPreferencesKey("playback_speed")
-        val iconPack = androidx.datastore.preferences.core.stringPreferencesKey("icon_pack")
-        val iconStyle = androidx.datastore.preferences.core.stringPreferencesKey("icon_style")
         val coverTransition = androidx.datastore.preferences.core.stringPreferencesKey("np_cover_transition")
         val playbackPitch = floatPreferencesKey("playback_pitch")
         val headerImageUri = stringPreferencesKey("header_image_uri")
@@ -560,11 +558,6 @@ class UserPreferencesRepository(
     /** Now Playing cover swipe transition: slide, crossfade, tumble, page, cascade, rotate, cube. */
     val coverTransition: Flow<String> = context.xvoxDataStore.data
         .map { it[Keys.coverTransition] ?: "slide" }.distinctUntilChanged()
-
-    val iconPack: Flow<String> = context.xvoxDataStore.data.map { it[Keys.iconPack] ?: "monks" }.distinctUntilChanged()
-    val iconStyle: Flow<String> = context.xvoxDataStore.data.map { it[Keys.iconStyle] ?: "normal" }.distinctUntilChanged()
-    suspend fun setIconPack(v: String) { context.xvoxDataStore.edit { it[Keys.iconPack] = v } }
-    suspend fun setIconStyle(v: String) { context.xvoxDataStore.edit { it[Keys.iconStyle] = v } }
 
     suspend fun setCoverTransition(v: String) {
         context.xvoxDataStore.edit { it[Keys.coverTransition] = v }

@@ -35,6 +35,9 @@ class XvoxOverlayController {
     var listKey by mutableLongStateOf(0L)
         private set
 
+    /** Selection rail hosted by the shell above every other layer (mini player, navbar). */
+    var railContent by mutableStateOf<(@Composable () -> Unit)?>(null)
+
     /** True while a root-hosted sheet is open (not closing): the app layer blurs behind it. */
     var sheetBlurActive by mutableStateOf(false)
 

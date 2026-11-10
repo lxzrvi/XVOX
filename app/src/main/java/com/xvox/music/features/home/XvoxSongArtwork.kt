@@ -1,3 +1,4 @@
+// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/features/home/XvoxSongArtwork.kt
 package com.xvox.music.features.home
 
 import android.graphics.Bitmap
@@ -354,6 +355,9 @@ fun XvoxSongArtwork(
                 onSuccess = { success ->
                     (success.result.image as? BitmapImage)?.bitmap?.let { bitmap ->
                         XvoxArtworkCache.markSuccessful(artwork)
+                        // Upload to the GPU now (async) instead of on the first drawn frame, which
+                        // is what made fast scrolling stutter as new covers arrived.
+                        bitmap.prepareToDraw()
                         XvoxArtworkCache.put(cacheKey, bitmap)
                         if (requestSize == 0) XvoxArtworkCache.put("${baseKey}_0", bitmap)
                         decodedBitmap = bitmap
@@ -486,6 +490,7 @@ fun XvoxGridArtwork(
                     onSuccess = { success ->
                         (success.result.image as? BitmapImage)?.bitmap?.let { bitmap ->
                             XvoxArtworkCache.markSuccessful(artwork)
+                            bitmap.prepareToDraw()
                             XvoxArtworkCache.put(cacheKey, bitmap)
                             decodedBitmap = bitmap
                         } ?: run {

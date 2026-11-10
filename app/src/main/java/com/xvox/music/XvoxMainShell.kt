@@ -1162,6 +1162,15 @@ fun XvoxMainShell(
             }
         }
 
+        // Selection rail: above the mini player, navbar and every page, outside the blur source.
+        overlays.railContent?.let { rail ->
+            Box(Modifier.fillMaxSize().zIndex(30f)) {
+                CompositionLocalProvider(LocalXvoxShellContentSky provides shellContentSky) {
+                    if (!player.nowPlayingPrepared) rail()
+                }
+            }
+        }
+
         AnimatedVisibility(
             // Prepare it below the screen as the Mini Player starts moving down. Its own entry
             // gate opens only after that Mini Player reaches the terminal bottom frame.

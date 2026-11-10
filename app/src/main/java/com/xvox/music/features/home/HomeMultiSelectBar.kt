@@ -41,7 +41,7 @@ import androidx.compose.ui.draw.clip
 import com.xvox.music.core.ui.blur.xvoxLiveBlur
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalConfiguration
-import com.xvox.music.core.ui.icons.painterResource
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -89,7 +89,6 @@ fun HomeMultiSelectBar(
     var railOnLeft by rememberSaveable { mutableStateOf(false) }
     val railSide = if (railOnLeft) XvoxSelectionRailSide.LEFT else XvoxSelectionRailSide.RIGHT
     // The rail, counter, and every action use one shared radius instead of a large edge-only arc.
-    val railShape = RoundedCornerShape(24.dp)
     val sourceLabel = categoryName?.takeIf { it.isNotBlank() } ?: "Selection"
     val screenHeightDp = LocalConfiguration.current.screenHeightDp
     // Select, Play next, Queue, Playlist, Like/remove, Share, Clear, and the lower side switch;
@@ -144,8 +143,13 @@ fun HomeMultiSelectBar(
                 modifier = Modifier.fillMaxSize(),
                 label = "songSelectionRailSide"
             ) { side ->
+                // Only the inner (screen-facing) corners are round; the edge side stays flush.
+                val railShape = if (side == XvoxSelectionRailSide.LEFT)
+                    RoundedCornerShape(topStart = 0.dp, bottomStart = 0.dp, topEnd = 26.dp, bottomEnd = 26.dp)
+                else RoundedCornerShape(topStart = 26.dp, bottomStart = 26.dp, topEnd = 0.dp, bottomEnd = 0.dp)
+                val glassOn = com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle.current.let { it.glassBlurEnabled && it.glassBlurIntensity > .001f }
                 Box(
-                    modifier = Modifier.fillMaxSize().padding(horizontal = 6.dp),
+                    modifier = Modifier.fillMaxSize(),
                     contentAlignment = if (side == XvoxSelectionRailSide.LEFT) {
                         Alignment.CenterStart
                     } else {
@@ -158,10 +162,9 @@ fun HomeMultiSelectBar(
                             .xvoxLiveBlur(
                                 shape = railShape,
                                 level = com.xvox.music.core.ui.blur.XvoxBlurLevel.Chrome,
-                                baseColor = railSurface.copy(alpha = .94f),
-                                // Sits inside the page it floats over, so no live sample (that would
-                                // recurse); a frosted glass tint + the shared rim keeps it glassy.
-                                sky = null,
+                                baseColor = railSurface.copy(alpha = if (glassOn) .58f else .96f),
+                                // Hosted at the shell top layer (outside the blur source), so a live sample is safe.
+                                sky = com.xvox.music.core.ui.blur.LocalXvoxShellContentSky.current,
                                 glassEdge = true
                             )
                             .clip(railShape)

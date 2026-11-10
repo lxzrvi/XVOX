@@ -59,7 +59,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalDensity
-import com.xvox.music.core.ui.icons.painterResource
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -309,8 +309,7 @@ fun SearchScreen(
         // disappearing Header and neither can enter the former status-bar area.
         Row(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(bottom = bottomInset + 6.dp),
+                .fillMaxSize(),
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
 
@@ -324,7 +323,7 @@ fun SearchScreen(
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.fillMaxSize().xvoxBlurSource(contentSky),
-                    contentPadding = PaddingValues(start = 10.dp, end = 10.dp, top = topInset + 2.dp, bottom = 16.dp),
+                    contentPadding = PaddingValues(start = 10.dp, end = 10.dp, top = topInset + 2.dp, bottom = bottomInset + 16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     item(key = "land_search_bar") {

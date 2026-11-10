@@ -24,7 +24,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
-import com.xvox.music.core.ui.icons.painterResource
+import androidx.compose.ui.res.painterResource
 
 /**
  * Selection mark shown over the CENTER of a cover (song, playlist, artist): a soft dim over the
@@ -34,7 +34,7 @@ import com.xvox.music.core.ui.icons.painterResource
 fun BoxScope.XvoxSelectionTick(
     selected: Boolean,
     shape: Shape,
-    tickSize: Dp = 34.dp
+    tickSize: Dp = 22.dp
 ) {
     val colors = XvoxTheme.colors
     val pop by animateFloatAsState(
