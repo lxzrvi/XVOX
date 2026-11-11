@@ -30,7 +30,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.zIndex
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
@@ -116,6 +116,12 @@ fun XvoxNowPlayingArtworkPager(
     repeatMode: RepeatMode = RepeatMode.OFF
 ) {
     if (queue.isEmpty()) return
+    // ONE preference collector for the whole pager (each page used to open its own DataStore flow).
+    val appContext = androidx.compose.ui.platform.LocalContext.current.applicationContext
+    androidx.compose.runtime.LaunchedEffect(appContext) {
+        com.xvox.music.data.preferences.UserPreferencesRepository(appContext).coverTransition
+            .collect { XvoxCoverTransition.current = it }
+    }
     val initialIdx = currentIndex.coerceIn(0, queue.lastIndex)
     val repeatAll = repeatMode == RepeatMode.ALL && queue.size > 1
     val occurrenceKeyLedger = remember { ArtworkOccurrenceKeyLedger() }
@@ -379,24 +385,30 @@ private fun XvoxNowPlayingArtworkPage(
 ) {
     val song = queue.getOrNull(songIndex) ?: return
     val shape = remember(artworkCornerRadius) { RoundedCornerShape(artworkCornerRadius) }
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val transitionFlow = remember(context) {
-        com.xvox.music.data.preferences.UserPreferencesRepository(context.applicationContext).coverTransition
-    }
-    val transition by transitionFlow.collectAsState(initial = "slide")
-    val pageOffset = ((pager.currentPage - page) + pager.currentPageOffsetFraction).coerceIn(-1f, 1f)
-    val pageZIndex = when (transition) {
-        "crossfade" -> if (pageOffset < 0f) 1f else 0f
-        "page" -> if (pageOffset > 0f) 2f else 0f
-        "cascade" -> if (pageOffset > 0f) 0f else 1f
-        "zoom" -> if (pageOffset > 0f) 1f else 0f
-        else -> 0f
-    }
+    val transition = XvoxCoverTransition.current
     Box(
         Modifier
-            .zIndex(pageZIndex)
+            // Draw order follows the swipe, read in the PLACEMENT phase (not composition) so a drag
+            // never recomposes the page: crossfade/zoom raise the arriving page, page/cascade
+            // choose which of the two sits on top.
+            .layout { measurable, constraints ->
+                val placeable = measurable.measure(constraints)
+                layout(placeable.width, placeable.height) {
+                    val o = ((pager.currentPage - page) + pager.currentPageOffsetFraction).coerceIn(-1f, 1f)
+                    val z = when (transition) {
+                        "crossfade" -> if (o < 0f) 1f else 0f
+                        "page" -> if (o > 0f) 2f else 0f
+                        "cascade" -> if (o > 0f) 0f else 1f
+                        "zoom" -> if (o > 0f) 1f else 0f
+                        else -> 0f
+                    }
+                    placeable.place(0, 0, zIndex = z)
+                }
+            }
             .fillMaxSize()
             .graphicsLayer {
+                // One bitmap-free cover: fade by modulating its draw alpha, no offscreen buffer.
+                compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.ModulateAlpha
                 val offset = ((pager.currentPage - page) + pager.currentPageOffsetFraction)
                     .coerceIn(-1f, 1f)
                 val a = abs(offset)
@@ -519,4 +531,10 @@ private fun XvoxNowPlayingArtworkPage(
             )
         }
     }
+}
+
+
+/** Cover-transition style shared by every pager page; written by the pager's single collector. */
+internal object XvoxCoverTransition {
+    var current: String by androidx.compose.runtime.mutableStateOf("slide")
 }

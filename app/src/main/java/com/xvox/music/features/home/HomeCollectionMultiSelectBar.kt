@@ -203,20 +203,17 @@ private fun CollectionSelectionRailCountBox(
     height: androidx.compose.ui.unit.Dp
 ) {
     val colors = XvoxTheme.colors
-    val shape = RoundedCornerShape(10.dp)
+    // Just the number, like the icons below it: no accent box.
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(height)
-            .clip(shape)
-            .background(colors.primaryAccent)
-            .border(.8.dp, colors.cardBorder, shape),
+            .height(height),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = count.toString(),
-            color = colors.background,
-            fontSize = 12.sp,
+            color = colors.primaryText,
+            fontSize = 15.sp,
             fontWeight = FontWeight.ExtraBold
         )
     }
