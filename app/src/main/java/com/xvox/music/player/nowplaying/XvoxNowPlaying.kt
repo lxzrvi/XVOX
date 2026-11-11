@@ -722,13 +722,17 @@ fun XvoxNowPlaying(
             .fillMaxSize()
             // Swipe down ANYWHERE closes the player and follows the finger 1:1. It sits OUTSIDE the
             // graphicsLayer below, so the pointer's coordinate space does not move with the sheet.
-            .xvoxSwipeDownToClose(
-                // Only while the player is fully open and settled: a hidden/prepared player must never react
-                // to Home scrolling (returnToRest would animate it OPEN).
-                enabled = dragDismissReady && !isCustomizing && activeSettingsBox == null && !dismissing,
-                onDrag = { dy -> screenY = (screenY + dy).coerceAtLeast(0f) },
-                onEnd = { if (dragDismissReady) finishDragDismissal() },
-                onCancel = { if (dragDismissReady) returnToRest() }
+            // Only composed while the player is fully open. A pointerInput node that merely returns
+            // early is STILL hit-tested over the whole screen (it sits outside the graphicsLayer),
+            // which froze Home. Absent modifier = Home/tabs get every touch.
+            .then(
+                if (dragDismissReady && !isCustomizing && activeSettingsBox == null && !dismissing) {
+                    Modifier.xvoxSwipeDownToClose(
+                        onDrag = { dy -> screenY = (screenY + dy).coerceAtLeast(0f) },
+                        onEnd = { finishDragDismissal() },
+                        onCancel = { returnToRest() }
+                    )
+                } else Modifier
             )
             .graphicsLayer {
                 translationY = screenY
@@ -1680,12 +1684,10 @@ fun XvoxNowPlaying(
  * the horizontal cover pager keep priority) and the motion is clearly downward.
  */
 private fun Modifier.xvoxSwipeDownToClose(
-    enabled: Boolean,
     onDrag: (Float) -> Unit,
     onEnd: () -> Unit,
     onCancel: () -> Unit
-): Modifier = pointerInput(enabled) {
-    if (!enabled) return@pointerInput
+): Modifier = pointerInput(Unit) {
     awaitEachGesture {
         val down = awaitFirstDown(requireUnconsumed = false, pass = androidx.compose.ui.input.pointer.PointerEventPass.Final)
         val slop = viewConfiguration.touchSlop

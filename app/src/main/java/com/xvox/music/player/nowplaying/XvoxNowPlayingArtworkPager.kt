@@ -395,11 +395,12 @@ private fun XvoxNowPlayingArtworkPage(
                 val placeable = measurable.measure(constraints)
                 layout(placeable.width, placeable.height) {
                     val o = ((pager.currentPage - page) + pager.currentPageOffsetFraction).coerceIn(-1f, 1f)
+                    val leaving = page == pager.settledPage
                     val z = when (transition) {
-                        "crossfade" -> if (o < 0f) 1f else 0f
-                        "page" -> if (o > 0f) 2f else 0f
-                        "cascade" -> if (o > 0f) 0f else 1f
-                        "zoom" -> if (o > 0f) 1f else 0f
+                        // arriving cover sits ON TOP, solid
+                        "crossfade", "cascade", "zoom", "fan" -> if (leaving) 0f else 1f
+                        // leaving cover stays on top while it turns/folds away
+                        "rotate", "page" -> if (leaving) 2f else 0f
                         else -> 0f
                     }
                     placeable.place(0, 0, zIndex = z)
@@ -426,6 +427,7 @@ private fun XvoxNowPlayingArtworkPage(
                 // feels weighted); rotations/translations stay linear so 3D geometry stays exact.
                 val e = a * a * (3f - 2f * a)
                 val sg = if (offset >= 0f) 1f else -1f
+                val leaving = page == pager.settledPage
                 when (transition) {
                     "crossfade" -> {
                         cancel(1f)
@@ -436,34 +438,38 @@ private fun XvoxNowPlayingArtworkPage(
                     "tumble" -> {
                         transformOrigin = androidx.compose.ui.graphics.TransformOrigin(.5f, 1.25f)
                         rotationZ = -sg * e * 24f
-                        alpha = 1f - .55f * e
+                        alpha = 1f - .4f * e
                         scale = 1f - .1f * e
                     }
                     "page" -> {
                         cameraDistance = 14f * density
-                        if (offset > 0f) {
-                            // Leaving page folds about its trailing edge, above the static one.
-                            transformOrigin = if (verticalPaging) androidx.compose.ui.graphics.TransformOrigin(.5f, 0f) else androidx.compose.ui.graphics.TransformOrigin(0f, .5f)
+                        if (leaving) {
+                            // Leaving page folds about the hinge edge, above the static one.
+                            transformOrigin = if (verticalPaging) androidx.compose.ui.graphics.TransformOrigin(.5f, if (offset > 0f) 0f else 1f)
+                            else androidx.compose.ui.graphics.TransformOrigin(if (offset > 0f) 0f else 1f, .5f)
                             if (verticalPaging) rotationX = offset * 74f else rotationY = -offset * 74f
                             cancel(-.4f)
-                            alpha = 1f - .4f * e
                         } else {
                             cancel(1f)
                             scale = 1f - .07f * (1f - e)
                         }
                     }
                     "cascade" -> {
-                        if (offset > 0f) {
+                        // Solid: the leaving cover sinks back, the arriving one slides over it.
+                        if (leaving) {
                             cancel(.3f)
                             scale = 1f - .16f * e
-                            alpha = 1f - .6f * e
                         }
                     }
                     "rotate" -> {
-                        cancel(1f)
-                        rotationZ = -sg * e * 75f
-                        alpha = 1f - .9f * e
-                        scale = 1f - .3f * e
+                        // Leaving cover turns away fully opaque; the next cover waits solid beneath.
+                        if (leaving) {
+                            cancel(.6f)
+                            rotationZ = -sg * e * 75f
+                            scale = 1f - .12f * e
+                        } else {
+                            cancel(1f)
+                        }
                     }
                     "cube" -> {
                         cameraDistance = 16f * density
@@ -473,9 +479,14 @@ private fun XvoxNowPlayingArtworkPage(
                         alpha = 1f - .2f * e
                     }
                     "zoom" -> {
-                        cancel(1f)
-                        scale = if (offset > 0f) 1f + .3f * e else .6f + .4f * (1f - e)
-                        alpha = 1f - e
+                        // Solid zoom: the current cover shrinks back, the next grows in over it.
+                        if (leaving) {
+                            cancel(.5f)
+                            scale = 1f - .15f * e
+                        } else {
+                            cancel(.5f)
+                            scale = 1f + .18f * e
+                        }
                     }
                     "flip" -> {
                         cameraDistance = 18f * density
@@ -484,16 +495,22 @@ private fun XvoxNowPlayingArtworkPage(
                         alpha = if (a > .5f) 0f else 1f
                     }
                     "fan" -> {
-                        transformOrigin = androidx.compose.ui.graphics.TransformOrigin(.5f, 1.7f)
-                        cancel(.5f)
-                        rotationZ = -sg * e * 20f
-                        alpha = 1f - .5f * e
+                        // The current cover stays put; the next one fans in SOLID on top of it.
+                        if (leaving) {
+                            cancel(1f)
+                            scale = 1f - .04f * e
+                        } else {
+                            transformOrigin = androidx.compose.ui.graphics.TransformOrigin(.5f, 1.7f)
+                            cancel(.35f)
+                            rotationZ = -sg * e * 22f
+                        }
                     }
                     "accordion" -> {
-                        transformOrigin = if (verticalPaging) androidx.compose.ui.graphics.TransformOrigin(.5f, if (offset > 0f) 0f else 1f)
-                        else androidx.compose.ui.graphics.TransformOrigin(if (offset > 0f) 0f else 1f, .5f)
-                        if (verticalPaging) accY = 1f - .7f * e else accX = 1f - .7f * e
-                        alpha = 1f - .45f * e
+                        // Each cover squeezes toward the seam it shares with its neighbour, so the
+                        // two travel together with no gap between them.
+                        transformOrigin = if (verticalPaging) androidx.compose.ui.graphics.TransformOrigin(.5f, if (offset > 0f) 1f else 0f)
+                        else androidx.compose.ui.graphics.TransformOrigin(if (offset > 0f) 1f else 0f, .5f)
+                        if (verticalPaging) accY = 1f - .55f * e else accX = 1f - .55f * e
                     }
                     "drift" -> {
                         cancel(.55f)

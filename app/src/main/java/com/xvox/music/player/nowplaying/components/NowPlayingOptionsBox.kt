@@ -174,7 +174,7 @@ fun NowPlayingOptionsBox(
                 modifier = Modifier.padding(top = 4.dp)
             )
             val options = listOf(
-                "slide" to "Slide", "crossfade" to "Crossfade", "tumble" to "Tumble",
+                "slide" to "Slide (Default)", "crossfade" to "Crossfade", "tumble" to "Tumble",
                 "page" to "Page", "cascade" to "Cascade", "rotate" to "Rotate", "cube" to "Cube",
                 "zoom" to "Zoom", "flip" to "Flip", "fan" to "Fan", "accordion" to "Accordion", "drift" to "Drift"
             )
