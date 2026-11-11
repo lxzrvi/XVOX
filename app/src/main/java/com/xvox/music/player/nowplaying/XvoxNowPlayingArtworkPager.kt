@@ -422,58 +422,60 @@ private fun XvoxNowPlayingArtworkPage(
                 }
                 var accX = 1f
                 var accY = 1f
+                // Smootherstep easing for opacity/scale (motion that eases in AND out, so the swipe
+                // feels weighted); rotations/translations stay linear so 3D geometry stays exact.
+                val e = a * a * (3f - 2f * a)
+                val sg = if (offset >= 0f) 1f else -1f
                 when (transition) {
                     "crossfade" -> {
                         cancel(1f)
-                        alpha = 1f - a
-                        scale = 1f - .04f * a
+                        // e(p) + e(1-p) = 1, so the two covers always sum to exactly one opaque cover.
+                        alpha = 1f - e
+                        scale = 1f - .05f * e
                     }
                     "tumble" -> {
-                        transformOrigin = androidx.compose.ui.graphics.TransformOrigin(.5f, 1f)
-                        rotationZ = -offset * 28f
-                        alpha = 1f - .6f * a
-                        scale = 1f - .12f * a
+                        transformOrigin = androidx.compose.ui.graphics.TransformOrigin(.5f, 1.25f)
+                        rotationZ = -sg * e * 24f
+                        alpha = 1f - .55f * e
+                        scale = 1f - .1f * e
                     }
                     "page" -> {
                         cameraDistance = 14f * density
                         if (offset > 0f) {
                             // Leaving page folds about its trailing edge, above the static one.
-                            transformOrigin = if (verticalPaging)
-                                androidx.compose.ui.graphics.TransformOrigin(.5f, 0f)
-                            else androidx.compose.ui.graphics.TransformOrigin(0f, .5f)
-                            if (verticalPaging) rotationX = offset * 78f else rotationY = -offset * 78f
-                            cancel(-.45f)
-                            alpha = 1f - .35f * a
+                            transformOrigin = if (verticalPaging) androidx.compose.ui.graphics.TransformOrigin(.5f, 0f) else androidx.compose.ui.graphics.TransformOrigin(0f, .5f)
+                            if (verticalPaging) rotationX = offset * 74f else rotationY = -offset * 74f
+                            cancel(-.4f)
+                            alpha = 1f - .4f * e
                         } else {
                             cancel(1f)
-                            scale = 1f - .06f * (1f - a)
+                            scale = 1f - .07f * (1f - e)
                         }
                     }
                     "cascade" -> {
                         if (offset > 0f) {
-                            cancel(.28f)
-                            scale = 1f - .14f * a
-                            alpha = 1f - .5f * a
+                            cancel(.3f)
+                            scale = 1f - .16f * e
+                            alpha = 1f - .6f * e
                         }
                     }
                     "rotate" -> {
                         cancel(1f)
-                        rotationZ = -offset * 90f
-                        alpha = 1f - .85f * a
-                        scale = 1f - .25f * a
+                        rotationZ = -sg * e * 75f
+                        alpha = 1f - .9f * e
+                        scale = 1f - .3f * e
                     }
                     "cube" -> {
                         cameraDistance = 16f * density
-                        transformOrigin = if (verticalPaging)
-                            androidx.compose.ui.graphics.TransformOrigin(.5f, if (offset > 0f) 1f else 0f)
+                        transformOrigin = if (verticalPaging) androidx.compose.ui.graphics.TransformOrigin(.5f, if (offset > 0f) 1f else 0f)
                         else androidx.compose.ui.graphics.TransformOrigin(if (offset > 0f) 1f else 0f, .5f)
-                        if (verticalPaging) rotationX = offset * 88f else rotationY = -offset * 88f
-                        alpha = 1f - .25f * a
+                        if (verticalPaging) rotationX = offset * 90f else rotationY = -offset * 90f
+                        alpha = 1f - .2f * e
                     }
                     "zoom" -> {
                         cancel(1f)
-                        scale = if (offset > 0f) 1f + .35f * a else .55f + .45f * (1f - a)
-                        alpha = 1f - a
+                        scale = if (offset > 0f) 1f + .3f * e else .6f + .4f * (1f - e)
+                        alpha = 1f - e
                     }
                     "flip" -> {
                         cameraDistance = 18f * density
@@ -482,22 +484,21 @@ private fun XvoxNowPlayingArtworkPage(
                         alpha = if (a > .5f) 0f else 1f
                     }
                     "fan" -> {
-                        transformOrigin = androidx.compose.ui.graphics.TransformOrigin(.5f, 1.6f)
+                        transformOrigin = androidx.compose.ui.graphics.TransformOrigin(.5f, 1.7f)
                         cancel(.5f)
-                        rotationZ = -offset * 22f
-                        alpha = 1f - .5f * a
+                        rotationZ = -sg * e * 20f
+                        alpha = 1f - .5f * e
                     }
                     "accordion" -> {
-                        transformOrigin = if (verticalPaging)
-                            androidx.compose.ui.graphics.TransformOrigin(.5f, if (offset > 0f) 0f else 1f)
+                        transformOrigin = if (verticalPaging) androidx.compose.ui.graphics.TransformOrigin(.5f, if (offset > 0f) 0f else 1f)
                         else androidx.compose.ui.graphics.TransformOrigin(if (offset > 0f) 0f else 1f, .5f)
-                        if (verticalPaging) accY = 1f - .7f * a else accX = 1f - .7f * a
-                        alpha = 1f - .45f * a
+                        if (verticalPaging) accY = 1f - .7f * e else accX = 1f - .7f * e
+                        alpha = 1f - .45f * e
                     }
                     "drift" -> {
                         cancel(.55f)
-                        alpha = 1f - .9f * a
-                        scale = 1f - .08f * a
+                        alpha = 1f - .9f * e
+                        scale = 1f - .08f * e
                     }
                 }
                 scaleX = scale * accX

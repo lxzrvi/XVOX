@@ -723,10 +723,12 @@ fun XvoxNowPlaying(
             // Swipe down ANYWHERE closes the player and follows the finger 1:1. It sits OUTSIDE the
             // graphicsLayer below, so the pointer's coordinate space does not move with the sheet.
             .xvoxSwipeDownToClose(
-                enabled = !isCustomizing && activeSettingsBox == null && !dismissing,
+                // Only while the player is fully open and settled: a hidden/prepared player must never react
+                // to Home scrolling (returnToRest would animate it OPEN).
+                enabled = dragDismissReady && !isCustomizing && activeSettingsBox == null && !dismissing,
                 onDrag = { dy -> screenY = (screenY + dy).coerceAtLeast(0f) },
-                onEnd = { finishDragDismissal() },
-                onCancel = { returnToRest() }
+                onEnd = { if (dragDismissReady) finishDragDismissal() },
+                onCancel = { if (dragDismissReady) returnToRest() }
             )
             .graphicsLayer {
                 translationY = screenY
@@ -1274,7 +1276,8 @@ fun XvoxNowPlaying(
                         .xvoxLiveBlur(
                             shape = RectangleShape,
                             level = com.xvox.music.core.ui.blur.XvoxBlurLevel.Bar,
-                            baseColor = colors.cardElevated.copy(alpha = colors.cardElevated.alpha * bottomPanelAlpha),
+                            // Thinner tint so the live-blurred player behind the controls stays visible.
+                            baseColor = colors.cardElevated.copy(alpha = colors.cardElevated.alpha * bottomPanelAlpha * .55f),
                             sky = LocalXvoxNowPlayingSky.current,
                             borderAlpha = 0f,
                             borderWidth = 0.dp
