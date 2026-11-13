@@ -58,8 +58,7 @@ fun NowPlayingOptionsBox(
     }
     val context = androidx.compose.ui.platform.LocalContext.current
     val prefs = remember(context) { com.xvox.music.data.preferences.UserPreferencesRepository(context.applicationContext) }
-    val savedTransition by prefs.coverTransition.collectAsState(initial = "slide")
-    var draftTransition by remember(savedTransition) { mutableStateOf(savedTransition) }
+    val savedLayout by prefs.nowPlayingLayout.collectAsState(initial = "xvox")
     val saveScope = androidx.compose.runtime.rememberCoroutineScope()
     var draftBackgroundStyle by remember(backgroundStyle) { mutableStateOf(initialStyle) }
     var draftCoverBlur by remember(coverBlur) {
@@ -77,14 +76,9 @@ fun NowPlayingOptionsBox(
                     // at exactly 50%, rather than quietly resetting a hidden Default-only value.
                     draftBackgroundStyle = XvoxNowPlayingBackgroundStyles.COVER
                     draftCoverBlur = resetCoverBlur
-                    draftTransition = "slide"
                 },
                 onOkay = {
                     onApplyBackground(draftBackgroundStyle, draftCoverBlur)
-                    if (draftTransition != savedTransition) {
-                        @OptIn(kotlinx.coroutines.DelicateCoroutinesApi::class)
-                        kotlinx.coroutines.GlobalScope.launch { prefs.setCoverTransition(draftTransition) }
-                    }
                     onDismiss()
                 }
             )
@@ -167,16 +161,14 @@ fun NowPlayingOptionsBox(
             }
 
             Text(
-                text = "Cover transition",
+                text = "Player layout",
                 color = colors.primaryText,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.padding(top = 4.dp)
             )
             val options = listOf(
-                "slide" to "Slide (Default)", "crossfade" to "Crossfade", "tumble" to "Tumble",
-                "page" to "Page", "cascade" to "Cascade", "rotate" to "Rotate", "cube" to "Cube",
-                "zoom" to "Zoom", "flip" to "Flip", "fan" to "Fan", "accordion" to "Accordion", "drift" to "Drift"
+                "xvox" to "XVOX (Default)", "material" to "Material You", "ios" to "iOS"
             )
             Row(
                 modifier = Modifier
@@ -185,7 +177,7 @@ fun NowPlayingOptionsBox(
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 options.forEach { (key, label) ->
-                    val active = draftTransition == key
+                    val active = savedLayout == key
                     Box(
                         modifier = Modifier
                             .height(36.dp)
@@ -197,10 +189,8 @@ fun NowPlayingOptionsBox(
                                 RoundedCornerShape(50)
                             )
                             .xvoxPressScale(onClick = {
-                                draftTransition = key
-                                // Saved at once (and visible on the next swipe); an Okay-time write was
-                                // cancelled when this sheet left composition.
-                                saveScope.launch { prefs.setCoverTransition(key) }
+                                // Applies at once, live behind the sheet.
+                                saveScope.launch { prefs.setNowPlayingLayout(key) }
                             })
                             .padding(horizontal = 14.dp),
                         contentAlignment = Alignment.Center

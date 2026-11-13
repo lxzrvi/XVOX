@@ -187,6 +187,7 @@ class UserPreferencesRepository(
         val remindersLastAt = longPreferencesKey("reminders_last_at")
         val remindersDayCount = intPreferencesKey("reminders_day_count")
         val nowPlayingStyle = stringPreferencesKey("now_playing_style")
+        val nowPlayingLayout = stringPreferencesKey("now_playing_layout")
         val nowPlayingBackgroundStyle = stringPreferencesKey("now_playing_background_style")
         /** Local blur amount for the optional cover-art Now Playing background only. */
         val nowPlayingCoverBlur = floatPreferencesKey("now_playing_cover_blur")
@@ -572,6 +573,9 @@ class UserPreferencesRepository(
         .distinctUntilChanged()
     val nowPlayingStyle: Flow<String> = context.xvoxDataStore.data
         .map { it[Keys.nowPlayingStyle] ?: "default" }.distinctUntilChanged()
+    val nowPlayingLayout: Flow<String> = context.xvoxDataStore.data
+        .map { it[Keys.nowPlayingLayout] ?: "xvox" }.distinctUntilChanged()
+    suspend fun setNowPlayingLayout(v: String) { context.xvoxDataStore.edit { it[Keys.nowPlayingLayout] = v } }
     val nowPlayingBackgroundStyle: Flow<String> = context.xvoxDataStore.data
         .map { normalizeNowPlayingBackgroundStyle(it[Keys.nowPlayingBackgroundStyle]) }.distinctUntilChanged()
     val nowPlayingCoverBlur: Flow<Float> = context.xvoxDataStore.data

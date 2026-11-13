@@ -1166,7 +1166,7 @@ fun XvoxMainShell(
         overlays.railContent?.let { rail ->
             Box(Modifier.fillMaxSize().zIndex(30f)) {
                 CompositionLocalProvider(LocalXvoxShellContentSky provides shellContentSky) {
-                    if (!player.nowPlayingPrepared) rail()
+                    if (!player.nowPlayingVisible) rail()
                 }
             }
         }

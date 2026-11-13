@@ -116,12 +116,6 @@ fun XvoxNowPlayingArtworkPager(
     repeatMode: RepeatMode = RepeatMode.OFF
 ) {
     if (queue.isEmpty()) return
-    // ONE preference collector for the whole pager (each page used to open its own DataStore flow).
-    val appContext = androidx.compose.ui.platform.LocalContext.current.applicationContext
-    androidx.compose.runtime.LaunchedEffect(appContext) {
-        com.xvox.music.data.preferences.UserPreferencesRepository(appContext).coverTransition
-            .collect { XvoxCoverTransition.current = it }
-    }
     val initialIdx = currentIndex.coerceIn(0, queue.lastIndex)
     val repeatAll = repeatMode == RepeatMode.ALL && queue.size > 1
     val occurrenceKeyLedger = remember { ArtworkOccurrenceKeyLedger() }
@@ -385,146 +379,22 @@ private fun XvoxNowPlayingArtworkPage(
 ) {
     val song = queue.getOrNull(songIndex) ?: return
     val shape = remember(artworkCornerRadius) { RoundedCornerShape(artworkCornerRadius) }
-    val transition = XvoxCoverTransition.current
     Box(
         Modifier
-            // Draw order follows the swipe, read in the PLACEMENT phase (not composition) so a drag
-            // never recomposes the page: crossfade/zoom raise the arriving page, page/cascade
-            // choose which of the two sits on top.
-            .layout { measurable, constraints ->
-                val placeable = measurable.measure(constraints)
-                layout(placeable.width, placeable.height) {
-                    val o = ((pager.currentPage - page) + pager.currentPageOffsetFraction).coerceIn(-1f, 1f)
-                    val leaving = page == pager.settledPage
-                    val z = when (transition) {
-                        // arriving cover sits ON TOP, solid
-                        "crossfade", "cascade", "zoom", "fan" -> if (leaving) 0f else 1f
-                        // leaving cover stays on top while it turns/folds away
-                        "rotate", "page" -> if (leaving) 2f else 0f
-                        else -> 0f
-                    }
-                    placeable.place(0, 0, zIndex = z)
-                }
-            }
             .fillMaxSize()
             .graphicsLayer {
-                // One bitmap-free cover: fade by modulating its draw alpha, no offscreen buffer.
-                compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.ModulateAlpha
+                // The one cover motion: the pager's own slide plus a light depth (neighbours sit
+                // slightly back). Pure transform on a single layer: nothing recomposes mid-swipe.
                 val offset = ((pager.currentPage - page) + pager.currentPageOffsetFraction)
                     .coerceIn(-1f, 1f)
                 val a = abs(offset)
-                var scale = if (applyDepth) 1f - .08f * a else 1f
-                val w = if (verticalPaging) size.height else size.width
-                // offset > 0: page sits before centre; offset < 0: page sits after centre.
-                // The pager already slides pages by -offset*extent; `cancel(f)` removes that
-                // fraction of the slide (f = 1 pins the page in place).
-                fun cancel(f: Float) {
-                    if (verticalPaging) translationY = offset * w * f else translationX = offset * w * f
-                }
-                var accX = 1f
-                var accY = 1f
-                // Smootherstep easing for opacity/scale (motion that eases in AND out, so the swipe
-                // feels weighted); rotations/translations stay linear so 3D geometry stays exact.
                 val e = a * a * (3f - 2f * a)
-                val sg = if (offset >= 0f) 1f else -1f
-                val leaving = page == pager.settledPage
-                when (transition) {
-                    "crossfade" -> {
-                        cancel(1f)
-                        // e(p) + e(1-p) = 1, so the two covers always sum to exactly one opaque cover.
-                        alpha = 1f - e
-                        scale = 1f - .05f * e
-                    }
-                    "tumble" -> {
-                        transformOrigin = androidx.compose.ui.graphics.TransformOrigin(.5f, 1.25f)
-                        rotationZ = -sg * e * 24f
-                        alpha = 1f - .4f * e
-                        scale = 1f - .1f * e
-                    }
-                    "page" -> {
-                        cameraDistance = 14f * density
-                        if (leaving) {
-                            // Leaving page folds about the hinge edge, above the static one.
-                            transformOrigin = if (verticalPaging) androidx.compose.ui.graphics.TransformOrigin(.5f, if (offset > 0f) 0f else 1f)
-                            else androidx.compose.ui.graphics.TransformOrigin(if (offset > 0f) 0f else 1f, .5f)
-                            if (verticalPaging) rotationX = offset * 74f else rotationY = -offset * 74f
-                            cancel(-.4f)
-                        } else {
-                            cancel(1f)
-                            scale = 1f - .07f * (1f - e)
-                        }
-                    }
-                    "cascade" -> {
-                        // Solid: the leaving cover sinks back, the arriving one slides over it.
-                        if (leaving) {
-                            cancel(.3f)
-                            scale = 1f - .16f * e
-                        }
-                    }
-                    "rotate" -> {
-                        // Leaving cover turns away fully opaque; the next cover waits solid beneath.
-                        if (leaving) {
-                            cancel(.6f)
-                            rotationZ = -sg * e * 75f
-                            scale = 1f - .12f * e
-                        } else {
-                            cancel(1f)
-                        }
-                    }
-                    "cube" -> {
-                        cameraDistance = 16f * density
-                        transformOrigin = if (verticalPaging) androidx.compose.ui.graphics.TransformOrigin(.5f, if (offset > 0f) 1f else 0f)
-                        else androidx.compose.ui.graphics.TransformOrigin(if (offset > 0f) 1f else 0f, .5f)
-                        if (verticalPaging) rotationX = offset * 90f else rotationY = -offset * 90f
-                        alpha = 1f - .2f * e
-                    }
-                    "zoom" -> {
-                        // Solid zoom: the current cover shrinks back, the next grows in over it.
-                        if (leaving) {
-                            cancel(.5f)
-                            scale = 1f - .15f * e
-                        } else {
-                            cancel(.5f)
-                            scale = 1f + .18f * e
-                        }
-                    }
-                    "flip" -> {
-                        cameraDistance = 18f * density
-                        cancel(1f)
-                        if (verticalPaging) rotationX = offset * 180f else rotationY = -offset * 180f
-                        alpha = if (a > .5f) 0f else 1f
-                    }
-                    "fan" -> {
-                        // The current cover stays put; the next one fans in SOLID on top of it.
-                        if (leaving) {
-                            cancel(1f)
-                            scale = 1f - .04f * e
-                        } else {
-                            transformOrigin = androidx.compose.ui.graphics.TransformOrigin(.5f, 1.7f)
-                            cancel(.35f)
-                            rotationZ = -sg * e * 22f
-                        }
-                    }
-                    "accordion" -> {
-                        // Each cover squeezes toward the seam it shares with its neighbour, so the
-                        // two travel together with no gap between them.
-                        transformOrigin = if (verticalPaging) androidx.compose.ui.graphics.TransformOrigin(.5f, if (offset > 0f) 1f else 0f)
-                        else androidx.compose.ui.graphics.TransformOrigin(if (offset > 0f) 1f else 0f, .5f)
-                        if (verticalPaging) accY = 1f - .55f * e else accX = 1f - .55f * e
-                    }
-                    "drift" -> {
-                        cancel(.55f)
-                        alpha = 1f - .9f * e
-                        scale = 1f - .08f * e
-                    }
-                }
-                scaleX = scale * accX
-                scaleY = scale * accY
-                // Apply one offscreen-shaped clip to the scaled pager page. This prevents the
-                // cover radius from separating from its moving border while pages overlap.
-                this.shape = shape
-                clip = true
-                compositingStrategy = CompositingStrategy.Offscreen
+                val s = if (applyDepth) 1f - .06f * e else 1f
+                scaleX = s
+                scaleY = s
+                // Parallax: the cover drifts a touch slower than the slide.
+                val extent = if (verticalPaging) size.height else size.width
+                if (verticalPaging) translationY = offset * extent * .08f else translationX = offset * extent * .08f
             }
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
@@ -552,7 +422,3 @@ private fun XvoxNowPlayingArtworkPage(
 }
 
 
-/** Cover-transition style shared by every pager page; written by the pager's single collector. */
-internal object XvoxCoverTransition {
-    var current: String by androidx.compose.runtime.mutableStateOf("slide")
-}

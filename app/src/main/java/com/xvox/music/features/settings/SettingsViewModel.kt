@@ -30,6 +30,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     init {
         viewModelScope.launch {
             launch { sourceModeRepository.mode.collect { v -> _state.update { it.copy(sourceMode = v) } } }
+            launch { prefs.nowPlayingLayout.collect { v -> _state.update { it.copy(nowPlayingLayout = v) } } }
             launch { prefs.nowPlayingStyle.collect { v -> _state.update { it.copy(nowPlayingStyle = v) } } }
             launch { prefs.nowPlayingBackgroundStyle.collect { v -> _state.update { it.copy(nowPlayingBackgroundStyle = v) } } }
             launch { prefs.nowPlayingCoverBlur.collect { value ->

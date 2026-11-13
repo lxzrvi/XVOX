@@ -765,7 +765,7 @@ fun XvoxNowPlaying(
             XvoxNowPlayingBackdropLayer(
                 song = song,
                 paletteState = paletteState,
-                style = settingsState.nowPlayingBackgroundStyle,
+                style = if (settingsState.nowPlayingLayout == "ios") XvoxNowPlayingBackgroundStyles.COVER else settingsState.nowPlayingBackgroundStyle,
                 coverBlur = effectiveCoverBlur,
                 swipeBase = coverSwipeBase,
                 swipeAdjacent = coverSwipeAdjacent,
@@ -789,7 +789,70 @@ fun XvoxNowPlaying(
             )
         }
 
-        if (isLandscape) {
+        val altLayout = settingsState.nowPlayingLayout.let { (it == "ios" || it == "material") } && !isLandscape
+        if (altLayout) {
+            val isIos = settingsState.nowPlayingLayout == "ios"
+            val altActions = remember(song, isLiked, isLyricsShowing) {
+                XvoxAltNpActions(
+                    onClose = { dismiss() },
+                    onMore = { openSettingsBox("Style") },
+                    onShare = { onShare?.invoke() ?: XvoxSongActions.share(context, song) },
+                    onToggleLiked = { onToggleLiked?.invoke() },
+                    onShuffle = { onToggleShuffle?.invoke() },
+                    onRepeat = { onToggleRepeat?.invoke() },
+                    onShuffleLong = { openSettingsBox("ShuffleMethod") },
+                    onRepeatLong = { openSettingsBox("RepeatOptions") },
+                    onQueue = { onQueue?.invoke() },
+                    onOutput = { openSettingsBox("Bluetooth") },
+                    onPrevious = { movePreview(-1) },
+                    onNext = { movePreview(1) },
+                    onTogglePlay = onTogglePlay,
+                    onSeek = onSeek,
+                    onOpenLyrics = { setMode(1) },
+                    onCloseLyrics = { setMode(0) },
+                    onLyricsSettings = { openSettingsBox("Lyrics") }
+                )
+            }
+            val altArtwork: @Composable (Modifier, androidx.compose.ui.unit.Dp) -> Unit = { m, inset ->
+                XvoxNowPlayingArtworkPager(
+                    queue = queue,
+                    occurrenceIds = queueOccurrenceIds,
+                    currentIndex = currentIndex,
+                    navigationRequest = navigationRequest,
+                    previewIndex = previewIndex,
+                    forceCurrentIndex = holdPagerPaletteDuringShuffle,
+                    onPreviewIndexChange = { index ->
+                        previewGestureActive = true
+                        setPreviewTarget(index)
+                    },
+                    onArtworkTap = { setMode(1) },
+                    onSwipePalette = { base, adjacent, fraction -> applyPagerPalette(base, adjacent, fraction) },
+                    onSettledPage = { settledIndex, settledSong -> commitSettledPreview(settledIndex, settledSong) },
+                    modifier = m,
+                    pageSpacing = 0.dp,
+                    artworkHorizontalInset = inset,
+                    artworkCornerRadius = if (isIos) 0.dp else 32.dp,
+                    applyDepth = !isIos,
+                    repeatMode = repeatMode
+                )
+            }
+            if (isIos) {
+                XvoxNowPlayingIosLayout(
+                    song = song, isPlaying = isPlaying, position = position, duration = duration,
+                    isLiked = isLiked, isShuffleEnabled = isShuffleEnabled, repeatMode = repeatMode,
+                    playingSource = playingSource, lyrics = lyricsState.lyrics, lyricsLoading = lyricsState.loading,
+                    lyricsOpen = isLyricsShowing, accent = colors.primaryAccent,
+                    actions = altActions, artwork = altArtwork
+                )
+            } else {
+                XvoxNowPlayingMaterialLayout(
+                    song = song, isPlaying = isPlaying, position = position, duration = duration,
+                    isLiked = isLiked, isShuffleEnabled = isShuffleEnabled, repeatMode = repeatMode,
+                    playingSource = playingSource, lyrics = lyricsState.lyrics, lyricsLoading = lyricsState.loading,
+                    lyricsOpen = isLyricsShowing, actions = altActions, artwork = altArtwork
+                )
+            }
+        } else if (isLandscape) {
             // The ordinary landscape cover keeps its framed, rounded top/bottom containment.
             // Fully expanded lyrics deliberately override that frame and reach the player edge.
             BoxWithConstraints(Modifier.fillMaxSize()) {

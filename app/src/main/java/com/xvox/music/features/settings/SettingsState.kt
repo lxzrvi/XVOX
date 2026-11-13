@@ -1,7 +1,10 @@
+// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/features/settings/SettingsState.kt
 package com.xvox.music.features.settings
 
 data class SettingsState(
     val nowPlayingStyle: String = "default",
+    /** xvox | material | ios */
+    val nowPlayingLayout: String = "xvox",
     /** Experimental source selection; Online is provider-gated and never enables unofficial streams. */
     val sourceMode: com.xvox.music.features.sourcemode.XvoxSourceMode =
         com.xvox.music.features.sourcemode.XvoxSourceMode.OFFLINE,

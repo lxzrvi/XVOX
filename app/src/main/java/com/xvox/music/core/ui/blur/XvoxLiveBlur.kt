@@ -89,13 +89,13 @@ enum class XvoxBlurLevel(
     /** Songs, playlists, search, Settings cards. */
     Card(18.dp, .44f, .82f),
     /** Header, mini player, navbar, compact action groups. */
-    Chrome(24.dp, .50f, .84f),
+    Chrome(18.dp, .38f, .80f),
     /** Root sheets and boxes: denser glass over the live page. */
     Sheet(30.dp, .57f, .88f),
     /** Free area around an open sheet: strongest, still readable. */
     SheetBackdrop(36.dp, .20f, .52f),
     /** Bars over scrolling content: dense enough to keep text readable. */
-    Bar(28.dp, .72f, .92f)
+    Bar(16.dp, .50f, .90f)
 }
 
 // ---------------------------------------------------------------------------------------------
