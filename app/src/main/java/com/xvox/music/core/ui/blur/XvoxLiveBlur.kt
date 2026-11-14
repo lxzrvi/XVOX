@@ -233,11 +233,12 @@ fun Modifier.xvoxLiveBlur(
     // Live blur stays on everything that floats over MOVING content (header, navbar, mini player,
     // search bar, lyrics pill, Now Playing bottom box, sheet scrim).
     val photoWallpaper = LocalXvoxPhotoWallpaper.current
-    val flatStatic = blurMode && !photoWallpaper && surfaceSky != null && sky === surfaceSky &&
+    // Capable devices (tier.liveCards) show a REAL live blur of whatever is behind each card.
+    val flatStatic = blurMode && !tier.liveCards && !photoWallpaper && surfaceSky != null && sky === surfaceSky &&
         (level == XvoxBlurLevel.Card || level == XvoxBlurLevel.Selection || level == XvoxBlurLevel.Chrome)
     val wallpaperGlass = LocalXvoxWallpaperGlass.current
     // Photo wallpaper: each surface paints its window of ONE pre-blurred copy (no per-card GPU pass).
-    val useWallpaperGlass = blurMode && photoWallpaper && wallpaperGlass != null &&
+    val useWallpaperGlass = blurMode && !tier.liveCards && photoWallpaper && wallpaperGlass != null &&
         surfaceSky != null && sky === surfaceSky && level != XvoxBlurLevel.Bar
     val flatNowPlaying = blurMode && inNowPlaying && level != XvoxBlurLevel.Bar
     val flatTint = remember(baseColor, level) {

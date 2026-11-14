@@ -1,9 +1,10 @@
-// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/XvoxMainShell.kt
 @file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/XvoxMainShell.kt
 
 package com.xvox.music
 
 import com.xvox.music.core.ui.miniplayer.XvoxDockPieces
+import com.xvox.music.core.ui.miniplayer.XvoxDockGeometry
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
@@ -119,6 +120,10 @@ fun XvoxMainShell(
     val navigationBarHeight = chrome.navigationBarHeight.coerceIn(52f, 88f).dp
     val homeState by homeViewModel.state.collectAsState()
     val player by playerViewModel.state.collectAsState()
+    val shellSettings by settingsViewModel.state.collectAsState()
+    androidx.compose.runtime.SideEffect {
+        com.xvox.music.core.ui.miniplayer.XvoxMiniBounds.iosGrow = shellSettings.nowPlayingLayout == "ios"
+    }
     val homePreferences = remember { com.xvox.music.data.preferences.UserPreferencesRepository(homeViewModel.getApplication<android.app.Application>()) }
     val overlays = LocalXvoxOverlayController.current
     val context = LocalContext.current
@@ -1179,7 +1184,9 @@ fun XvoxMainShell(
                 aboveNavbar = com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle.current.let {
                     it.glassBlurEnabled && it.glassBlurIntensity > .001f
                 },
-                dock = { dockProgress.value }
+                dock = { dockProgress.value },
+                dockLaneBottom = XvoxDockGeometry.laneBottomFor(chrome.navigationBarOffsetY),
+                dockLane = navigationBarHeight
             )
 
             Box(
@@ -1203,7 +1210,9 @@ fun XvoxMainShell(
                     XvoxDockPieces(
                         progress = { dockProgress.value },
                         selected = destination,
-                        onSelected = ::selectNavigationDestination
+                        onSelected = ::selectNavigationDestination,
+                        laneHeight = navigationBarHeight,
+                        laneBottom = XvoxDockGeometry.laneBottomFor(chrome.navigationBarOffsetY)
                     )
                 }
             }

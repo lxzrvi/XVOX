@@ -66,7 +66,9 @@ fun BoxScope.XvoxShellMiniPlayerHost(
     navigationBarHeight: Dp = 62.dp,
     aboveNavbar: Boolean = false,
     /** 0..1: how far the card has travelled into the docked navbar lane (read per frame). */
-    dock: () -> Float = { 0f }
+    dock: () -> Float = { 0f },
+    dockLaneBottom: Dp = XvoxDockGeometry.laneBottom,
+    dockLane: Dp = XvoxDockGeometry.lane
 ) {
     // Let the incoming Settings page become visible before the card descends, so the card reads
     // as part of that route handoff rather than disappearing before Settings has opened.
@@ -150,7 +152,7 @@ fun BoxScope.XvoxShellMiniPlayerHost(
                     val w = (normalW + (dockW - normalW) * d).toInt().coerceAtLeast(0)
                     val x = (edge + (dockStart - edge) * d).toInt()
                     val rest = currentBottomPadding.roundToPx()
-                    val docked = XvoxDockGeometry.miniBottomPadding.roundToPx()
+                    val docked = XvoxDockGeometry.miniBottomFor(dockLaneBottom, dockLane).roundToPx()
                     val bottom = (rest + (docked - rest) * d).toInt()
                     val placeable = measurable.measure(
                         androidx.compose.ui.unit.Constraints(w, w, 0, constraints.maxHeight)

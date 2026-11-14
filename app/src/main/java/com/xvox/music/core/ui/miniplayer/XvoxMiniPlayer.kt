@@ -92,7 +92,7 @@ fun XvoxMiniPlayer(
 ) {
     val density = LocalDensity.current
     val chrome = com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle.current
-    val transitionStyle = XvoxPlayerTransitionMotion.normalizedStyle(chrome.miniPlayerTransitionStyle)
+    val transitionStyle = if (XvoxMiniBounds.iosGrow) XvoxPlayerTransitionMotion.GrowStyle else XvoxPlayerTransitionMotion.normalizedStyle(chrome.miniPlayerTransitionStyle)
     val scope = rememberCoroutineScope()
     val isLandscape = LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
     val defaultPlacementY = if (isLandscape) (-0.5f).dp else 13.dp

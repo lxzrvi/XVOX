@@ -44,6 +44,8 @@ object XvoxMiniBounds {
     /** Mini Player cover slot, and Now Playing's cover slot (root coordinates): the Grow cover travels between them. */
     @Volatile var artRect: Rect? = null
     @Volatile var coverRect: Rect? = null
+    /** iOS Now Playing always uses the in-place "Grow" handoff (set by the shell from the layout setting). */
+    var iosGrow by androidx.compose.runtime.mutableStateOf(false)
 }
 
 object XvoxDockGeometry {
@@ -57,6 +59,12 @@ object XvoxDockGeometry {
     val miniEndReserve = gap + pillWidth + edge
     /** Card is 56dp tall; its centre must sit on the lane centre (laneBottom + lane/2). */
     val miniBottomPadding = laneBottom + lane / 2 - 28.dp
+
+    /** The docked lane IS the real navbar: same height, and its visible bottom sits 5.5dp above the inset (+ user Y offset). */
+    fun laneBottomFor(navigationBarOffsetY: Float): androidx.compose.ui.unit.Dp =
+        (5.5f - navigationBarOffsetY.coerceIn(-260f, 260f)).dp.coerceAtLeast(0.dp)
+    fun miniBottomFor(laneBottom: androidx.compose.ui.unit.Dp, lane: androidx.compose.ui.unit.Dp) =
+        laneBottom + lane / 2 - 28.dp
 }
 
 /** The two navbar pieces that appear while docked: a Home circle and a Search/Settings pill. */
@@ -64,7 +72,9 @@ object XvoxDockGeometry {
 fun BoxScope.XvoxDockPieces(
     progress: () -> Float,
     selected: XvoxDestination,
-    onSelected: (XvoxDestination) -> Unit
+    onSelected: (XvoxDestination) -> Unit,
+    laneHeight: androidx.compose.ui.unit.Dp = XvoxDockGeometry.lane,
+    laneBottom: androidx.compose.ui.unit.Dp = XvoxDockGeometry.laneBottom
 ) {
     val colors = XvoxTheme.colors
     val chrome = LocalXvoxChromeStyle.current
@@ -78,7 +88,7 @@ fun BoxScope.XvoxDockPieces(
             .align(Alignment.BottomCenter)
             .fillMaxWidth()
             .navigationBarsPadding()
-            .padding(start = XvoxDockGeometry.edge, end = XvoxDockGeometry.edge, bottom = XvoxDockGeometry.laneBottom)
+            .padding(start = XvoxDockGeometry.edge, end = XvoxDockGeometry.edge, bottom = laneBottom)
             .graphicsLayer { alpha = progress().coerceIn(0f, 1f) },
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.Bottom
@@ -86,7 +96,7 @@ fun BoxScope.XvoxDockPieces(
         Box(
             Modifier
                 .graphicsLayer { translationX = (1f - progress()) * 56.dp.toPx() }
-                .size(XvoxDockGeometry.lane)
+                .size(laneHeight)
                 .xvoxLiveBlur(CircleShape, XvoxBlurLevel.Bar, base, sky, glassEdge = true)
                 .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { onSelected(XvoxDestination.HOME) },
             contentAlignment = Alignment.Center
@@ -100,8 +110,8 @@ fun BoxScope.XvoxDockPieces(
             Modifier
                 .graphicsLayer { translationX = -(1f - progress()) * 56.dp.toPx() }
                 .width(XvoxDockGeometry.pillWidth)
-                .height(XvoxDockGeometry.lane)
-                .xvoxLiveBlur(RoundedCornerShape(30.dp), XvoxBlurLevel.Bar, base, sky, glassEdge = true),
+                .height(laneHeight)
+                .xvoxLiveBlur(RoundedCornerShape(laneHeight / 2), XvoxBlurLevel.Bar, base, sky, glassEdge = true),
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
