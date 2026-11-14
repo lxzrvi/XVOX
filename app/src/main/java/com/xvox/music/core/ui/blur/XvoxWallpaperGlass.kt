@@ -145,11 +145,14 @@ private class WallpaperGlassNode(var image: ImageBitmap, var tint: Color) :
 
     override fun onGloballyPositioned(coordinates: LayoutCoordinates) {
         coords = coordinates
-        // Fires whenever the surface moves on screen (scroll, slide): repaint its window.
-        invalidateDraw()
+        // Fires whenever the surface moves on screen. While the user scrolls, repainting every
+        // card each frame is what janks the UI thread: skip it, and realign once at idle
+        // (draw() reads XvoxScrollActivity.idleTick).
+        if (!XvoxScrollActivity.scrolling) invalidateDraw()
     }
 
     override fun ContentDrawScope.draw() {
+        @Suppress("UNUSED_VARIABLE") val settle = XvoxScrollActivity.idleTick
         val c = coords
         if (c != null && c.isAttached) {
             val pos = c.positionInRoot()

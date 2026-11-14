@@ -31,6 +31,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
@@ -276,6 +278,7 @@ fun XvoxMiniPlayerCard(
                 modifier = Modifier
                     .width(artworkSlotWidth)
                     .height(48.dp)
+                    .onGloballyPositioned { com.xvox.music.core.ui.miniplayer.XvoxMiniBounds.artRect = it.boundsInRoot() }
                     .clip(artworkShape)
                     .graphicsLayer { alpha = artworkSlotAlpha }
             ) {

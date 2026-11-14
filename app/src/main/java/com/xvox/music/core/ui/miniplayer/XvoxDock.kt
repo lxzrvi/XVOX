@@ -41,6 +41,9 @@ val LocalXvoxDockProgress = staticCompositionLocalOf<() -> Float> { { 0f } }
 /** Last painted bounds (root coordinates) of the Mini Player card; Now Playing "Grow" reads it. */
 object XvoxMiniBounds {
     @Volatile var rect: Rect? = null
+    /** Mini Player cover slot, and Now Playing's cover slot (root coordinates): the Grow cover travels between them. */
+    @Volatile var artRect: Rect? = null
+    @Volatile var coverRect: Rect? = null
 }
 
 object XvoxDockGeometry {

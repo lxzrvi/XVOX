@@ -38,6 +38,10 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.layout.onGloballyPositioned
+import com.xvox.music.features.home.XvoxSongArtwork
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -862,11 +866,12 @@ fun XvoxNowPlaying(
                     onArtworkTap = { setMode(1) },
                     onSwipePalette = { base, adjacent, fraction -> applyPagerPalette(base, adjacent, fraction) },
                     onSettledPage = { settledIndex, settledSong -> commitSettledPreview(settledIndex, settledSong) },
-                    modifier = m,
+                    modifier = m.onGloballyPositioned { com.xvox.music.core.ui.miniplayer.XvoxMiniBounds.coverRect = it.boundsInRoot() },
                     pageSpacing = 0.dp,
                     artworkHorizontalInset = inset,
                     artworkCornerRadius = 0.dp,
                     applyDepth = false,
+                    inPlaceFade = isIos,
                     repeatMode = repeatMode
                 )
             }
@@ -1285,8 +1290,13 @@ fun XvoxNowPlaying(
                                 applyPagerPalette(base, adjacent, fraction)
                             },
                             onSettledPage = { settledIndex, settledSong -> commitSettledPreview(settledIndex, settledSong) },
-                            modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(horizontal = currentPadH),
+                            // Same footprint and rounding as the lyrics box; neighbours never leak out.
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = currentPadH)
+                                .onGloballyPositioned { com.xvox.music.core.ui.miniplayer.XvoxMiniBounds.coverRect = it.boundsInRoot() }
+                                .clip(RoundedCornerShape(currentCardRadius)),
+                            contentPadding = PaddingValues(0.dp),
                             // An opaque zero-gap deck hands the incoming cover directly to the
                             // outgoing one; the backdrop continues its own palette blend below.
                             pageSpacing = 0.dp,
@@ -1567,6 +1577,32 @@ fun XvoxNowPlaying(
                 guide = customizeAlignmentGuide,
                 modifier = Modifier.fillMaxSize().zIndex(40f)
             )
+        }
+
+        // Grow: the Mini Player's cover itself travels to Now Playing's cover slot (and back).
+        if (growActive && !isLandscape && slideFraction > .02f) {
+            val from = com.xvox.music.core.ui.miniplayer.XvoxMiniBounds.artRect
+            val to = com.xvox.music.core.ui.miniplayer.XvoxMiniBounds.coverRect
+            if (from != null && to != null) {
+                val e = (1f - slideFraction).coerceIn(0f, 1f)
+                fun mix(a: Float, b: Float) = a + (b - a) * e
+                val targetRadius = when (settingsState.nowPlayingLayout) { "ios" -> 0.dp; "material" -> 14.dp; else -> 20.dp }
+                val travelRadius = lerp(12.dp, targetRadius, e)
+                val growDensity = LocalDensity.current
+                Box(Modifier.fillMaxSize().zIndex(50f)) {
+                    XvoxSongArtwork(
+                        artwork = song.artworkUri,
+                        requestSize = 256,
+                        modifier = Modifier
+                            .offset { androidx.compose.ui.unit.IntOffset(mix(from.left, to.left).toInt(), mix(from.top, to.top).toInt()) }
+                            .size(
+                                with(growDensity) { mix(from.width, to.width).toDp() },
+                                with(growDensity) { mix(from.height, to.height).toDp() }
+                            )
+                            .clip(RoundedCornerShape(travelRadius))
+                    )
+                }
+            }
         }
 
         // Dedicated contextual Settings / Options Boxes on Long-Press of bottom buttons

@@ -784,6 +784,7 @@ fun XvoxMainShell(
                 available: androidx.compose.ui.geometry.Offset,
                 source: androidx.compose.ui.input.nestedscroll.NestedScrollSource
             ): androidx.compose.ui.geometry.Offset {
+                com.xvox.music.core.ui.blur.XvoxScrollActivity.mark()
                 if (source == androidx.compose.ui.input.nestedscroll.NestedScrollSource.UserInput) {
                     if (available.y < -6f) dockCompact = true else if (available.y > 6f) dockCompact = false
                 }
