@@ -38,6 +38,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -52,6 +53,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
@@ -774,6 +776,21 @@ fun XvoxMainShell(
     // The persistent Mini Player/navbar are siblings of this source. They therefore blur the
     // actual moving tab/header content beneath them instead of the static global wallpaper.
     val shellContentSky = rememberXvoxContentSky()
+    // Dock: scrolling content up docks the mini player between the navbar pieces; down restores.
+    var dockCompact by remember { mutableStateOf(false) }
+    val dockScrollConnection = remember {
+        object : androidx.compose.ui.input.nestedscroll.NestedScrollConnection {
+            override fun onPreScroll(
+                available: androidx.compose.ui.geometry.Offset,
+                source: androidx.compose.ui.input.nestedscroll.NestedScrollSource
+            ): androidx.compose.ui.geometry.Offset {
+                if (source == androidx.compose.ui.input.nestedscroll.NestedScrollSource.UserInput) {
+                    if (available.y < -6f) dockCompact = true else if (available.y > 6f) dockCompact = false
+                }
+                return androidx.compose.ui.geometry.Offset.Zero
+            }
+        }
+    }
     LaunchedEffect(homeHeaderScrollPx, searchHeaderScrollPx, destination) {
         // Cloudy captures scrolling source layers on demand. Route/scroll updates keep the chrome
         // honest without coupling the source to playback-progress recompositions.
@@ -877,7 +894,12 @@ fun XvoxMainShell(
         val tabState = rememberSaveableStateHolder()
         // This source holds only the true moving page and Header. Persistent chrome is painted
         // later as a sibling, so its blur cannot recursively sample itself.
-        Box(Modifier.fillMaxSize().xvoxBlurSource(shellContentSky)) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .nestedScroll(dockScrollConnection)
+                .xvoxBlurSource(shellContentSky)
+        ) {
             // Keep the shell inset stable through AnimatedContent so the outgoing page and Header
             // remain locked together during a route motion. Settings itself intentionally consumes
             // only the status-bar inset and therefore never reserves a duplicate Header.
@@ -993,6 +1015,16 @@ fun XvoxMainShell(
                 playerViewModel.prepareNowPlaying()
             }
         }
+        val dockTarget = dockCompact && miniVisible && !isLandscape &&
+            destination != XvoxDestination.SETTINGS && !player.nowPlayingVisible
+        val dockProgress = androidx.compose.animation.core.animateFloatAsState(
+            targetValue = if (dockTarget) 1f else 0f,
+            animationSpec = tween(420, easing = androidx.compose.animation.core.CubicBezierEasing(.2f, 0f, 0f, 1f)),
+            label = "navDock"
+        )
+        val dockVisible by remember { derivedStateOf { dockProgress.value > .01f } }
+        val barVisible by remember { derivedStateOf { dockProgress.value < .5f } }
+        LaunchedEffect(destination) { dockCompact = false }
         var landscapeQuickActionsVisible by remember(currentSongId) { mutableStateOf(false) }
         LaunchedEffect(miniVisible) {
             if (!miniVisible) landscapeQuickActionsVisible = false
@@ -1143,7 +1175,8 @@ fun XvoxMainShell(
                 // past the navbar exactly like the default (blur off) handoff.
                 aboveNavbar = com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle.current.let {
                     it.glassBlurEnabled && it.glassBlurIntensity > .001f
-                }
+                },
+                dock = { dockProgress.value }
             )
 
             Box(
@@ -1153,11 +1186,23 @@ fun XvoxMainShell(
                     .padding(bottom = XvoxMiniPlayerPlacement.navigationHostBottom)
                     .zIndex(10f)
             ) {
-                XvoxBottomBar(
-                    selected = destination,
-                    onSelected = ::selectNavigationDestination,
-                    onLongPressSettings = {}
-                )
+                if (barVisible) {
+                    XvoxBottomBar(
+                        selected = destination,
+                        onSelected = ::selectNavigationDestination,
+                        onLongPressSettings = {},
+                        modifier = Modifier.graphicsLayer { alpha = (1f - dockProgress.value * 2f).coerceIn(0f, 1f) }
+                    )
+                }
+            }
+            if (dockVisible) {
+                Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().zIndex(10f)) {
+                    com.xvox.music.core.ui.miniplayer.XvoxDockPieces(
+                        progress = { dockProgress.value },
+                        selected = destination,
+                        onSelected = ::selectNavigationDestination
+                    )
+                }
             }
             }
         }

@@ -81,7 +81,9 @@ fun XvoxMiniPlayerCard(
     // Keep the Mini Player entirely palette-derived.  The editor's transparency range maps to
     // this real alpha (rather than silently clamping it to a different-looking hard-coded tint).
     val miniAlpha = chrome.miniBgAlpha.coerceIn(0f, 1f)
-    val miniRadius = chrome.miniCornerRadius.coerceIn(6f, 32f).dp
+    val dockFraction = LocalXvoxDockProgress.current()
+    // Docked: the card takes the navbar's fully round (pill) language, cover included.
+    val miniRadius = androidx.compose.ui.unit.lerp(chrome.miniCornerRadius.coerceIn(6f, 32f).dp, 28.dp, dockFraction)
     val zones by remember(song.id) {
         com.xvox.music.player.playback.XvoxBlendMonitor.state.map {
             if (it.enabled && it.currentId == song.id) it.introZoneMs to it.tailZoneMs else 0L to 0L
@@ -90,7 +92,7 @@ fun XvoxMiniPlayerCard(
 
     val cardShape = RoundedCornerShape(miniRadius)
     // Artwork keeps its full 48dp footprint while following the card's corner language.
-    val artworkShape = RoundedCornerShape((chrome.miniCornerRadius - 4f).coerceIn(7f, 28f).dp)
+    val artworkShape = RoundedCornerShape(androidx.compose.ui.unit.lerp((chrome.miniCornerRadius - 4f).coerceIn(7f, 28f).dp, 24.dp, dockFraction))
     val miniCoverStyle = when (chrome.miniCoverStyle) {
         "full", "blur" -> chrome.miniCoverStyle
         else -> "default"

@@ -1,3 +1,4 @@
+// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/core/ui/miniplayer/XvoxPlayerTransitionMotion.kt
 package com.xvox.music.core.ui.miniplayer
 
 import androidx.compose.animation.core.AnimationSpec
@@ -27,6 +28,8 @@ object XvoxPlayerTransitionMotion {
 
     const val DefaultStyle = "default"
     const val ScaleStyle = "scale"
+    /** Now Playing grows out of (and shrinks back into) the Mini Player card itself. */
+    const val GrowStyle = "grow"
 
     /**
      * The Mini Player gets a modestly longer physical descent so it is visibly carried through
@@ -59,6 +62,7 @@ object XvoxPlayerTransitionMotion {
 
     /** Old Scale variants migrate to Scale; every other retired experimental variant becomes Default. */
     fun normalizedStyle(value: String): String = when {
+        value == GrowStyle -> GrowStyle
         value == ScaleStyle || value.startsWith("scale_") -> ScaleStyle
         else -> DefaultStyle
     }
@@ -90,6 +94,14 @@ object XvoxPlayerTransitionMotion {
      */
     fun layer(style: String, fraction: Float): XvoxPlayerTransitionLayer {
         val progress = fraction.coerceIn(0f, 1f)
+        if (normalizedStyle(style) == GrowStyle) {
+            // The card stays exactly in place and hands over to the growing player on the last frame.
+            return XvoxPlayerTransitionLayer(
+                alpha = if (progress >= .999f) 0f else 1f,
+                scaleX = 1f + .035f * progress,
+                scaleY = 1f + .035f * progress
+            )
+        }
         return if (normalizedStyle(style) == ScaleStyle) {
             XvoxPlayerTransitionLayer(
                 scaleX = 1f - .16f * progress,

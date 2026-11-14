@@ -175,7 +175,7 @@ private fun rememberGravityRotatedHighlight(
     }
 }
 
-private fun navigationIconRes(destination: XvoxDestination): Int = when (destination) {
+internal fun navigationIconRes(destination: XvoxDestination): Int = when (destination) {
     XvoxDestination.HOME -> R.drawable.ic_xvox_home
     XvoxDestination.SEARCH -> R.drawable.ic_xvox_search
     XvoxDestination.SETTINGS -> R.drawable.ic_xvox_settings

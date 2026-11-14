@@ -1,5 +1,5 @@
-// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/shell/XvoxShellMiniPlayerHost.kt
 @file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/shell/XvoxShellMiniPlayerHost.kt
 
 package com.xvox.music.shell
 
@@ -35,6 +35,8 @@ import androidx.compose.ui.unit.max
 import com.xvox.music.core.model.Song
 import com.xvox.music.core.ui.miniplayer.XvoxMiniPlayer
 import com.xvox.music.core.ui.miniplayer.XvoxMiniPlayerPlacement
+import com.xvox.music.core.ui.miniplayer.XvoxDockGeometry
+import androidx.compose.ui.layout.layout
 import com.xvox.music.player.playback.RepeatMode
 
 @Composable
@@ -62,7 +64,9 @@ fun BoxScope.XvoxShellMiniPlayerHost(
     onAddToPlaylist: () -> Unit = {},
     onOpenMiniPlayerSettings: () -> Unit = {},
     navigationBarHeight: Dp = 62.dp,
-    aboveNavbar: Boolean = false
+    aboveNavbar: Boolean = false,
+    /** 0..1: how far the card has travelled into the docked navbar lane (read per frame). */
+    dock: () -> Float = { 0f }
 ) {
     // Let the incoming Settings page become visible before the card descends, so the card reads
     // as part of that route handoff rather than disappearing before Settings has opened.
@@ -133,12 +137,32 @@ fun BoxScope.XvoxShellMiniPlayerHost(
 
             val miniModifier = Modifier
                 .navigationBarsPadding()
-                .padding(
-                    start = XvoxMiniPlayerPlacement.horizontalEdge,
-                    end = XvoxMiniPlayerPlacement.horizontalEdge,
-                    bottom = currentBottomPadding
-                )
+                .layout { measurable, constraints ->
+                    // Normal: full width above the navbar. Docked: narrower, between the Home
+                    // circle and the Search/Settings pill, centred on the navbar lane. All of it is
+                    // real layout, so hit-testing follows the card.
+                    val d = dock().coerceIn(0f, 1f)
+                    val edge = XvoxMiniPlayerPlacement.horizontalEdge.roundToPx()
+                    val dockStart = XvoxDockGeometry.miniStart.roundToPx()
+                    val dockEnd = XvoxDockGeometry.miniEndReserve.roundToPx()
+                    val normalW = constraints.maxWidth - 2 * edge
+                    val dockW = constraints.maxWidth - dockStart - dockEnd
+                    val w = (normalW + (dockW - normalW) * d).toInt().coerceAtLeast(0)
+                    val x = (edge + (dockStart - edge) * d).toInt()
+                    val rest = currentBottomPadding.roundToPx()
+                    val docked = XvoxDockGeometry.miniBottomPadding.roundToPx()
+                    val bottom = (rest + (docked - rest) * d).toInt()
+                    val placeable = measurable.measure(
+                        androidx.compose.ui.unit.Constraints(w, w, 0, constraints.maxHeight)
+                    )
+                    layout(constraints.maxWidth, placeable.height + bottom) {
+                        placeable.placeRelative(x, 0)
+                    }
+                }
 
+            androidx.compose.runtime.CompositionLocalProvider(
+                com.xvox.music.core.ui.miniplayer.LocalXvoxDockProgress provides dock
+            ) {
             XvoxMiniPlayer(
                 queue = queue,
                 currentSongId = currentSongId,
@@ -166,6 +190,7 @@ fun BoxScope.XvoxShellMiniPlayerHost(
                 keyboardOffsetY = if (imeIsActuallyOccluding) (-12).dp else 0.dp,
                 modifier = miniModifier
             )
+            }
         }
     }
 }

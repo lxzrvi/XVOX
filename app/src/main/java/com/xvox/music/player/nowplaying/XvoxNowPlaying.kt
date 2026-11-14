@@ -30,6 +30,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.pointer.pointerInput
@@ -619,7 +620,19 @@ fun XvoxNowPlaying(
         lyricsViewModel.load(song)
     }
 
-    BackHandler(enabled = entranceEnabled) {
+    // Predictive back: the player visibly shrinks under the finger and either closes or springs back.
+    var backProgress by remember { mutableFloatStateOf(0f) }
+    val predictiveBackActive = entranceEnabled && activeSettingsBox == null && currentMode == 0 && !dismissing && !isCustomizing
+    androidx.activity.compose.PredictiveBackHandler(enabled = predictiveBackActive) { events ->
+        try {
+            events.collect { backProgress = it.progress }
+            dismiss()
+            androidx.compose.animation.core.animate(backProgress, 0f, animationSpec = tween(300)) { v, _ -> backProgress = v }
+        } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+            androidx.compose.animation.core.animate(backProgress, 0f, animationSpec = tween(220)) { v, _ -> backProgress = v }
+        }
+    }
+    BackHandler(enabled = entranceEnabled && !predictiveBackActive) {
         when {
             activeSettingsBox != null -> {
                 // Customize is transactional: X/back drops the in-place draft without touching
@@ -641,7 +654,13 @@ fun XvoxNowPlaying(
     // Scale is endpoint-safe: Now Playing is an exact full-size surface when settled, then it
     // contracts toward the bottom Mini Player while its sheet physically travels downward.
     val handoffScale = XvoxPlayerTransitionMotion.nowPlayingScale(transitionStyle, slideFraction)
-    val cornerRadiusDp = if (isSlidingDown) (28.dp * slideFraction).coerceIn(0.dp, 28.dp) else 0.dp
+    val miniRectForGrow = com.xvox.music.core.ui.miniplayer.XvoxMiniBounds.rect
+    val growActive = transitionStyle == XvoxPlayerTransitionMotion.GrowStyle && miniRectForGrow != null &&
+        slideFraction < .999f
+    val cornerRadiusDp = maxOf(
+        if (isSlidingDown) (28.dp * slideFraction).coerceIn(0.dp, 28.dp) else 0.dp,
+        28.dp * backProgress
+    )
     val sheetCorner = RoundedCornerShape(
         topStart = cornerRadiusDp,
         topEnd = cornerRadiusDp,
@@ -735,15 +754,30 @@ fun XvoxNowPlaying(
                 } else Modifier
             )
             .graphicsLayer {
-                translationY = screenY
+                translationY = if (growActive) 0f else screenY
                 // Bottom anchoring makes the Scale close read as a true contraction into the
                 // Mini Player rather than a centered zoom. At rest this is exactly 1f.
                 transformOrigin = TransformOrigin(.5f, 1f)
-                scaleX = handoffScale
-                scaleY = handoffScale
+                val back = 1f - .1f * backProgress
+                scaleX = handoffScale * back
+                scaleY = handoffScale * back
             }
-            .clip(sheetCorner)
+            .clip(
+                if (growActive) XvoxGrowShape(miniRectForGrow!!, 1f - slideFraction, with(LocalDensity.current) { 22.dp.toPx() })
+                else sheetCorner
+            )
             .background(colors.background)
+            .drawWithContent {
+                val a = if (growActive) ((1f - slideFraction - .12f) / .4f).coerceIn(0f, 1f) else 1f
+                if (a >= .999f) drawContent() else {
+                    drawContext.canvas.saveLayer(
+                        androidx.compose.ui.geometry.Rect(0f, 0f, size.width, size.height),
+                        androidx.compose.ui.graphics.Paint().apply { alpha = a }
+                    )
+                    drawContent()
+                    drawContext.canvas.restore()
+                }
+            }
             .pointerInput(activeSettingsBox) {
                 // The full-screen customizer owns its long-press/drag gestures. Outside it, the
                 // player still consumes backdrop taps so no event can click through to Home.
@@ -1782,5 +1816,27 @@ private fun Modifier.xvoxSwipeDownToClose(
                 change.consume()
             }
         }
+    }
+}
+
+/** Reveal clip for the "Grow" handoff: a rounded rect that opens from the Mini Player card to the full screen. */
+private class XvoxGrowShape(
+    private val from: androidx.compose.ui.geometry.Rect,
+    private val e: Float,
+    private val startRadius: Float
+) : androidx.compose.ui.graphics.Shape {
+    override fun createOutline(
+        size: androidx.compose.ui.geometry.Size,
+        layoutDirection: androidx.compose.ui.unit.LayoutDirection,
+        density: androidx.compose.ui.unit.Density
+    ): androidx.compose.ui.graphics.Outline {
+        val t = e.coerceIn(0f, 1f)
+        fun l(a: Float, b: Float) = a + (b - a) * t
+        val r = androidx.compose.ui.geometry.CornerRadius(l(startRadius, 0f))
+        return androidx.compose.ui.graphics.Outline.Rounded(
+            androidx.compose.ui.geometry.RoundRect(
+                l(from.left, 0f), l(from.top, 0f), l(from.right, size.width), l(from.bottom, size.height), r
+            )
+        )
     }
 }

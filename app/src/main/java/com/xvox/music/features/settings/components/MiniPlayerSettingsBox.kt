@@ -1,3 +1,4 @@
+// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/features/settings/components/MiniPlayerSettingsBox.kt
 package com.xvox.music.features.settings.components
 
 import androidx.compose.foundation.layout.Arrangement
@@ -100,7 +101,8 @@ fun MiniPlayerSettingsBoxContent(
         SettingsChoiceRow(
             options = listOf(
                 XvoxPlayerTransitionMotion.DefaultStyle to "Default",
-                XvoxPlayerTransitionMotion.ScaleStyle to "Scale"
+                XvoxPlayerTransitionMotion.ScaleStyle to "Scale",
+                XvoxPlayerTransitionMotion.GrowStyle to "Grow"
             ),
             selected = selectedStyle,
             onSelect = { style ->

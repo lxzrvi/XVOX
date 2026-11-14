@@ -392,13 +392,14 @@ fun XvoxMiniPlayer(
                     // need the resting physical card bottom so `exitDistance` can clear it.
                     .onGloballyPositioned { coordinates ->
                         cardTopInRootPx = coordinates.boundsInRoot().top
+                        XvoxMiniBounds.rect = coordinates.boundsInRoot()
                     }
                     .graphicsLayer {
                         // The real vertical handoff remains the primary motion. Default and Scale
                         // only add a bounded visual layer, so the card always clears the viewport
                         // before Now Playing is allowed to take focus.
                         translationX = dragX + size.width * transitionLayer.xFraction
-                        translationY = y.value + dragY + size.height * transitionLayer.yFraction
+                        translationY = (if (transitionStyle == XvoxPlayerTransitionMotion.GrowStyle) 0f else y.value) + dragY + size.height * transitionLayer.yFraction
                         alpha = transitionLayer.alpha
                         // Scale contracts down into the physical bottom handoff, matching the
                         // full player's bottom-anchored close rather than a centered zoom.
