@@ -789,7 +789,7 @@ fun XvoxNowPlaying(
             )
         }
 
-        val altLayout = settingsState.nowPlayingLayout.let { (it == "ios" || it == "material") } && !isLandscape
+        val altLayout = settingsState.nowPlayingLayout.let { (it == "ios" || it == "material") }
         if (altLayout) {
             val isIos = settingsState.nowPlayingLayout == "ios"
             val altActions = remember(song, isLiked, isLyricsShowing) {
@@ -831,8 +831,8 @@ fun XvoxNowPlaying(
                     modifier = m,
                     pageSpacing = 0.dp,
                     artworkHorizontalInset = inset,
-                    artworkCornerRadius = if (isIos) 0.dp else 32.dp,
-                    applyDepth = !isIos,
+                    artworkCornerRadius = 0.dp,
+                    applyDepth = false,
                     repeatMode = repeatMode
                 )
             }
@@ -841,7 +841,7 @@ fun XvoxNowPlaying(
                     song = song, isPlaying = isPlaying, position = position, duration = duration,
                     isLiked = isLiked, isShuffleEnabled = isShuffleEnabled, repeatMode = repeatMode,
                     playingSource = playingSource, lyrics = lyricsState.lyrics, lyricsLoading = lyricsState.loading,
-                    lyricsOpen = isLyricsShowing, accent = colors.primaryAccent,
+                    lyricsOpen = isLyricsShowing, accent = colors.primaryAccent, landscape = isLandscape,
                     actions = altActions, artwork = altArtwork
                 )
             } else {
@@ -849,7 +849,8 @@ fun XvoxNowPlaying(
                     song = song, isPlaying = isPlaying, position = position, duration = duration,
                     isLiked = isLiked, isShuffleEnabled = isShuffleEnabled, repeatMode = repeatMode,
                     playingSource = playingSource, lyrics = lyricsState.lyrics, lyricsLoading = lyricsState.loading,
-                    lyricsOpen = isLyricsShowing, actions = altActions, artwork = altArtwork
+                    lyricsOpen = isLyricsShowing, tone = paletteState.color, landscape = isLandscape,
+                    actions = altActions, artwork = altArtwork
                 )
             }
         } else if (isLandscape) {

@@ -1,3 +1,4 @@
+// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/player/nowplaying/XvoxNowPlayingBackdrop.kt
 package com.xvox.music.player.nowplaying
 
 import android.net.Uri
@@ -26,7 +27,7 @@ import com.xvox.music.features.home.XvoxSongArtwork
 
 // A blurred full-screen backdrop never needs the original cover resolution. Keeping this bounded
 // avoids oversized bitmap decode/upload work while retaining a clean blur on large phones.
-private const val XvoxNowPlayingBackdropBlurSize = 512
+private const val XvoxNowPlayingBackdropBlurSize = 96
 
 /** One stable cover occurrence in the controlled Now Playing backdrop swipe pair. */
 data class XvoxBackdropCover(
