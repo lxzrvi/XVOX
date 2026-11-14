@@ -125,7 +125,9 @@ private fun fmtTime(ms: Long): String {
 
 // ───────────────────────────── shared building blocks ─────────────────────────────
 
-private fun Modifier.xvoxBounceOn(key: Any?): Modifier = if (key == null) this else androidx.compose.ui.composed {
+@Composable
+private fun Modifier.xvoxBounceOn(key: Any?): Modifier {
+    if (key == null) return this
     val scale = remember { androidx.compose.animation.core.Animatable(1f) }
     var first by remember { mutableStateOf(true) }
     LaunchedEffect(key) {
@@ -136,7 +138,7 @@ private fun Modifier.xvoxBounceOn(key: Any?): Modifier = if (key == null) this e
             scale.animateTo(1f, spring(dampingRatio = .48f, stiffness = Spring.StiffnessMedium))
         }
     }
-    this.graphicsLayer { scaleX = scale.value; scaleY = scale.value }
+    return this.graphicsLayer { scaleX = scale.value; scaleY = scale.value }
 }
 
 /** Icon button with a spring press-scale; optional long press (shuffle / repeat sheets). */
