@@ -113,6 +113,7 @@ fun XvoxNowPlayingArtworkPager(
     verticalPaging: Boolean = false,
     /** Applies the same portrait-like inset/depth treatment in either pager orientation. */
     applyDepth: Boolean = true,
+    inPlaceFade: Boolean = false,
     repeatMode: RepeatMode = RepeatMode.OFF
 ) {
     if (queue.isEmpty()) return
@@ -333,6 +334,7 @@ fun XvoxNowPlayingArtworkPager(
                 artworkHorizontalInset = artworkHorizontalInset,
                 artworkCornerRadius = artworkCornerRadius,
                 applyDepth = applyDepth,
+                inPlaceFade = inPlaceFade,
                 verticalPaging = verticalPaging,
                 onArtworkTap = { if (!pager.isScrollInProgress) tap() }
             )
@@ -356,6 +358,7 @@ fun XvoxNowPlayingArtworkPager(
                 artworkHorizontalInset = artworkHorizontalInset,
                 artworkCornerRadius = artworkCornerRadius,
                 applyDepth = applyDepth,
+                inPlaceFade = inPlaceFade,
                 verticalPaging = verticalPaging,
                 onArtworkTap = { if (!pager.isScrollInProgress) tap() }
             )
@@ -374,6 +377,7 @@ private fun XvoxNowPlayingArtworkPage(
     artworkHorizontalInset: Dp,
     artworkCornerRadius: Dp,
     applyDepth: Boolean,
+    inPlaceFade: Boolean,
     verticalPaging: Boolean,
     onArtworkTap: () -> Unit
 ) {
@@ -392,9 +396,14 @@ private fun XvoxNowPlayingArtworkPage(
                 val s = if (applyDepth) 1f - .06f * e else 1f
                 scaleX = s
                 scaleY = s
-                // Parallax: the cover drifts a touch slower than the slide.
+                // Parallax: the cover drifts a touch slower than the slide (or crossfades in place).
                 val extent = if (verticalPaging) size.height else size.width
-                if (verticalPaging) translationY = offset * extent * .08f else translationX = offset * extent * .08f
+                if (inPlaceFade) {
+                    if (verticalPaging) translationY = offset * extent else translationX = offset * extent
+                    alpha = 1f - e
+                } else {
+                    if (verticalPaging) translationY = offset * extent * .08f else translationX = offset * extent * .08f
+                }
             }
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },

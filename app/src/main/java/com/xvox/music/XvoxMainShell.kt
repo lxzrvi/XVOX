@@ -3,6 +3,8 @@
 
 package com.xvox.music
 
+import com.xvox.music.core.ui.miniplayer.XvoxDockPieces
+
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
@@ -1198,7 +1200,7 @@ fun XvoxMainShell(
             }
             if (dockVisible) {
                 Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().zIndex(10f)) {
-                    com.xvox.music.core.ui.miniplayer.XvoxDockPieces(
+                    XvoxDockPieces(
                         progress = { dockProgress.value },
                         selected = destination,
                         onSelected = ::selectNavigationDestination
