@@ -350,7 +350,8 @@ fun XvoxMiniPlayerCard(
                             lineHeight = 14.sp,
                             fontWeight = FontWeight.Bold,
                             maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.xvoxSharedMini("mini_title")
                         )
 
                         Text(
@@ -360,7 +361,8 @@ fun XvoxMiniPlayerCard(
                             lineHeight = 11.sp,
                             fontWeight = FontWeight.Normal,
                             maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.xvoxSharedMini("mini_artist")
                         )
                     }
                 }

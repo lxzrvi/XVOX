@@ -1,3 +1,4 @@
+// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/core/ui/miniplayer/XvoxMiniPlayerPlacement.kt
 package com.xvox.music.core.ui.miniplayer
 
 import androidx.compose.ui.unit.Dp
@@ -5,7 +6,7 @@ import androidx.compose.ui.unit.dp
 import com.xvox.music.core.ui.navigation.XvoxNavigationGeometry
 
 object XvoxMiniPlayerPlacement {
-    val horizontalEdge = 6.dp
+    val horizontalEdge = 12.dp
     /** Shared 7dp breathing room above either the Navbar or an open keyboard (adds 2dp below Mini Player). */
     val controlGap = 7.dp
     val navigationHostBottom = 6.dp

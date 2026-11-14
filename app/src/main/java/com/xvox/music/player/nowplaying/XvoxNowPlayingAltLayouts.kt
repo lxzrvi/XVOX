@@ -71,6 +71,7 @@ import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.draw.drawWithContent
@@ -83,6 +84,7 @@ import androidx.compose.ui.unit.sp
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
+import com.xvox.music.core.ui.miniplayer.xvoxShared
 import com.xvox.music.features.home.XvoxSongArtwork
 import com.xvox.music.player.nowplaying.lyrics.XvoxLyrics
 import com.xvox.music.player.playback.RepeatMode
@@ -111,6 +113,11 @@ class XvoxAltNpActions(
     val onLyricsSettings: () -> Unit
 )
 
+/** (modifier, horizontalInset, contentPadding, pageSpacing, corner, depth) -> the shared cover pager. */
+typealias XvoxAltArtwork = @Composable (Modifier, Dp, PaddingValues, Dp, Dp, Boolean) -> Unit
+
+private val NoPad = PaddingValues(0.dp)
+
 private fun fmtTime(ms: Long): String {
     val s = (ms / 1000).coerceAtLeast(0)
     return "%d:%02d".format(s / 60, s % 60)
@@ -130,6 +137,7 @@ private fun AltIconButton(
     background: Color = Color.Transparent,
     shape: androidx.compose.ui.graphics.Shape = CircleShape,
     onLongClick: (() -> Unit)? = null,
+    bounceKey: Any? = null,
     onClick: () -> Unit
 ) {
     val source = remember { MutableInteractionSource() }
@@ -143,6 +151,7 @@ private fun AltIconButton(
         modifier = Modifier
             .size(size)
             .then(modifier)
+            .xvoxBounceOn(bounceKey)
             .graphicsLayer { scaleX = scale; scaleY = scale }
             .clip(shape)
             .background(background)
@@ -258,7 +267,9 @@ private fun AltLyrics(
     activeColor: Color,
     idleColor: Color,
     contentPadding: PaddingValues,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onUserScroll: () -> Unit = {},
+    onReachedTop: () -> Unit = {}
 ) {
     val lines = lyrics?.lines.orEmpty()
     if (lines.isEmpty()) {
@@ -279,6 +290,12 @@ private fun AltLyrics(
     val list = rememberLazyListState()
     val dragged by list.interactionSource.collectIsDraggedAsState()
     var browsing by remember { mutableStateOf(false) }
+    var userMoved by remember { mutableStateOf(false) }
+    LaunchedEffect(dragged) { if (dragged) { userMoved = true; onUserScroll() } }
+    LaunchedEffect(list) {
+        androidx.compose.runtime.snapshotFlow { list.firstVisibleItemIndex == 0 && list.firstVisibleItemScrollOffset == 0 }
+            .collect { top -> if (top && userMoved) { userMoved = false; onReachedTop() } }
+    }
     LaunchedEffect(dragged) {
         if (dragged) browsing = true
         else if (browsing) {
@@ -353,6 +370,87 @@ private fun AltLyrics(
 
 private val IosEase = androidx.compose.animation.core.CubicBezierEasing(.2f, 0f, 0f, 1f)
 
+/** iOS context menu: translucent rounded card, icon + label rows; Shuffle / Repeat keep their long-press sheets. */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun IosMenu(
+    expanded: Boolean, onDismiss: () -> Unit, actions: XvoxAltNpActions,
+    isLiked: Boolean, isShuffleEnabled: Boolean, repeatMode: RepeatMode, accent: Color
+) {
+    androidx.compose.material3.DropdownMenu(
+        expanded = expanded,
+        onDismissRequest = onDismiss,
+        shape = RoundedCornerShape(22.dp),
+        containerColor = Color(0xF2262629),
+        tonalElevation = 0.dp,
+        shadowElevation = 18.dp
+    ) {
+        @Composable
+        fun row(icon: Int, label: String, tint: Color = Color.White, onLong: (() -> Unit)? = null, onClick: () -> Unit) {
+            Row(
+                Modifier
+                    .widthIn(min = 230.dp)
+                    .combinedClickable(onLongClick = onLong, onClick = { onDismiss(); onClick() })
+                    .padding(horizontal = 18.dp, vertical = 13.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(label, color = Color.White, fontSize = 17.sp, modifier = Modifier.weight(1f))
+                Icon(painterResource(icon), null, tint = tint, modifier = Modifier.size(22.dp))
+            }
+        }
+        row(if (isLiked) R.drawable.ic_xvox_heart else R.drawable.ic_xvox_heart_outline, if (isLiked) "Unlike" else "Like", if (isLiked) accent else Color.White, onClick = actions.onToggleLiked)
+        row(R.drawable.ic_xvox_shuffle, if (isShuffleEnabled) "Shuffle  ·  On" else "Shuffle  ·  Off", if (isShuffleEnabled) accent else Color.White, actions.onShuffleLong, actions.onShuffle)
+        row(if (repeatMode == RepeatMode.ONE) R.drawable.ic_xvox_repeat_one else R.drawable.ic_xvox_repeat,
+            "Repeat  ·  " + when (repeatMode) { RepeatMode.OFF -> "Off"; RepeatMode.ONE -> "One"; RepeatMode.ALL -> "All" },
+            if (repeatMode != RepeatMode.OFF) accent else Color.White, actions.onRepeatLong, actions.onRepeat)
+        row(R.drawable.ic_xvox_ios_lyrics, "Lyrics", onClick = actions.onOpenLyrics)
+        row(R.drawable.ic_xvox_ios_airplay, "Audio output", onClick = actions.onOutput)
+        row(R.drawable.ic_xvox_ios_list, "Queue", onClick = actions.onQueue)
+        row(R.drawable.ic_xvox_share, "Share", onClick = actions.onShare)
+        row(R.drawable.ic_xvox_more, "Layout & background", onClick = actions.onMore)
+    }
+}
+
+/**
+ * Colour-field backdrop built from the cover's palette (no stretched cover): a dominant base, a
+ * secondary and an accent colour derived from it, layered radial + linear gradients, soft light
+ * and shadow, and a tiny enlarged low-res copy of the artwork for natural variation. The colours
+ * animate when the song changes.
+ */
+@Composable
+private fun IosColorField(tone: Color, song: Song, modifier: Modifier = Modifier) {
+    fun hsv(c: Color, dh: Float, sMul: Float, sAdd: Float, v: Float): Color {
+        val a = FloatArray(3)
+        android.graphics.Color.colorToHSV(c.toArgb(), a)
+        a[0] = (a[0] + dh + 360f) % 360f
+        a[1] = (a[1] * sMul + sAdd).coerceIn(0f, 1f)
+        a[2] = v.coerceIn(0f, 1f)
+        return Color(android.graphics.Color.HSVToColor(a))
+    }
+    val spec = tween<Color>(900, easing = IosEase)
+    val dominant by androidx.compose.animation.animateColorAsState(hsv(tone, 0f, 1.05f, .04f, .42f), spec, label = "fDom")
+    val secondary by androidx.compose.animation.animateColorAsState(hsv(tone, -28f, 1.1f, .08f, .62f), spec, label = "fSec")
+    val accentC by androidx.compose.animation.animateColorAsState(hsv(tone, 34f, 1.15f, .12f, .74f), spec, label = "fAcc")
+    Box(modifier.fillMaxSize().background(dominant)) {
+        // Enlarged low-resolution artwork: gives the field the cover's real light/dark structure.
+        XvoxSongArtwork(
+            artwork = song.artworkUri,
+            requestSize = 48,
+            modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = 2.6f; scaleY = 2.6f; alpha = .38f }.blur(60.dp)
+        )
+        Box(
+            Modifier.fillMaxSize().drawBehind {
+                val w = size.width; val h = size.height
+                drawRect(Brush.radialGradient(listOf(secondary.copy(alpha = .85f), Color.Transparent), Offset(w * .18f, h * .22f), w * 1.05f))
+                drawRect(Brush.radialGradient(listOf(accentC.copy(alpha = .62f), Color.Transparent), Offset(w * .92f, h * .52f), w * .9f))
+                drawRect(Brush.radialGradient(listOf(dominant.copy(alpha = .9f), Color.Transparent), Offset(w * .3f, h * 1.02f), w * 1.1f))
+                // Dimensional light: soft highlight from the top, deep shadow toward the controls.
+                drawRect(Brush.verticalGradient(0f to Color.White.copy(alpha = .10f), .35f to Color.Transparent, .75f to Color.Black.copy(alpha = .16f), 1f to Color.Black.copy(alpha = .42f)))
+            }
+        )
+    }
+}
+
 /** Soft blurred copy of the cover, masked to fade out downward: the Apple "strip" under the status bar. */
 @Composable
 private fun IosBlurStrip(song: Song, height: Dp, modifier: Modifier = Modifier) {
@@ -383,7 +481,8 @@ private fun IosBlurStrip(song: Song, height: Dp, modifier: Modifier = Modifier) 
 private fun IosLyricsPage(
     song: Song, isPlaying: Boolean, position: Long, duration: Long,
     lyrics: XvoxLyrics?, lyricsLoading: Boolean,
-    actions: XvoxAltNpActions, showThumb: Boolean, modifier: Modifier = Modifier
+    actions: XvoxAltNpActions, showThumb: Boolean, modifier: Modifier = Modifier,
+    onReachedTop: () -> Unit = {}
 ) {
     val white = Color.White
     Box(modifier.fillMaxSize()) {
@@ -391,7 +490,8 @@ private fun IosLyricsPage(
             lyrics = lyrics, loading = lyricsLoading, position = position, onSeek = actions.onSeek,
             ios = true, followSynced = true, activeColor = white, idleColor = white,
             contentPadding = PaddingValues(start = 26.dp, end = 26.dp, top = 170.dp, bottom = 210.dp),
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier.fillMaxSize(),
+            onReachedTop = onReachedTop
         )
         Row(
             Modifier
@@ -424,9 +524,9 @@ private fun IosLyricsPage(
                 trackColor = white.copy(alpha = .26f), fillColor = white
             )
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
-                AltIconButton(R.drawable.ic_xvox_ios_rewind, white, 56.dp, iconSize = 30.dp, onClick = actions.onPrevious)
-                AltIconButton(if (isPlaying) R.drawable.ic_xvox_ios_pause else R.drawable.ic_xvox_ios_play, white, 64.dp, iconSize = 38.dp, onClick = actions.onTogglePlay)
-                AltIconButton(R.drawable.ic_xvox_ios_forward, white, 56.dp, iconSize = 30.dp, onClick = actions.onNext)
+                AltIconButton(R.drawable.ic_xvox_ios_rewind, white, 56.dp, iconSize = 30.dp, bounceKey = isPlaying, onClick = actions.onPrevious)
+                AltIconButton(if (isPlaying) R.drawable.ic_xvox_ios_pause else R.drawable.ic_xvox_ios_play, white, 64.dp, iconSize = 38.dp, bounceKey = isPlaying, onClick = actions.onTogglePlay)
+                AltIconButton(R.drawable.ic_xvox_ios_forward, white, 56.dp, iconSize = 30.dp, bounceKey = isPlaying, onClick = actions.onNext)
             }
         }
     }
@@ -436,16 +536,17 @@ private fun IosLyricsPage(
 private fun IosControls(
     song: Song, isPlaying: Boolean, position: Long, duration: Long, isLiked: Boolean,
     isShuffleEnabled: Boolean, repeatMode: RepeatMode, playingSource: String,
-    lyrics: XvoxLyrics?, accent: Color, actions: XvoxAltNpActions, modifier: Modifier = Modifier
+    lyrics: XvoxLyrics?, accent: Color, actions: XvoxAltNpActions, modifier: Modifier = Modifier,
+    lyricsActive: Boolean = false
 ) {
     val white = Color.White
     var menu by remember { mutableStateOf(false) }
     Column(modifier.padding(horizontal = 26.dp)) {
-        Spacer(Modifier.weight(.9f))
+        Spacer(Modifier.weight(.35f))
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text(song.title, color = white, fontSize = 24.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(song.artist, color = white.copy(alpha = .6f), fontSize = 21.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(song.title, color = white, fontSize = 24.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.xvoxShared("title"))
+                Text(song.artist, color = white.copy(alpha = .6f), fontSize = 21.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.xvoxShared("artist"))
             }
             AltIconButton(
                 if (isLiked) R.drawable.ic_xvox_heart else R.drawable.ic_xvox_heart_outline,
@@ -454,23 +555,13 @@ private fun IosControls(
             Spacer(Modifier.width(10.dp))
             Box {
                 AltIconButton(R.drawable.ic_xvox_ios_ellipsis, white, 40.dp, background = white.copy(alpha = .2f), onClick = { menu = true })
-                androidx.compose.material3.DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                    androidx.compose.material3.DropdownMenuItem(
-                        text = { Text(if (isShuffleEnabled) "Shuffle: on" else "Shuffle: off") },
-                        onClick = { menu = false; actions.onShuffle() }
-                    )
-                    androidx.compose.material3.DropdownMenuItem(
-                        text = { Text("Repeat: " + when (repeatMode) { RepeatMode.OFF -> "off"; RepeatMode.ONE -> "one"; RepeatMode.ALL -> "all" }) },
-                        onClick = { menu = false; actions.onRepeat() }
-                    )
-                    androidx.compose.material3.DropdownMenuItem(text = { Text("Shuffle method…") }, onClick = { menu = false; actions.onShuffleLong() })
-                    androidx.compose.material3.DropdownMenuItem(text = { Text("Repeat options…") }, onClick = { menu = false; actions.onRepeatLong() })
-                    androidx.compose.material3.DropdownMenuItem(text = { Text("Share") }, onClick = { menu = false; actions.onShare() })
-                    androidx.compose.material3.DropdownMenuItem(text = { Text("Layout & background") }, onClick = { menu = false; actions.onMore() })
-                }
+                IosMenu(
+                    expanded = menu, onDismiss = { menu = false }, actions = actions,
+                    isLiked = isLiked, isShuffleEnabled = isShuffleEnabled, repeatMode = repeatMode, accent = accent
+                )
             }
         }
-        Spacer(Modifier.weight(.7f))
+        Spacer(Modifier.weight(.3f))
         val current = lyrics?.lines?.let { ls ->
             if (lyrics.synchronized) ls.getOrNull(ls.indexOfLast { (it.timeMs ?: Long.MAX_VALUE) <= position })?.text
             else ls.firstOrNull { it.text.isNotBlank() }?.text
@@ -486,7 +577,7 @@ private fun IosControls(
             Spacer(Modifier.width(10.dp))
             Icon(painterResource(R.drawable.ic_xvox_caret_right), null, tint = white.copy(alpha = .6f), modifier = Modifier.size(18.dp))
         }
-        Spacer(Modifier.weight(.5f))
+        Spacer(Modifier.weight(.25f))
         AltSlider(
             fraction = if (duration > 0) position / duration.toFloat() else 0f,
             onCommit = { f -> actions.onSeek((f * duration).toLong()) },
@@ -496,13 +587,13 @@ private fun IosControls(
             Text(fmtTime(position), color = white.copy(alpha = .6f), fontSize = 14.sp)
             Text("-" + fmtTime((duration - position).coerceAtLeast(0)), color = white.copy(alpha = .6f), fontSize = 14.sp)
         }
-        Spacer(Modifier.weight(.8f))
+        Spacer(Modifier.weight(.4f))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
-            AltIconButton(R.drawable.ic_xvox_ios_rewind, white, 78.dp, iconSize = 40.dp, onClick = actions.onPrevious)
-            AltIconButton(if (isPlaying) R.drawable.ic_xvox_ios_pause else R.drawable.ic_xvox_ios_play, white, 88.dp, iconSize = 54.dp, onClick = actions.onTogglePlay)
-            AltIconButton(R.drawable.ic_xvox_ios_forward, white, 78.dp, iconSize = 40.dp, onClick = actions.onNext)
+            AltIconButton(R.drawable.ic_xvox_ios_rewind, white, 78.dp, iconSize = 40.dp, bounceKey = isPlaying, onClick = actions.onPrevious)
+            AltIconButton(if (isPlaying) R.drawable.ic_xvox_ios_pause else R.drawable.ic_xvox_ios_play, white, 88.dp, iconSize = 54.dp, bounceKey = isPlaying, onClick = actions.onTogglePlay)
+            AltIconButton(R.drawable.ic_xvox_ios_forward, white, 78.dp, iconSize = 40.dp, bounceKey = isPlaying, onClick = actions.onNext)
         }
-        Spacer(Modifier.weight(.8f))
+        Spacer(Modifier.weight(.4f))
         val (volume, setVolume) = rememberVolumeState()
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(painterResource(R.drawable.ic_xvox_volume_low), null, tint = white.copy(alpha = .7f), modifier = Modifier.size(20.dp))
@@ -513,14 +604,14 @@ private fun IosControls(
             )
             Icon(painterResource(R.drawable.ic_xvox_volume_high), null, tint = white.copy(alpha = .7f), modifier = Modifier.size(22.dp))
         }
-        Spacer(Modifier.weight(.5f))
+        Spacer(Modifier.weight(.25f))
         // Exactly the three iOS bottom actions: lyrics, output, queue.
-        Row(Modifier.fillMaxWidth().padding(horizontal = 18.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            AltIconButton(R.drawable.ic_xvox_ios_lyrics, white.copy(alpha = .85f), 52.dp, iconSize = 26.dp, onClick = actions.onOpenLyrics)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(46.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically) {
+            AltIconButton(R.drawable.ic_xvox_ios_lyrics, if (lyricsActive) accent else white.copy(alpha = .85f), 52.dp, iconSize = 26.dp, onClick = if (lyricsActive) actions.onCloseLyrics else actions.onOpenLyrics)
             AltIconButton(R.drawable.ic_xvox_ios_airplay, white.copy(alpha = .85f), 52.dp, iconSize = 26.dp, onClick = actions.onOutput)
             AltIconButton(R.drawable.ic_xvox_ios_list, white.copy(alpha = .85f), 52.dp, iconSize = 26.dp, onClick = actions.onQueue)
         }
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(22.dp))
     }
 }
 
@@ -533,25 +624,29 @@ private fun IosControls(
 fun XvoxNowPlayingIosLayout(
     song: Song, isPlaying: Boolean, position: Long, duration: Long, isLiked: Boolean,
     isShuffleEnabled: Boolean, repeatMode: RepeatMode, playingSource: String,
-    lyrics: XvoxLyrics?, lyricsLoading: Boolean, lyricsOpen: Boolean, accent: Color,
+    lyrics: XvoxLyrics?, lyricsLoading: Boolean, lyricsOpen: Boolean, accent: Color, tone: Color,
     landscape: Boolean, actions: XvoxAltNpActions,
-    artwork: @Composable (Modifier, Dp) -> Unit, modifier: Modifier = Modifier
+    artwork: XvoxAltArtwork, modifier: Modifier = Modifier
 ) {
     val white = Color.White
-    val p by animateFloatAsState(if (lyricsOpen) 1f else 0f, tween(520, easing = IosEase), label = "iosP")
+    // Apple-Music lyric stages: 0 = cover, 1 = lyrics replace the cover (controls stay),
+    // 2 = full-screen lyrics (reached by scrolling; scrolling back to the top returns to 1).
+    var expanded by remember { mutableStateOf(false) }
+    LaunchedEffect(lyricsOpen) { if (!lyricsOpen) expanded = false }
+    val full = lyricsOpen && expanded
+    val half = lyricsOpen && !expanded
+    val pSpec = spring<Float>(dampingRatio = .86f, stiffness = Spring.StiffnessLow)
+    val p by animateFloatAsState(if (full) 1f else 0f, pSpec, label = "iosP")
+    val q by animateFloatAsState(if (half) 1f else 0f, tween(420, easing = IosEase), label = "iosQ")
     BoxWithConstraints(modifier.fillMaxSize()) {
-        Box(
-            Modifier.fillMaxSize().background(
-                Brush.verticalGradient(0f to Color.Transparent, .45f to Color.Black.copy(alpha = .18f), 1f to Color.Black.copy(alpha = .46f))
-            )
-        )
+        IosColorField(tone, song)
         if (landscape) {
             Crossfade(targetState = lyricsOpen, animationSpec = tween(420), label = "iosLand") { showLyrics ->
                 if (showLyrics) {
                     IosLyricsPage(song, isPlaying, position, duration, lyrics, lyricsLoading, actions, showThumb = true)
                 } else {
                     Row(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(12.dp)) {
-                        Box(Modifier.fillMaxHeight().aspectRatio(1f).clip(RoundedCornerShape(18.dp))) { artwork(Modifier.fillMaxSize(), 0.dp) }
+                        Box(Modifier.fillMaxHeight().aspectRatio(1f).clip(RoundedCornerShape(18.dp))) { artwork(Modifier.fillMaxSize(), 0.dp, NoPad, 0.dp, 0.dp, false) }
                         IosControls(song, isPlaying, position, duration, isLiked, isShuffleEnabled, repeatMode, playingSource, lyrics, accent, actions, Modifier.weight(1f).fillMaxHeight())
                     }
                 }
@@ -569,7 +664,8 @@ fun XvoxNowPlayingIosLayout(
         if (p > .01f) {
             IosLyricsPage(
                 song, isPlaying, position, duration, lyrics, lyricsLoading, actions, showThumb = false,
-                modifier = Modifier.graphicsLayer { alpha = ((p - .25f) / .75f).coerceIn(0f, 1f); translationY = (1f - p) * 70.dp.toPx() }
+                modifier = Modifier.graphicsLayer { alpha = ((p - .25f) / .75f).coerceIn(0f, 1f); translationY = (1f - p) * 70.dp.toPx() },
+                onReachedTop = { expanded = false }
             )
         }
         // Player controls (drift down + fade while lyrics open).
@@ -577,11 +673,27 @@ fun XvoxNowPlayingIosLayout(
             IosControls(
                 song, isPlaying, position, duration, isLiked, isShuffleEnabled, repeatMode, playingSource, lyrics, accent, actions,
                 Modifier.fillMaxSize().navigationBarsPadding().padding(top = coverH0)
-                    .graphicsLayer { alpha = (1f - p * 1.8f).coerceIn(0f, 1f); translationY = p * 60.dp.toPx() }
+                    .graphicsLayer { alpha = (1f - p * 1.8f).coerceIn(0f, 1f); translationY = p * 60.dp.toPx() },
+                lyricsActive = lyricsOpen
             )
         }
         // Blurred cover strip under the shared cover (visible on the lyrics page).
         Box(Modifier.graphicsLayer { alpha = p }) { IosBlurStrip(song, stripH) }
+        // Stage 1: lyrics take the artwork's place; the controls below do not move.
+        if (q > .01f) {
+            Box(
+                Modifier.size(maxWidth, coverH0)
+                    .graphicsLayer { alpha = q; translationY = (1f - q) * 28.dp.toPx() }
+            ) {
+                AltLyrics(
+                    lyrics = lyrics, loading = lyricsLoading, position = position, onSeek = actions.onSeek,
+                    ios = true, followSynced = true, activeColor = white, idleColor = white,
+                    contentPadding = PaddingValues(start = 26.dp, end = 26.dp, top = statusTop + 56.dp, bottom = 36.dp),
+                    modifier = Modifier.fillMaxSize(),
+                    onUserScroll = { expanded = true }
+                )
+            }
+        }
         // Shared cover.
         val w = androidx.compose.ui.unit.lerp(maxWidth, 58.dp, p)
         val h = androidx.compose.ui.unit.lerp(coverH0, 58.dp, p)
@@ -592,6 +704,7 @@ fun XvoxNowPlayingIosLayout(
             Modifier
                 .absoluteOffset(x, y)
                 .size(w, h)
+                .graphicsLayer { alpha = 1f - q }
                 .clip(RoundedCornerShape(corner))
                 .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
                 .drawWithContent {
@@ -601,11 +714,11 @@ fun XvoxNowPlayingIosLayout(
                         blendMode = BlendMode.DstIn
                     )
                 }
-        ) { artwork(Modifier.fillMaxSize(), 0.dp) }
+        ) { artwork(Modifier.fillMaxSize(), 0.dp, NoPad, 0.dp, 0.dp, false) }
         // Blurred strip from the status bar down, over the cover (player page).
-        Box(Modifier.graphicsLayer { alpha = 1f - p }) { IosBlurStrip(song, stripH) }
+        Box(Modifier.graphicsLayer { alpha = (1f - p) * (1f - q) }) { IosBlurStrip(song, stripH) }
         // Header tap target to leave lyrics, over the small cover.
-        if (lyricsOpen) {
+        if (full) {
             Box(
                 Modifier.absoluteOffset(0.dp, 0.dp).fillMaxWidth().height(statusTop + 100.dp)
                     .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = actions.onCloseLyrics)
@@ -620,7 +733,7 @@ fun XvoxNowPlayingIosLayout(
             Box(Modifier.width(40.dp).height(5.dp).clip(CircleShape).background(white.copy(alpha = .8f)))
             Text(
                 "Playing from $playingSource", color = white, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.padding(top = 6.dp).graphicsLayer { alpha = 1f - p }
+                modifier = Modifier.padding(top = 6.dp).graphicsLayer { alpha = (1f - p) * (1f - q) }
             )
         }
     }
@@ -639,8 +752,8 @@ private fun MaterialControls(
         Spacer(Modifier.weight(.6f))
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text(song.title, color = onSurface, fontSize = 30.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(song.artist, color = onMuted, fontSize = 19.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(song.title, color = onSurface, fontSize = 30.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.xvoxShared("title"))
+                Text(song.artist, color = onMuted, fontSize = 19.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.xvoxShared("artist"))
             }
             AltIconButton(R.drawable.ic_xvox_lyrics, onAccent, 56.dp, background = accent, onClick = actions.onOpenLyrics)
         }
@@ -658,18 +771,18 @@ private fun MaterialControls(
         Spacer(Modifier.weight(.6f))
         val playRadius by animateDpAsState(if (isPlaying) 22.dp else 34.dp, spring(dampingRatio = .62f, stiffness = Spring.StiffnessMediumLow), label = "playMorph")
         Row(Modifier.fillMaxWidth().height(68.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            AltIconButton(R.drawable.ic_xvox_skip_previous, onSurface, 68.dp, Modifier.weight(1f).fillMaxHeight(), iconSize = 28.dp, shape = RoundedCornerShape(34.dp), background = accentSoft, onClick = actions.onPrevious)
-            AltIconButton(if (isPlaying) R.drawable.ic_xvox_pause else R.drawable.ic_xvox_play, onAccent, 68.dp, Modifier.weight(1.35f).fillMaxHeight(), iconSize = 32.dp, shape = RoundedCornerShape(playRadius), background = accent, onClick = actions.onTogglePlay)
-            AltIconButton(R.drawable.ic_xvox_skip_next, onSurface, 68.dp, Modifier.weight(1f).fillMaxHeight(), iconSize = 28.dp, shape = RoundedCornerShape(34.dp), background = accentSoft, onClick = actions.onNext)
+            AltIconButton(R.drawable.ic_xvox_skip_previous, onSurface, 68.dp, Modifier.weight(1f).fillMaxHeight(), iconSize = 28.dp, shape = RoundedCornerShape(34.dp), background = accentSoft, bounceKey = isPlaying, onClick = actions.onPrevious)
+            AltIconButton(if (isPlaying) R.drawable.ic_xvox_pause else R.drawable.ic_xvox_play, onAccent, 68.dp, Modifier.weight(1.35f).fillMaxHeight(), iconSize = 32.dp, shape = RoundedCornerShape(playRadius), background = accent, bounceKey = isPlaying, onClick = actions.onTogglePlay)
+            AltIconButton(R.drawable.ic_xvox_skip_next, onSurface, 68.dp, Modifier.weight(1f).fillMaxHeight(), iconSize = 28.dp, shape = RoundedCornerShape(34.dp), background = accentSoft, bounceKey = isPlaying, onClick = actions.onNext)
         }
         Spacer(Modifier.weight(.5f))
         Row(
             Modifier.align(Alignment.CenterHorizontally).fillMaxWidth(.9f).height(60.dp).clip(RoundedCornerShape(50)).background(container).padding(5.dp),
             horizontalArrangement = Arrangement.spacedBy(5.dp)
         ) {
-            TraySegment(R.drawable.ic_xvox_shuffle, isShuffleEnabled, onSurface, accent, onAccent, Modifier.weight(1f), actions.onShuffle, actions.onShuffleLong)
-            TraySegment(if (repeatMode == RepeatMode.ONE) R.drawable.ic_xvox_repeat_one else R.drawable.ic_xvox_repeat, repeatMode != RepeatMode.OFF, onSurface, accent, onAccent, Modifier.weight(1f), actions.onRepeat, actions.onRepeatLong)
-            TraySegment(if (isLiked) R.drawable.ic_xvox_heart else R.drawable.ic_xvox_heart_outline, isLiked, onSurface, accent, onAccent, Modifier.weight(1f), actions.onToggleLiked, null)
+            TraySegment(R.drawable.ic_xvox_shuffle, isShuffleEnabled, onSurface, accentSoft, accent, Modifier.weight(1f), actions.onShuffle, actions.onShuffleLong)
+            TraySegment(if (repeatMode == RepeatMode.ONE) R.drawable.ic_xvox_repeat_one else R.drawable.ic_xvox_repeat, repeatMode != RepeatMode.OFF, onSurface, accentSoft, accent, Modifier.weight(1f), actions.onRepeat, actions.onRepeatLong)
+            TraySegment(if (isLiked) R.drawable.ic_xvox_heart else R.drawable.ic_xvox_heart_outline, isLiked, onSurface, accentSoft, accent, Modifier.weight(1f), actions.onToggleLiked, null)
         }
         Spacer(Modifier.weight(.2f))
         Text(
@@ -690,7 +803,7 @@ private fun MaterialLyricsPage(
     Box(modifier.fillMaxSize()) {
         AltLyrics(
             lyrics = lyrics, loading = lyricsLoading, position = position, onSeek = actions.onSeek, ios = false,
-            followSynced = syncedMode, activeColor = accent, idleColor = onMuted,
+            followSynced = syncedMode, activeColor = onSurface, idleColor = onMuted,
             contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 120.dp, bottom = 250.dp), modifier = Modifier.fillMaxSize()
         )
         Row(
@@ -713,7 +826,7 @@ private fun MaterialLyricsPage(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                AltIconButton(if (isPlaying) R.drawable.ic_xvox_pause else R.drawable.ic_xvox_play, onAccent, 84.dp, iconSize = 36.dp, background = accent, onClick = actions.onTogglePlay)
+                AltIconButton(if (isPlaying) R.drawable.ic_xvox_pause else R.drawable.ic_xvox_play, onAccent, 84.dp, iconSize = 36.dp, background = accent, bounceKey = isPlaying, onClick = actions.onTogglePlay)
                 Spacer(Modifier.width(12.dp))
                 Box(Modifier.weight(1f).height(76.dp).clip(RoundedCornerShape(50)).background(container).padding(horizontal = 18.dp), contentAlignment = Alignment.Center) {
                     AltSlider(
@@ -726,8 +839,8 @@ private fun MaterialLyricsPage(
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
                 AltIconButton(R.drawable.ic_xvox_arrow_left, onSurface, 52.dp, background = accentSoft, onClick = actions.onCloseLyrics)
                 Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    SegmentChip("Synced", syncedMode, accent, onAccent, onSurface, accentSoft, Modifier.weight(1f)) { syncedMode = true }
-                    SegmentChip("Static", !syncedMode, accent, onAccent, onSurface, accentSoft, Modifier.weight(1f)) { syncedMode = false }
+                    SegmentChip("Synced", syncedMode, accentSoft.copy(alpha = 1f), onSurface, onSurface, container, Modifier.weight(1f)) { syncedMode = true }
+                    SegmentChip("Static", !syncedMode, accentSoft.copy(alpha = 1f), onSurface, onSurface, container, Modifier.weight(1f)) { syncedMode = false }
                 }
                 AltIconButton(R.drawable.ic_xvox_more, onSurface, 52.dp, background = accentSoft, onClick = actions.onLyricsSettings)
             }
@@ -745,17 +858,31 @@ fun XvoxNowPlayingMaterialLayout(
     isShuffleEnabled: Boolean, repeatMode: RepeatMode, playingSource: String,
     lyrics: XvoxLyrics?, lyricsLoading: Boolean, lyricsOpen: Boolean, tone: Color,
     landscape: Boolean, actions: XvoxAltNpActions,
-    artwork: @Composable (Modifier, Dp) -> Unit, modifier: Modifier = Modifier
+    artwork: XvoxAltArtwork, modifier: Modifier = Modifier
 ) {
     val colors = XvoxTheme.colors
-    val surface = androidx.compose.ui.graphics.lerp(colors.background, tone, if (colors.isLight) .22f else .34f)
-    val container = androidx.compose.ui.graphics.lerp(surface, tone, .22f)
+    val toneAnim by androidx.compose.animation.animateColorAsState(tone, tween(700, easing = IosEase), label = "matTone")
+    val surface = androidx.compose.ui.graphics.lerp(colors.background, toneAnim, if (colors.isLight) .22f else .34f)
+    val container = androidx.compose.ui.graphics.lerp(surface, toneAnim, .22f)
     val onSurface = colors.primaryText
     val onMuted = colors.mutedText
-    val accent = colors.primaryAccent
+    // Palette from the current cover: tone -> background/surfaces; ONE vivid accent for the few
+    // prominent controls (play, progress, lyrics button, active toggles). Everything else is tonal.
+    val vivid = remember(tone, colors.isLight) {
+        val a = FloatArray(3)
+        android.graphics.Color.colorToHSV(tone.toArgb(), a)
+        if (a[1] < .12f) null else {
+            a[1] = (a[1] * 1.1f + .25f).coerceIn(.45f, .9f)
+            a[2] = if (colors.isLight) .42f else .88f
+            Color(android.graphics.Color.HSVToColor(a))
+        }
+    }
+    val accentTarget = vivid ?: colors.primaryAccent
+    val accent by androidx.compose.animation.animateColorAsState(accentTarget, tween(700, easing = IosEase), label = "matAccent")
     val onAccent = if (accent.luminance() > .5f) Color.Black else Color.White
-    val accentSoft = androidx.compose.ui.graphics.lerp(surface, accent, .3f)
-    val p by animateFloatAsState(if (lyricsOpen) 1f else 0f, tween(520, easing = IosEase), label = "matP")
+    // Neutral tonal fill (tinted by the cover) for secondary buttons.
+    val accentSoft = androidx.compose.ui.graphics.lerp(surface, onSurface, .12f)
+    val p by animateFloatAsState(if (lyricsOpen) 1f else 0f, spring(dampingRatio = .88f, stiffness = Spring.StiffnessLow), label = "matP")
     BoxWithConstraints(modifier.fillMaxSize().background(surface)) {
         if (landscape) {
             Crossfade(targetState = lyricsOpen, animationSpec = tween(380), label = "matLand") { showLyrics ->
@@ -763,7 +890,7 @@ fun XvoxNowPlayingMaterialLayout(
                     MaterialLyricsPage(song, isPlaying, position, duration, lyrics, lyricsLoading, surface, container, onSurface, onMuted, accent, accentSoft, onAccent, actions, showThumb = true)
                 } else {
                     Row(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(14.dp), horizontalArrangement = Arrangement.spacedBy(18.dp)) {
-                        Box(Modifier.fillMaxHeight().aspectRatio(1f).clip(RoundedCornerShape(14.dp))) { artwork(Modifier.fillMaxSize(), 0.dp) }
+                        Box(Modifier.fillMaxHeight().aspectRatio(1f).clip(RoundedCornerShape(14.dp))) { artwork(Modifier.fillMaxSize(), 0.dp, NoPad, 0.dp, 0.dp, false) }
                         Column(Modifier.weight(1f).fillMaxHeight()) {
                             AltIconButton(R.drawable.ic_xvox_chevron_down, onSurface, 44.dp, background = accentSoft, onClick = actions.onClose)
                             MaterialControls(song, isPlaying, position, duration, isLiked, isShuffleEnabled, repeatMode, playingSource, onSurface, onMuted, container, accent, accentSoft, onAccent, actions, Modifier.weight(1f))
@@ -775,8 +902,8 @@ fun XvoxNowPlayingMaterialLayout(
         }
         val density = androidx.compose.ui.platform.LocalDensity.current
         val statusTop = with(density) { androidx.compose.foundation.layout.WindowInsets.statusBars.getTop(density).toDp() }
-        val size0 = minOf(maxWidth, maxHeight * .46f)
-        val x0 = (maxWidth - size0) / 2
+        // Square main cover, centred with equal gutters; the neighbours wait in the gaps either side.
+        val size0 = minOf(maxWidth - 56.dp, maxHeight * .46f)
         val y0 = statusTop + 72.dp
         // Lyrics page.
         Crossfade(targetState = lyricsOpen, animationSpec = tween(380), label = "matPages") { showLyrics ->
@@ -798,10 +925,17 @@ fun XvoxNowPlayingMaterialLayout(
         }
         // Shared cover: boxy + edge-to-edge on the player, round avatar in the lyrics header.
         val s = androidx.compose.ui.unit.lerp(size0, 54.dp, p)
-        val cx = androidx.compose.ui.unit.lerp(x0, 22.dp, p)
+        val vw = androidx.compose.ui.unit.lerp(maxWidth, 54.dp, p)
+        val cx = androidx.compose.ui.unit.lerp(0.dp, 22.dp, p)
         val cy = androidx.compose.ui.unit.lerp(y0, statusTop + 20.dp, p)
-        val corner = androidx.compose.ui.unit.lerp(14.dp, 27.dp, p)
-        Box(Modifier.absoluteOffset(cx, cy).size(s).clip(RoundedCornerShape(corner))) { artwork(Modifier.fillMaxSize(), 0.dp) }
+        val sidePad = androidx.compose.ui.unit.lerp((maxWidth - size0) / 2, 0.dp, p)
+        Box(Modifier.absoluteOffset(cx, cy).size(vw, s)) {
+            artwork(
+                Modifier.fillMaxSize(), .01.dp, PaddingValues(horizontal = sidePad),
+                androidx.compose.ui.unit.lerp(12.dp, 0.dp, p),
+                androidx.compose.ui.unit.lerp(22.dp, 27.dp, p), true
+            )
+        }
         if (lyricsOpen) {
             Box(Modifier.absoluteOffset(16.dp, statusTop + 14.dp).size(66.dp, 66.dp).clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = actions.onCloseLyrics))
         }
