@@ -114,38 +114,21 @@ fun XvoxAllSongMosaicCard(
         }
     }
 
-    Box(
-        modifier
-            .xvoxSongPress(onClick, onLongClick, pressedScale = 0.96f, hapticOnTap = false)
-            .xvoxLiveBlur(
-                shape = shape,
-                level = if (selected) XvoxBlurLevel.Selection else XvoxBlurLevel.Card,
-                baseColor = background,
-                sky = pageSky,
-                borderAlpha = .78f
-            )
-    ) {
-        when {
-            presentation == 1 -> {
-                Box(Modifier.fillMaxSize().padding(inset).clip(artShape)) {
-                    Cover(Modifier.fillMaxSize())
-                    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(
-                        listOf(Color.Transparent, Color.Transparent, Color.Black.copy(alpha = .82f)))))
-                    Labels(true, Modifier.align(Alignment.BottomStart).padding(8.dp))
-                }
-            }
-            presentation == 3 && widthUnits >= heightUnits * 1.5f -> {
-                Row(Modifier.fillMaxSize().padding(inset), verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(if (dense) 4.dp else 8.dp)) {
-                    Cover(Modifier.fillMaxHeight().aspectRatio(1f))
-                    Labels(modifier = Modifier.weight(1f).padding(end = 3.dp))
-                }
-            }
-            else -> Column(Modifier.fillMaxSize().padding(inset)) {
-                if (presentation == 2 && heightUnits >= 2) Labels(modifier = Modifier.padding(bottom = if (dense) 3.dp else 6.dp))
-                Cover(Modifier.weight(1f).fillMaxWidth())
-                if (!(presentation == 2 && heightUnits >= 2)) Labels(modifier = Modifier.padding(top = if (dense) 3.dp else 5.dp))
-            }
-        }
-    }
+    // Every mosaic tile is the same full-cover blended card; only its corners and size vary.
+    XvoxCoverBlendCard(
+        song = song,
+        shape = shape,
+        onClick = onClick,
+        onLongClick = onLongClick,
+        modifier = modifier,
+        current = current,
+        playing = playing,
+        selected = selected,
+        dense = dense,
+        requestSize = if (widthUnits == 1f && heightUnits == 1f) XvoxGridArtworkSize else XvoxRecentArtworkSize,
+        titleSp = if (widthUnits >= 2) 12f else if (dense) 8.5f else 10.5f,
+        artistSp = if (widthUnits >= 2) 9.5f else if (dense) 7f else 8.5f,
+        titleLines = if (heightUnits >= 2) 2 else 1,
+        pressedScale = 0.96f
+    )
 }

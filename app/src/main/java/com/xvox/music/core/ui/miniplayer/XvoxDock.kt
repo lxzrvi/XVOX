@@ -35,8 +35,8 @@ import com.xvox.music.core.ui.blur.LocalXvoxSurfaceSky
 import com.xvox.music.core.ui.blur.XvoxBlurLevel
 import com.xvox.music.core.ui.blur.xvoxLiveBlur
 import com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle
-import com.xvox.music.core.ui.navigation.XvoxDestination
-import com.xvox.music.core.ui.navigation.navigationIconRes
+import com.xvox.music.R
+import com.xvox.music.core.ui.navigation.XvoxNavCircle
 
 /** 0 = normal stacked mini player + navbar, 1 = docked: [Home] [mini player] [Search|Settings]. */
 val LocalXvoxDockProgress = staticCompositionLocalOf<() -> Float> { { 0f } }
@@ -59,7 +59,10 @@ object XvoxDockGeometry {
     val pillWidth = 124.dp
     /** Mini card start (from screen edge) and the room taken on the right, when docked. */
     val miniStart = edge + lane + gap
-    val miniEndReserve = gap + pillWidth + edge
+    val miniEndReserve = edge + lane + gap
+    /** Docked mini sits between the Home circle and the Search circle, both as tall as the navbar. */
+    fun miniStartFor(lane: androidx.compose.ui.unit.Dp) = edge + lane + gap
+    fun miniEndFor(lane: androidx.compose.ui.unit.Dp) = edge + lane + gap
     /** Card is 56dp tall; its centre must sit on the lane centre (laneBottom + lane/2). */
     val miniBottomPadding = laneBottom + lane / 2 - 28.dp
 
@@ -70,22 +73,17 @@ object XvoxDockGeometry {
         laneBottom + lane / 2 - 28.dp
 }
 
-/** The two navbar pieces that appear while docked: a Home circle and a Search/Settings pill. */
+/** The two navbar pieces that appear while docked: a Home circle (left) and a Search circle (right). */
 @Composable
 fun BoxScope.XvoxDockPieces(
     progress: () -> Float,
-    selected: XvoxDestination,
-    onSelected: (XvoxDestination) -> Unit,
+    homeSelected: Boolean,
+    searchSelected: Boolean,
+    onHome: () -> Unit,
+    onSearch: () -> Unit,
     laneHeight: androidx.compose.ui.unit.Dp = XvoxDockGeometry.lane,
     laneBottom: androidx.compose.ui.unit.Dp = XvoxDockGeometry.laneBottom
 ) {
-    val colors = XvoxTheme.colors
-    val chrome = LocalXvoxChromeStyle.current
-    val sky = LocalXvoxShellContentSky.current ?: LocalXvoxSurfaceSky.current
-    val glass = chrome.glassBlurEnabled && chrome.glassBlurIntensity > .001f
-    val base = colors.background.copy(alpha = if (glass) .55f else .96f)
-    val accent = colors.primaryAccent
-    val inactive = colors.mutedText
     Row(
         Modifier
             .align(Alignment.BottomCenter)
@@ -96,39 +94,19 @@ fun BoxScope.XvoxDockPieces(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.Bottom
     ) {
-        Box(
-            Modifier
-                .graphicsLayer { translationX = (1f - progress()) * 56.dp.toPx() }
-                .size(laneHeight)
-                .xvoxLiveBlur(CircleShape, XvoxBlurLevel.Bar, base, sky, glassEdge = true)
-                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { onSelected(XvoxDestination.HOME) },
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                painterResource(navigationIconRes(XvoxDestination.HOME)), null,
-                tint = if (selected == XvoxDestination.HOME) accent else inactive, modifier = Modifier.size(26.dp)
-            )
-        }
-        Row(
-            Modifier
-                .graphicsLayer { translationX = -(1f - progress()) * 56.dp.toPx() }
-                .width(XvoxDockGeometry.pillWidth)
-                .height(laneHeight)
-                .xvoxLiveBlur(RoundedCornerShape(laneHeight / 2), XvoxBlurLevel.Bar, base, sky, glassEdge = true),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            for (d in listOf(XvoxDestination.SEARCH, XvoxDestination.SETTINGS)) {
-                Box(
-                    Modifier.size(52.dp).clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { onSelected(d) },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        painterResource(navigationIconRes(d)), null,
-                        tint = if (selected == d) accent else inactive, modifier = Modifier.size(26.dp)
-                    )
-                }
-            }
-        }
+        XvoxNavCircle(
+            iconRes = R.drawable.ic_xvox_home,
+            selected = homeSelected,
+            size = laneHeight,
+            onClick = onHome,
+            modifier = Modifier.graphicsLayer { translationX = (1f - progress()) * 56.dp.toPx() }
+        )
+        XvoxNavCircle(
+            iconRes = R.drawable.ic_xvox_search,
+            selected = searchSelected,
+            size = laneHeight,
+            onClick = onSearch,
+            modifier = Modifier.graphicsLayer { translationX = -(1f - progress()) * 56.dp.toPx() }
+        )
     }
 }

@@ -95,9 +95,9 @@ object XvoxPlayerTransitionMotion {
     fun layer(style: String, fraction: Float): XvoxPlayerTransitionLayer {
         val progress = fraction.coerceIn(0f, 1f)
         if (normalizedStyle(style) == GrowStyle) {
-            // The card stays exactly in place and hands over to the growing player on the last frame.
+            // The card stays exactly where it is (underneath) while Now Playing grows out of it.
             return XvoxPlayerTransitionLayer(
-                alpha = if (progress >= .999f) 0f else 1f,
+                alpha = 1f,
                 scaleX = 1f + .035f * progress,
                 scaleY = 1f + .035f * progress
             )

@@ -27,7 +27,9 @@ enum class XvoxBoxPresentation {
     /** Profile sheet permits its avatar carousel to reach the sheet's horizontal edges. */
     PROFILE,
     /** Secondary/deeper choice presented as a centred dialog over its parent sheet. */
-    CENTERED
+    CENTERED,
+    /** Held-item menu: blurred page, the song lifts off it and its actions hang beneath (BitChord style). */
+    HELD
 }
 
 @Stable

@@ -1,8 +1,7 @@
-// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/features/home/allsongs/XvoxCoverBlendCard.kt
+// NAYI FILE BANAO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/features/home/allsongs/XvoxCoverBlendCard.kt
 package com.xvox.music.features.home.allsongs
 
 import androidx.compose.foundation.border
-import com.xvox.music.core.ui.blur.xvoxGlassRim
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -56,14 +55,16 @@ fun XvoxCoverBlendCard(
 ) {
     val colors = XvoxTheme.colors
     val accent = colors.primaryAccent
-    val accentBrush = Brush.verticalGradient(listOf(accent, accent.copy(alpha = .55f)))
+    val borderBrush = if (selected || current) {
+        Brush.verticalGradient(listOf(accent, accent.copy(alpha = .55f)))
+    } else {
+        Brush.verticalGradient(listOf(Color.White.copy(alpha = .62f), Color.White.copy(alpha = .14f)))
+    }
     Box(
         modifier
             .xvoxSongPress(onClick = onClick, onLongClick = onLongClick, pressedScale = pressedScale, hapticOnTap = false)
             .clip(shape)
-            .then(if (selected || current) Modifier.border(1.6.dp, accentBrush, shape) else Modifier)
-            // BitChord liquid-glass rim: 0.5dp hairline + directional highlight.
-            .xvoxGlassRim(shape)
+            .border(if (selected || current) 1.6.dp else .9.dp, borderBrush, shape)
     ) {
         XvoxGridArtwork(
             artwork = song.artworkUri,

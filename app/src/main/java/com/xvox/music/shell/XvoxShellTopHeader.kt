@@ -1,355 +1,189 @@
 // EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/shell/XvoxShellTopHeader.kt
 package com.xvox.music.shell
 
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.xvox.music.R
-import com.xvox.music.core.design.theme.XvoxPersonalFont
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.blur.LocalXvoxHeaderSky
+import com.xvox.music.core.ui.blur.LocalXvoxShellContentSky
 import com.xvox.music.core.ui.blur.LocalXvoxSurfaceSky
 import com.xvox.music.core.ui.blur.XvoxBlurLevel
-import com.xvox.music.core.ui.blur.rememberXvoxContentSky
-import com.xvox.music.core.ui.blur.xvoxBlurSource
 import com.xvox.music.core.ui.blur.xvoxLiveBlur
 import com.xvox.music.core.ui.effects.xvoxPressScale
-import com.xvox.music.core.ui.navigation.XvoxDestination
 import com.xvox.music.data.preferences.UserPreferences
-import com.xvox.music.features.home.HomeGreeting
 import com.xvox.music.features.home.HomeProfileAvatar
 import com.xvox.music.features.playlist.XvoxHomeLibraryMode
 
-private data class HeaderLibraryAction(
-    val mode: XvoxHomeLibraryMode,
-    val icon: Int,
-    val label: String,
-    val onClick: () -> Unit
-)
-
-/**
- * Kept outside the enclosing Header Row so Compose resolves the generic AnimatedVisibility,
- * rather than the RowScope-specific overload. The reserved slot avoids profile-text reflow while
- * Home controls move upward for Search.
- */
-@Composable
-private fun XvoxHeaderActionSlot(
-    visible: Boolean,
-    modifier: Modifier,
-    content: @Composable () -> Unit
-) {
-    // Begin false even when a newly composed Home Header requests controls. That lets the
-    // Search → Home reverse route animate the very same right cluster back down instead of
-    // popping it in with the replacement page.
-    val actionVisibility = remember { mutableStateOf(false) }
-    LaunchedEffect(visible) { actionVisibility.value = visible }
-    Box(modifier = modifier, contentAlignment = Alignment.CenterEnd) {
-        AnimatedVisibility(
-            visible = actionVisibility.value,
-            enter = slideInVertically(initialOffsetY = { -it }, animationSpec = tween(190)) + fadeIn(tween(140)),
-            exit = slideOutVertically(targetOffsetY = { -it }, animationSpec = tween(190)) + fadeOut(tween(125))
-        ) {
-            content()
-        }
-    }
-}
-
-/** Height of the profile/header controls below the system status-bar area. */
+/** Height of the (now empty) header slot below the status-bar area; pages keep their top offset. */
 val XvoxShellTopHeaderBodyHeight = 66.dp
 
 /**
- * Header artwork deliberately starts at screen y=0, behind the status bar.  Callers place this
- * composable as a real first item in their page list, so it moves, leaves, and returns only with
- * that page's own scroll rather than through a separately translated shell viewport.
+ * The header no longer paints anything: no background, no blur, no text. It is only the spacer that
+ * keeps every page's content starting below the floating controls ([XvoxShellFloatingControls]).
  */
 @Composable
-fun XvoxShellTopHeader(
-    profile: UserPreferences,
-    destination: XvoxDestination,
-    libraryMode: XvoxHomeLibraryMode,
-    onProfileClick: () -> Unit,
-    onRefreshClick: () -> Unit,
-    onLikedClick: () -> Unit,
-    onPlaylistClick: () -> Unit,
-    onArtistClick: () -> Unit = {},
-    onRecentClick: () -> Unit = {},
-    onAllSongsClick: () -> Unit = {},
-    /** Search keeps the visual/profile Header but deliberately has no Home action cluster. */
-    showHomeControls: Boolean = destination == XvoxDestination.HOME,
-    useSystemInsets: Boolean = true
-) {
-    val colors = XvoxTheme.colors
-    // Header dimness is still a persisted chrome preference; only the visible divider and
-    // refresh/library-pill outlines were intentionally removed.
-    val chrome = com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle.current
-    // Header controls are translucent palette materials, never white placeholders in light mode.
-    val controlSurface = colors.cardElevated.copy(
-        alpha = colors.cardElevated.alpha * if (colors.isLight) .72f else .64f
-    )
+fun XvoxShellTopHeader(useSystemInsets: Boolean = true) {
     val density = LocalDensity.current
     val statusBarHeight = with(density) {
         if (useSystemInsets) WindowInsets.statusBars.getTop(this).toDp() else 0.dp
     }
-    val headerHeight = statusBarHeight + XvoxShellTopHeaderBodyHeight
-    val libraryActions = listOf(
-        HeaderLibraryAction(XvoxHomeLibraryMode.ALL_SONGS, R.drawable.ic_xvox_music_note, "All Songs", onAllSongsClick),
-        HeaderLibraryAction(XvoxHomeLibraryMode.RECENT, R.drawable.ic_xvox_recent, "Recently Played", onRecentClick),
-        HeaderLibraryAction(XvoxHomeLibraryMode.LIKED, R.drawable.ic_xvox_heart, "Liked Songs", onLikedClick),
-        HeaderLibraryAction(XvoxHomeLibraryMode.PLAYLISTS, R.drawable.ic_xvox_playlist, "Playlists", onPlaylistClick),
-        HeaderLibraryAction(XvoxHomeLibraryMode.ARTISTS, R.drawable.ic_xvox_artist, "Artists", onArtistClick)
-    )
-    // Home library changes keep this Header stable. Search retains the profile/header surface but
-    // sends only Home's refresh/pill actions upward; Settings owns the complete-header exit.
-    // Profile editing publishes a transient presentation here, so the real Header previews image
-    // and dimness in the same frame without committing either preference until Okay.
-    val preview = com.xvox.music.core.ui.chrome.XvoxHeaderPreview.value
-    val visibleHeaderImage = preview?.imageUri ?: profile.headerImageUri
-    val dimEnabled = preview?.dimEnabled ?: chrome.headerDimEnabled
-    val dimAmount = preview?.dimAmount ?: chrome.headerDimAmount
-    // Header Brightness was removed from the profile sheet, so any stored dim is ignored.
-    val headerDimAlpha = if (false && dimEnabled) dimAmount.coerceIn(0f, 1f) else 0f
-    // Use a palette-owned dark tone rather than a hard-coded overlay colour.
-    val headerDimColor = if (colors.isLight) colors.primaryText else colors.background
-    val hasCustomHeader = !visibleHeaderImage.isNullOrBlank()
-    // The avatar and Header action pills must read this Header's own artwork/material—not the
-    // global wallpaper. The source below is a sibling of those controls, avoiding a self-capture.
-    val headerSky = rememberXvoxContentSky()
-    val headerAlpha = com.xvox.music.core.ui.chrome.XvoxHeaderAlphaPreview.value ?: chrome.headerBgAlpha
-    LaunchedEffect(visibleHeaderImage, headerDimAlpha, headerAlpha, colors.background, colors.isLight) {
-        headerSky.invalidate()
-    }
+    Spacer(Modifier.fillMaxWidth().height(statusBarHeight + XvoxShellTopHeaderBodyHeight))
+}
+
+private data class AlbumOption(val mode: XvoxHomeLibraryMode, val icon: Int, val label: String)
+
+/**
+ * Fixed floating controls (they do not scroll with the page): the profile button on the top right
+ * and, while the Album tab is open, the Recent / Liked / Playlists option pill on the top left.
+ * Only these buttons are live blurred; there is no header background.
+ */
+@Composable
+fun XvoxShellFloatingControls(
+    profile: UserPreferences,
+    libraryMode: XvoxHomeLibraryMode,
+    albumOptionsVisible: Boolean,
+    onRecentClick: () -> Unit,
+    onLikedClick: () -> Unit,
+    onPlaylistClick: () -> Unit,
+    onAlbumsClick: () -> Unit,
+    onOpenSettings: () -> Unit,
+    onEditProfile: () -> Unit,
+    onRefresh: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val colors = XvoxTheme.colors
+    val sky = LocalXvoxShellContentSky.current ?: LocalXvoxSurfaceSky.current
+    val surface = colors.cardElevated.copy(alpha = colors.cardElevated.alpha * if (colors.isLight) .72f else .64f)
+    var menuOpen by remember { mutableStateOf(false) }
 
     Box(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
-            .height(headerHeight)
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = { /* consume backdrop touch */ }
-            )
+            .windowInsetsPadding(WindowInsets.statusBars)
+            .padding(horizontal = 14.dp, vertical = 6.dp)
+            .height(54.dp)
     ) {
-        Box(
-            modifier = Modifier
-                .matchParentSize()
-                .xvoxBlurSource(headerSky)
-        ) {
-            if (hasCustomHeader) {
-                coil3.compose.AsyncImage(
-                    model = visibleHeaderImage,
-                    contentDescription = null,
-                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                    // A completed photo replaces the source pixels asynchronously.
-                    onSuccess = { headerSky.invalidate() },
-                    // Header Transparency applies to default AND custom (image/GIF) headers.
-                    modifier = Modifier.matchParentSize()
-                        .graphicsLayer { alpha = headerAlpha.coerceIn(0f, 1f) }
+        // ---- Album options (left) -------------------------------------------------------------
+        val optionsAlpha by animateFloatAsState(if (albumOptionsVisible) 1f else 0f, tween(220), label = "albumOptionsA")
+        if (optionsAlpha > .01f) {
+            val options = listOf(
+                AlbumOption(XvoxHomeLibraryMode.RECENT, R.drawable.ic_xvox_recent, "Recently Played"),
+                AlbumOption(XvoxHomeLibraryMode.LIKED, R.drawable.ic_xvox_heart, "Liked Songs"),
+                AlbumOption(XvoxHomeLibraryMode.PLAYLISTS, R.drawable.ic_xvox_playlist, "Playlists"),
+                AlbumOption(XvoxHomeLibraryMode.ALBUMS, R.drawable.ic_xvox_disc, "Albums")
+            )
+            val clicks = listOf(onRecentClick, onLikedClick, onPlaylistClick, onAlbumsClick)
+            val width = 6.dp + 40.dp * options.size.toFloat()
+            Box(
+                Modifier
+                    .align(Alignment.CenterStart)
+                    .graphicsLayer { alpha = optionsAlpha; translationY = -(1f - optionsAlpha) * 18.dp.toPx() }
+                    .height(42.dp)
+                    .width(width)
+                    .xvoxLiveBlur(
+                        shape = RoundedCornerShape(21.dp),
+                        level = XvoxBlurLevel.Chrome,
+                        baseColor = surface,
+                        sky = sky,
+                        borderAlpha = 0f,
+                        borderWidth = 0.dp,
+                        edgeInBlur = true
+                    )
+            ) {
+                val selected = options.indexOfFirst { it.mode == libraryMode }
+                val x by animateFloatAsState(
+                    if (selected >= 0) selected.toFloat() else 0f,
+                    spring(dampingRatio = .66f, stiffness = 430f), label = "albumOptionX"
                 )
-            } else {
-                // The Header itself retains its ordinary live backdrop using the real root source.
-                // Its avatar/action controls still read this captured Header layer, not the root.
+                val indicatorAlpha by animateFloatAsState(if (selected >= 0) 1f else 0f, tween(170), label = "albumOptionA")
+                val slot = with(LocalDensity.current) { 40.dp.roundToPx() }
                 Box(
                     Modifier
-                        .matchParentSize()
-                        .xvoxLiveBlur(
-                            shape = RectangleShape,
-                            level = XvoxBlurLevel.Chrome,
-                            baseColor = colors.background.copy(alpha = headerAlpha.coerceIn(0f, 1f)),
-                            sky = LocalXvoxSurfaceSky.current,
-                            borderAlpha = 0f,
-                            borderWidth = 0.dp
+                        .align(Alignment.CenterStart)
+                        .padding(start = 3.dp)
+                        .offset { IntOffset((x * slot).toInt(), 0) }
+                        .size(36.dp)
+                        .graphicsLayer { alpha = indicatorAlpha }
+                        .background(colors.primaryAccent.copy(alpha = .20f), CircleShape)
+                )
+                Row(Modifier.fillMaxWidth().height(42.dp).padding(horizontal = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                    options.forEachIndexed { i, option ->
+                        val current = option.mode == libraryMode
+                        val tint by animateColorAsState(
+                            if (current) colors.primaryAccent else colors.primaryText.copy(alpha = .70f),
+                            tween(220), label = "albumOptionTint"
                         )
-                )
-            }
-            // Apply the persisted-or-live-preview Header dim style to artwork and the default palette.
-            if (headerDimAlpha > .001f) {
-                Box(Modifier.matchParentSize().background(headerDimColor.copy(alpha = headerDimAlpha)))
-            }
-        }
-
-        CompositionLocalProvider(LocalXvoxHeaderSky provides headerSky) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .then(if (useSystemInsets) Modifier.windowInsetsPadding(WindowInsets.statusBars) else Modifier)
-                .padding(horizontal = 14.dp, vertical = 6.dp)
-                .height(54.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            HomeProfileAvatar(profile = profile, modifier = Modifier.size(42.dp), onClick = onProfileClick)
-            Spacer(Modifier.width(10.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = profile.username,
-                    color = colors.primaryAccent,
-                    fontFamily = XvoxPersonalFont,
-                    fontSize = 18.sp,
-                    lineHeight = 19.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                val lines = if (profile.showProfileLines) profile.profileLines else emptyList()
-                if (profile.showProfileLines) {
-                    if (lines.isEmpty()) {
-                        HomeGreeting(intervalMs = profile.greetingIntervalMs)
-                    } else {
-                        lines.take(2).forEach { line ->
-                            Text(
-                                text = line,
-                                color = colors.secondaryText,
-                                fontSize = 10.sp,
-                                lineHeight = 11.sp,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    }
-                }
-            }
-
-            // Search retains the Header/profile surface, while this reserved action slot sends
-            // Home-only controls upward and out of sight. Reserving the width stops username text
-            // from reflowing/flickering as a library pill changes or a Search route begins.
-            val actionShape = RoundedCornerShape(21.dp)
-            val actionPillWidth = 6.dp + 36.dp * libraryActions.size.toFloat()
-            XvoxHeaderActionSlot(
-                visible = showHomeControls,
-                modifier = Modifier.width(42.dp + 8.dp + actionPillWidth)
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(
-                            modifier = Modifier
-                                .size(42.dp)
-                                .xvoxLiveBlur(
-                                    shape = CircleShape,
-                                    level = XvoxBlurLevel.Chrome,
-                                    baseColor = controlSurface,
-                                    sky = headerSky,
-                                    borderAlpha = 0f,
-                                    borderWidth = 0.dp,
-                                    edgeInBlur = true
-                                )
-                                .xvoxPressScale(pressedScale = .90f, onClick = onRefreshClick),
+                            Modifier.size(width = 40.dp, height = 36.dp).clip(CircleShape)
+                                .xvoxPressScale(pressedScale = .86f, onClick = clicks[i]),
                             contentAlignment = Alignment.Center
                         ) {
-                            Icon(
-                                painter = painterResource(R.drawable.ic_xvox_refresh),
-                                contentDescription = "Refresh Library",
-                                tint = colors.primaryText,
-                                modifier = Modifier.size(19.dp)
-                            )
-                        }
-                        Spacer(Modifier.width(8.dp))
-
-                        Box(
-                            modifier = Modifier
-                                .height(42.dp)
-                                .width(actionPillWidth)
-                                .xvoxLiveBlur(
-                                    shape = actionShape,
-                                    level = XvoxBlurLevel.Chrome,
-                                    baseColor = controlSurface,
-                                    sky = headerSky,
-                                    borderAlpha = 0f,
-                                    borderWidth = 0.dp,
-                                    edgeInBlur = true
-                                )
-                        ) {
-                            // One accent capsule glides (spring, slight overshoot) to the chosen pill.
-                            val selectedPill = libraryActions.indexOfFirst { it.mode == libraryMode }
-                            val pillX = animateFloatAsState(
-                                targetValue = if (selectedPill >= 0) selectedPill.toFloat() else 0f,
-                                animationSpec = androidx.compose.animation.core.spring(dampingRatio = .66f, stiffness = 430f),
-                                label = "headerPillX"
-                            )
-                            val pillAlpha = animateFloatAsState(
-                                targetValue = if (selectedPill >= 0) 1f else 0f,
-                                animationSpec = tween(170),
-                                label = "headerPillAlpha"
-                            )
-                            Box(
-                                modifier = Modifier
-                                    .align(Alignment.CenterStart)
-                                    .padding(start = 3.dp)
-                                    .offset { androidx.compose.ui.unit.IntOffset((pillX.value * 36.dp.roundToPx()).toInt(), 0) }
-                                    .size(36.dp)
-                                    .graphicsLayer { alpha = pillAlpha.value }
-                                    .background(colors.primaryAccent.copy(alpha = .20f), CircleShape)
-                            )
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(42.dp)
-                                    .padding(horizontal = 3.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                libraryActions.forEach { action ->
-                                    val isCurrentLibrary = libraryMode == action.mode
-                                    // Active pill: slight zoom + accent tint (no vertical slide).
-                                    val iconZoom by animateFloatAsState(
-                                        targetValue = if (isCurrentLibrary) 1.2f else 1f,
-                                        animationSpec = androidx.compose.animation.core.spring(dampingRatio = .5f, stiffness = 520f),
-                                        label = "headerLibraryZoom_${action.mode}"
-                                    )
-                                    val iconTint by animateColorAsState(
-                                        targetValue = if (isCurrentLibrary) colors.primaryAccent else colors.primaryText.copy(alpha = .70f),
-                                        animationSpec = tween(240),
-                                        label = "headerLibraryTint_${action.mode}"
-                                    )
-                                    Box(
-                                        modifier = Modifier
-                                            .size(36.dp)
-                                            .clip(CircleShape)
-                                            .xvoxPressScale(pressedScale = .84f, onClick = action.onClick),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            painter = painterResource(action.icon),
-                                            contentDescription = action.label,
-                                            tint = iconTint,
-                                            modifier = Modifier
-                                                .graphicsLayer { scaleX = iconZoom; scaleY = iconZoom }
-                                                .size(if (action.mode == XvoxHomeLibraryMode.LIKED) 18.dp else 19.dp)
-                                        )
-                                    }
-                                }
-                            }
+                            Icon(painterResource(option.icon), option.label, tint = tint, modifier = Modifier.size(19.dp))
                         }
                     }
                 }
-
+            }
         }
+
+        // ---- Profile (right) --------------------------------------------------------------------
+        Box(Modifier.align(Alignment.CenterEnd)) {
+            CompositionLocalProvider(LocalXvoxHeaderSky provides sky) {
+                HomeProfileAvatar(profile = profile, modifier = Modifier.size(42.dp), onClick = { menuOpen = true })
+            }
+            DropdownMenu(
+                expanded = menuOpen,
+                onDismissRequest = { menuOpen = false },
+                shape = RoundedCornerShape(20.dp),
+                containerColor = colors.background.copy(alpha = if (colors.isLight) .96f else .94f)
+            ) {
+                @Composable
+                fun item(label: String, icon: Int, onClick: () -> Unit) {
+                    DropdownMenuItem(
+                        text = { Text(label, color = colors.primaryText) },
+                        leadingIcon = { Icon(painterResource(icon), null, tint = colors.primaryText.copy(alpha = .85f), modifier = Modifier.size(20.dp)) },
+                        onClick = { menuOpen = false; onClick() }
+                    )
+                }
+                item("Settings", R.drawable.ic_xvox_settings, onOpenSettings)
+                item("Edit profile", R.drawable.ic_xvox_artist, onEditProfile)
+                item("Refresh library", R.drawable.ic_xvox_refresh, onRefresh)
+            }
         }
     }
 }

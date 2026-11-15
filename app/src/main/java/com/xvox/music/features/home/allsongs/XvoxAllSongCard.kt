@@ -1,38 +1,14 @@
 // EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/features/home/allsongs/XvoxAllSongCard.kt
 package com.xvox.music.features.home.allsongs
 
-import com.xvox.music.core.ui.components.XvoxSelectionTick
-import com.xvox.music.core.ui.effects.xvoxSongPress
-import com.xvox.music.features.home.rememberSongCardColor
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
-import com.xvox.music.core.ui.blur.LocalXvoxSurfaceSky
-import com.xvox.music.core.ui.blur.XvoxBlurLevel
-import com.xvox.music.core.ui.blur.xvoxLiveBlur
-import com.xvox.music.features.home.XvoxGridArtwork
-import com.xvox.music.features.home.XvoxGridArtworkSize
 
-@OptIn(ExperimentalFoundationApi::class)
+/** Standard All Songs grid card: full cover with a soft blended lower half (see [XvoxCoverBlendCard]). */
 @Composable
 fun XvoxAllSongCard(
     song: Song,
@@ -42,76 +18,19 @@ fun XvoxAllSongCard(
     onLongClick: () -> Unit,
     modifier: Modifier = Modifier,
     selected: Boolean = false,
-    /** Five/six-column portrait cards need tighter inner artwork and smaller metadata. */
+    /** Five/six-column portrait cards need smaller metadata. */
     dense: Boolean = false
 ) {
-    val colors = XvoxTheme.colors
-    // Song cards sample the real root page backdrop—never a decorative tint or their own list.
-    val pageSky = LocalXvoxSurfaceSky.current
-    val cardColor = rememberSongCardColor(song, current, selected)
-    val cardShape = remember { RoundedCornerShape(11.dp) }
-    // A card with a real URI starts its exact-size load immediately. Coil's app-wide bounded
-    // decoder pool keeps this off the UI thread while preventing a default-cover flash during a drag.
-    // The cover sits inside a 3dp gutter. Subtract that inset so its visible curve runs parallel
-    // with the outer 11dp card border instead of looking more rounded than the card itself.
-    val artworkShape = remember { RoundedCornerShape(8.dp) }
-
-    Column(
-        modifier = modifier
-            .xvoxSongPress(onClick = onClick, onLongClick = onLongClick, pressedScale = 0.95f, hapticOnTap = false)
-            .xvoxLiveBlur(
-                shape = cardShape,
-                level = if (selected) XvoxBlurLevel.Selection else XvoxBlurLevel.Card,
-                baseColor = cardColor,
-                sky = pageSky,
-                borderAlpha = .78f
-            )
-            .padding(3.dp)
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .aspectRatio(1f)
-        ) {
-            XvoxGridArtwork(
-                artwork = song.artworkUri,
-                fallbackSeed = song.id.hashCode(),
-                requestSize = XvoxGridArtworkSize,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clip(artworkShape)
-            )
-            XvoxSelectionTick(selected, artworkShape)
-        }
-
-        // Keep title/artist clear of the outer rounded corners, especially on compact cards
-        // where glyphs formerly began directly in the 3dp frame gutter.
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .padding(horizontal = if (dense) 4.dp else 6.dp),
-            verticalArrangement = Arrangement.Center
-        ) {
-            Text(
-                text = song.title,
-                color = if (current) colors.primaryAccent else colors.primaryText,
-                fontSize = if (dense) 8.5.sp else 10.sp,
-                lineHeight = if (dense) 9.5.sp else 11.sp,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-
-            Text(
-                text = song.artist,
-                color = colors.secondaryText,
-                fontSize = if (dense) 7.sp else 8.sp,
-                lineHeight = if (dense) 8.sp else 9.sp,
-                fontWeight = FontWeight.Normal,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-    }
+    val shape = remember { RoundedCornerShape(14.dp) }
+    XvoxCoverBlendCard(
+        song = song,
+        shape = shape,
+        onClick = onClick,
+        onLongClick = onLongClick,
+        modifier = modifier,
+        current = current,
+        playing = playing,
+        selected = selected,
+        dense = dense
+    )
 }

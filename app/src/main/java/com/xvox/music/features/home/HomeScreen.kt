@@ -147,6 +147,24 @@ fun HomeScreen(
             .sortedBy { it.name.lowercase() }
     }
 
+    // Albums = device folders. Same grid component as Artists; opening one lists its songs in place.
+    val albums = remember(state.songs) {
+        state.songs
+            .groupBy { it.folderName.ifBlank { "Unknown album" } }
+            .map { (folder, songList) ->
+                XvoxArtist(
+                    name = folder,
+                    songs = songList,
+                    coverSong = songList.firstOrNull { it.artworkUri != null } ?: songList.firstOrNull(),
+                    customImageUri = null
+                )
+            }
+            .sortedBy { it.name.lowercase() }
+    }
+    var selectedAlbumName by rememberSaveable { mutableStateOf<String?>(null) }
+    val selectedAlbum = remember(selectedAlbumName, albums) {
+        selectedAlbumName?.let { name -> albums.firstOrNull { it.name == name } }
+    }
     var selectedArtistName by rememberSaveable { mutableStateOf<String?>(null) }
     val selectedArtist = remember(selectedArtistName, artists) {
         selectedArtistName?.let { name -> artists.firstOrNull { it.name.equals(name, ignoreCase = true) } }
@@ -233,14 +251,16 @@ fun HomeScreen(
     LaunchedEffect(detailExitKey) {
         if (detailExitKey > 0L) {
             selectedArtistName = null
+            selectedAlbumName = null
             setSelectedPlaylistId(null)
         }
     }
     val latestDetailModeChange by rememberUpdatedState(onActiveDetailModeChange)
-    LaunchedEffect(selectedArtistName, effectiveSelectedPlaylistId) {
+    LaunchedEffect(selectedArtistName, selectedAlbumName, effectiveSelectedPlaylistId) {
         latestDetailModeChange(
             when {
                 selectedArtistName != null -> XvoxHomeLibraryMode.ARTISTS
+                selectedAlbumName != null -> XvoxHomeLibraryMode.ALBUMS
                 effectiveSelectedPlaylistId != null -> XvoxHomeLibraryMode.PLAYLISTS
                 else -> null
             }
@@ -346,6 +366,10 @@ fun HomeScreen(
         selectedPlaylistIds = emptySet()
         selectionCategoryName = null
     }
+    LaunchedEffect(state.libraryMode) {
+        if (state.libraryMode != XvoxHomeLibraryMode.ALBUMS) selectedAlbumName = null
+    }
+    BackHandler(enabled = !isSelectionMode && selectedAlbum != null) { selectedAlbumName = null }
     BackHandler(enabled = !isSelectionMode && selectedArtist != null) { selectedArtistName = null }
     BackHandler(enabled = !isSelectionMode && selectedArtist == null && selectedPlaylist != null) { setSelectedPlaylistId(null) }
     BackHandler(enabled = !isSelectionMode && selectedArtist == null && selectedPlaylist == null && state.libraryMode != XvoxHomeLibraryMode.ALL_SONGS) {
@@ -615,6 +639,39 @@ fun HomeScreen(
         }
     }
 
+    fun androidx.compose.foundation.lazy.LazyListScope.albumsSection() {
+        val album = selectedAlbum
+        if (album != null) {
+            librarySongItems(
+                keyPrefix = "album_detail",
+                title = album.name,
+                songs = album.songs,
+                currentSongId = currentSongId,
+                playing = isPlaying,
+                selected = selectedSongIds,
+                onPlay = { handleSongClick(it, album.songs, album.name) },
+                onOptions = { if (isSelectionMode) handleSongLongClick(it, album.name) else openSingleSongOptions(it) },
+                avatarUri = null
+            )
+        } else {
+            item(key = "albums_grid") {
+                XvoxArtistGrid(
+                    artists = albums,
+                    columns = config.artistColumns,
+                    rows = config.artistRows,
+                    direction = config.artistDirection,
+                    gap = config.artistGap,
+                    hideText = config.artistHideText,
+                    onArtistClick = { selectedAlbumName = it.name },
+                    onArtistLongClick = { selectedAlbumName = it.name },
+                    selectedArtistNames = emptySet(),
+                    likedArtistNames = emptySet(),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                )
+            }
+        }
+    }
+
     fun androidx.compose.foundation.lazy.LazyListScope.likedSection() {
         librarySongItems(
             keyPrefix = "liked",
@@ -831,6 +888,7 @@ fun HomeScreen(
                     XvoxHomeLibraryMode.LIKED -> likedSection()
                     XvoxHomeLibraryMode.PLAYLISTS -> playlistsSection(standalone = true)
                     XvoxHomeLibraryMode.ARTISTS -> artistsSection(standalone = true)
+                    XvoxHomeLibraryMode.ALBUMS -> albumsSection()
                     XvoxHomeLibraryMode.RECENT -> recentSection()
                     XvoxHomeLibraryMode.SPLIT -> { }
                     XvoxHomeLibraryMode.ALL_SONGS -> {

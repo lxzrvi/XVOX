@@ -13,6 +13,8 @@ import androidx.compose.animation.core.EaseOut
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.RowScope
@@ -75,6 +77,8 @@ import com.xvox.music.core.ui.blur.InnerShadow
 import com.xvox.music.core.ui.blur.InteractiveHighlight
 import com.xvox.music.core.ui.blur.LocalXvoxShellContentSky
 import com.xvox.music.core.ui.blur.LocalXvoxSurfaceSky
+import com.xvox.music.core.ui.blur.XvoxBlurLevel
+import com.xvox.music.core.ui.blur.xvoxLiveBlur
 import com.xvox.music.core.ui.blur.innerShadow
 import com.xvox.music.core.ui.blur.lens
 import com.xvox.music.core.ui.blur.xvoxGlassEdge
@@ -181,13 +185,44 @@ internal fun navigationIconRes(destination: XvoxDestination): Int = when (destin
     XvoxDestination.SETTINGS -> R.drawable.ic_xvox_settings
 }
 
+internal fun navigationIconRes(tab: XvoxNavTab): Int = tab.icon
+
+/** Search circle of the navbar (also used by the docked lane): same glass as the bar. */
+@Composable
+fun XvoxNavCircle(
+    iconRes: Int,
+    selected: Boolean,
+    size: androidx.compose.ui.unit.Dp,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val colors = XvoxTheme.colors
+    val chrome = LocalXvoxChromeStyle.current
+    val sky = LocalXvoxShellContentSky.current ?: LocalXvoxSurfaceSky.current
+    val glass = chrome.glassBlurEnabled && chrome.glassBlurIntensity > .001f
+    val base = colors.background.copy(alpha = if (glass) .55f else .96f)
+    val tint by androidx.compose.animation.animateColorAsState(
+        if (selected) (parseHexColor(chrome.pillIconColor) ?: colors.primaryAccent) else colors.mutedText.copy(alpha = .9f),
+        androidx.compose.animation.core.tween(220), label = "navCircleTint"
+    )
+    Box(
+        modifier
+            .size(size)
+            .xvoxLiveBlur(CircleShape, XvoxBlurLevel.Bar, base, sky, glassEdge = true)
+            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Image(painterResource(iconRes), null, colorFilter = ColorFilter.tint(tint), modifier = Modifier.size(XvoxNavigationGeometry.iconSize))
+    }
+}
+
 /** Blur-off only: per-tab 0..1 proximity of the sliding pill (null in blur mode). */
 private val LocalLiquidAccent = androidx.compose.runtime.compositionLocalOf<Color?> { null }
 private val LocalLiquidTabEmphasis = androidx.compose.runtime.compositionLocalOf<((Int) -> Float)?> { null }
 
 @Composable
 private fun RowScope.LiquidTab(
-    destination: XvoxDestination,
+    destination: XvoxNavTab,
     index: Int,
     selected: Boolean,
     onClick: () -> Unit
@@ -238,8 +273,11 @@ private fun RowScope.LiquidTab(
 
 @Composable
 fun XvoxBottomBar(
-    selected: XvoxDestination,
-    onSelected: (XvoxDestination) -> Unit,
+    selected: XvoxNavTab,
+    onSelected: (XvoxNavTab) -> Unit,
+    /** Search circle to the right of the pill; null hides it. */
+    onSearch: (() -> Unit)? = null,
+    searchSelected: Boolean = false,
     /** Retained for call-site compatibility; the Bottom Bar owns press-and-drag selection. */
     @Suppress("UNUSED_PARAMETER") onLongPressSettings: () -> Unit = {},
     modifier: Modifier = Modifier
@@ -250,10 +288,11 @@ fun XvoxBottomBar(
     // Sits above the moving page: blur the live page (+ wallpaper underneath it).
     val contentSky = LocalXvoxShellContentSky.current ?: LocalXvoxSurfaceSky.current
     val navBarHeight = chrome.navigationBarHeight.coerceIn(52f, 88f).dp
-    val availableWidth = (LocalConfiguration.current.screenWidthDp.dp - 24.dp).coerceAtLeast(190.dp)
+    val searchExtra = if (onSearch != null) navBarHeight + 8.dp else 0.dp
+    val availableWidth = (LocalConfiguration.current.screenWidthDp.dp - 24.dp - searchExtra).coerceAtLeast(190.dp)
     val navBarWidth = chrome.navigationBarWidth.coerceIn(190f, 380f).dp.coerceAtMost(availableWidth)
     val pillHeight = (navBarHeight - 8.dp).coerceAtLeast(44.dp)
-    val destinations = XvoxDestination.entries
+    val destinations = XvoxNavTab.entries
     val selectedIndex = destinations.indexOf(selected)
 
     val navSurfaceAlpha = chrome.navBgAlpha.coerceIn(0f, 1f)
@@ -292,12 +331,21 @@ fun XvoxBottomBar(
                 x = chrome.navigationBarOffsetX.coerceIn(-220f, 220f).dp,
                 y = defaultPlacementY + chrome.navigationBarOffsetY.coerceIn(-260f, 260f).dp
             )
-            .width(navBarWidth)
+            .width(navBarWidth + searchExtra)
             .height(actualHostHeight)
     ) {
+        if (onSearch != null) {
+            XvoxNavCircle(
+                iconRes = R.drawable.ic_xvox_search,
+                selected = searchSelected,
+                size = navBarHeight,
+                onClick = onSearch,
+                modifier = Modifier.align(Alignment.TopEnd).offset(y = topOffset)
+            )
+        }
         LiquidBar(
             modifier = Modifier
-                .align(Alignment.TopCenter)
+                .align(Alignment.TopStart)
                 .offset(y = topOffset)
                 .size(navBarWidth, navBarHeight),
             selectedIndex = selectedIndex,
@@ -334,7 +382,7 @@ private fun LiquidBar(
     onTap: () -> Unit,
     onTick: () -> Unit,
     onSelect: (Int) -> Unit,
-    destinations: List<XvoxDestination>
+    destinations: List<XvoxNavTab>
 ) {
     val pillShape = remember { CircleShape }
     val tabsBackdrop = rememberLayerBackdrop()

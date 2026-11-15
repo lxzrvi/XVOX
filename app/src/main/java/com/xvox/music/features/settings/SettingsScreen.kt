@@ -974,6 +974,12 @@ private fun LibrarySectionCard(
     SettingsCardFrame(title = "Library", modifier = modifier) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             SettingsLandingActionRow(
+                title = "Refresh library",
+                subtitle = "Scan this device again for new, changed or removed songs",
+                onClick = { com.xvox.music.features.home.showLibraryRefresh(overlays, homeViewModel) }
+            )
+
+            SettingsLandingActionRow(
                 title = "Hide Folder",
                 subtitle = if (state.ignoredFolders.isEmpty()) {
                     "Choose folders to keep out of your library"

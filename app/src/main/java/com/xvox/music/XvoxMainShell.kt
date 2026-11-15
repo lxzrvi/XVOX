@@ -710,27 +710,49 @@ fun XvoxMainShell(
             com.xvox.music.features.playlist.XvoxHomeLibraryMode.LIKED -> "Liked songs : $pillLikedCount songs"
             com.xvox.music.features.playlist.XvoxHomeLibraryMode.PLAYLISTS -> "Playlists : ${homeState.playlists.size} playlists"
             com.xvox.music.features.playlist.XvoxHomeLibraryMode.ARTISTS -> "Artists : $pillArtistCount artists"
+            com.xvox.music.features.playlist.XvoxHomeLibraryMode.ALBUMS -> "Albums : ${homeState.songs.map { it.folderName }.distinct().size} albums"
         }
         overlays.showP(text)
     }
 
+    // Navbar tabs are derived from the page: Home = All songs, Artist = artists, Album = Recent / Liked / Playlists.
+    val libraryModeNow = homeState.libraryMode
+    val navTabForState: com.xvox.music.core.ui.navigation.XvoxNavTab? = when {
+        destination != XvoxDestination.HOME -> null
+        libraryModeNow == com.xvox.music.features.playlist.XvoxHomeLibraryMode.ARTISTS -> com.xvox.music.core.ui.navigation.XvoxNavTab.ARTIST
+        libraryModeNow == com.xvox.music.features.playlist.XvoxHomeLibraryMode.LIKED ||
+            libraryModeNow == com.xvox.music.features.playlist.XvoxHomeLibraryMode.RECENT ||
+            libraryModeNow == com.xvox.music.features.playlist.XvoxHomeLibraryMode.PLAYLISTS ||
+            libraryModeNow == com.xvox.music.features.playlist.XvoxHomeLibraryMode.ALBUMS -> com.xvox.music.core.ui.navigation.XvoxNavTab.ALBUM
+        else -> com.xvox.music.core.ui.navigation.XvoxNavTab.HOME
+    }
+    var lastNavTab by remember { mutableStateOf(com.xvox.music.core.ui.navigation.XvoxNavTab.HOME) }
+    var albumLastMode by remember { mutableStateOf(com.xvox.music.features.playlist.XvoxHomeLibraryMode.RECENT) }
+    LaunchedEffect(navTabForState) { navTabForState?.let { lastNavTab = it } }
+    LaunchedEffect(libraryModeNow) {
+        if (navTabForState == com.xvox.music.core.ui.navigation.XvoxNavTab.ALBUM) albumLastMode = libraryModeNow
+    }
+    val selectedNavTab = navTabForState ?: lastNavTab
+
+    // Tab taps never toggle back to All Songs (that is what the Home tab is for).
+    fun openLibraryTab(mode: com.xvox.music.features.playlist.XvoxHomeLibraryMode) {
+        val alreadyThere = destination == XvoxDestination.HOME && homeState.libraryMode == mode &&
+            activeHomeDetailMode == null && hoistedSelectedPlaylistId == null
+        if (!alreadyThere) openHomeLibrary(mode)
+    }
+
+    fun selectNavTab(tab: com.xvox.music.core.ui.navigation.XvoxNavTab) {
+        when (tab) {
+            com.xvox.music.core.ui.navigation.XvoxNavTab.HOME -> selectNavigationDestination(XvoxDestination.HOME)
+            com.xvox.music.core.ui.navigation.XvoxNavTab.ARTIST ->
+                openLibraryTab(com.xvox.music.features.playlist.XvoxHomeLibraryMode.ARTISTS)
+            com.xvox.music.core.ui.navigation.XvoxNavTab.ALBUM -> openLibraryTab(albumLastMode)
+        }
+    }
+
+    // The header is now only a spacer: the profile button and album options float above the pages.
     val sharedShellHeader: @Composable () -> Unit = {
-        XvoxShellTopHeader(
-            profile = homeState.profile,
-            destination = destination,
-            libraryMode = homeState.libraryMode,
-            onProfileClick = ::showProfileEditor,
-            onRefreshClick = ::showRefreshOverlay,
-            onLikedClick = ::openLikedFromNavigation,
-            onPlaylistClick = ::openPlaylistsFromNavigation,
-            onArtistClick = ::openArtistsFromHeader,
-            onRecentClick = ::openRecentFromHeader,
-            onAllSongsClick = ::openAllSongsFromHeader,
-            showHomeControls = destination == XvoxDestination.HOME &&
-                homeState.sourceMode == com.xvox.music.features.sourcemode.XvoxSourceMode.OFFLINE,
-            // The Header itself remains mounted for an instant, non-black Now Playing return.
-            useSystemInsets = true
-        )
+        XvoxShellTopHeader(useSystemInsets = true)
     }
 
     BackHandler(enabled = destination != XvoxDestination.HOME) {
@@ -1136,9 +1158,10 @@ fun XvoxMainShell(
                     contentAlignment = Alignment.Center
                 ) {
                     XvoxBottomBar(
-                        selected = destination,
-                        onSelected = ::selectNavigationDestination,
-                        onLongPressSettings = {}
+                        selected = selectedNavTab,
+                        onSelected = ::selectNavTab,
+                        onSearch = { selectNavigationDestination(XvoxDestination.SEARCH) },
+                        searchSelected = destination == XvoxDestination.SEARCH
                     )
                 }
             }
@@ -1198,9 +1221,10 @@ fun XvoxMainShell(
             ) {
                 if (barVisible) {
                     XvoxBottomBar(
-                        selected = destination,
-                        onSelected = ::selectNavigationDestination,
-                        onLongPressSettings = {},
+                        selected = selectedNavTab,
+                        onSelected = ::selectNavTab,
+                        onSearch = { selectNavigationDestination(XvoxDestination.SEARCH) },
+                        searchSelected = destination == XvoxDestination.SEARCH,
                         modifier = Modifier.graphicsLayer { alpha = (1f - dockProgress.value * 2f).coerceIn(0f, 1f) }
                     )
                 }
@@ -1209,13 +1233,34 @@ fun XvoxMainShell(
                 Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().zIndex(10f)) {
                     XvoxDockPieces(
                         progress = { dockProgress.value },
-                        selected = destination,
-                        onSelected = ::selectNavigationDestination,
+                        homeSelected = destination == XvoxDestination.HOME && selectedNavTab == com.xvox.music.core.ui.navigation.XvoxNavTab.HOME,
+                        searchSelected = destination == XvoxDestination.SEARCH,
+                        onHome = { selectNavigationDestination(XvoxDestination.HOME) },
+                        onSearch = { selectNavigationDestination(XvoxDestination.SEARCH) },
                         laneHeight = navigationBarHeight,
                         laneBottom = XvoxDockGeometry.laneBottomFor(chrome.navigationBarOffsetY)
                     )
                 }
             }
+            }
+        }
+
+        // Fixed floating controls: profile button (top right) and Album options (top left). No header background.
+        if (destination != XvoxDestination.SETTINGS) {
+            Box(Modifier.align(Alignment.TopCenter).zIndex(9f)) {
+                com.xvox.music.shell.XvoxShellFloatingControls(
+                    profile = homeState.profile,
+                    libraryMode = homeState.libraryMode,
+                    albumOptionsVisible = destination == XvoxDestination.HOME &&
+                        navTabForState == com.xvox.music.core.ui.navigation.XvoxNavTab.ALBUM,
+                    onRecentClick = { openLibraryTab(com.xvox.music.features.playlist.XvoxHomeLibraryMode.RECENT) },
+                    onLikedClick = { openLibraryTab(com.xvox.music.features.playlist.XvoxHomeLibraryMode.LIKED) },
+                    onPlaylistClick = { openLibraryTab(com.xvox.music.features.playlist.XvoxHomeLibraryMode.PLAYLISTS) },
+                    onAlbumsClick = { openLibraryTab(com.xvox.music.features.playlist.XvoxHomeLibraryMode.ALBUMS) },
+                    onOpenSettings = { selectNavigationDestination(XvoxDestination.SETTINGS) },
+                    onEditProfile = ::showProfileEditor,
+                    onRefresh = ::showRefreshOverlay
+                )
             }
         }
 

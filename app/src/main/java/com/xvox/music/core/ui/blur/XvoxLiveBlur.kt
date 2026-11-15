@@ -194,7 +194,7 @@ fun Modifier.xvoxLiveBlur(
 
     // --- Sheets: NEVER blurred. Normal theme material in every mode. ---------------------------
     if (level == XvoxBlurLevel.Sheet) {
-        return clip(shape).background(baseColor).xvoxPlainBorder(shape, borderColor, borderAlpha, borderWidth).xvoxGlassRim(shape, hairline = false)
+        return clip(shape).background(baseColor).xvoxPlainBorder(shape, borderColor, borderAlpha, borderWidth)
     }
     // --- Free area above a sheet: default = nothing (caller draws the faded theme scrim);
     //     blur mode = a LIGHT live blur of the page, small radius so it stays cheap and safe. ---
@@ -213,6 +213,11 @@ fun Modifier.xvoxLiveBlur(
     // Now Playing glass: HEAVY blur (x1.7), still capped by the device tier.
     val densityValue = androidx.compose.ui.platform.LocalDensity.current.density
     val blurDp = remember(level, tier, inNowPlaying, densityValue) {
+        // Bars / chrome sit over SCROLLING content: park their sigma at the top of the 1/4-downscale
+        // level (clear of every cross-fade band) so moving content stays smooth instead of shimmering.
+        if (!inNowPlaying && (level == XvoxBlurLevel.Bar || level == XvoxBlurLevel.Chrome)) {
+            xvoxStableBarBlurDp(densityValue)
+        } else
         xvoxBandSafeDp(
             (level.radius.value * BlurPerRadius * (if (level == XvoxBlurLevel.Card || level == XvoxBlurLevel.Selection) .95f else .7f) * (if (inNowPlaying) 1.15f else 1f)).coerceIn(1f, tier.maxBlurDp),
             densityValue
@@ -233,12 +238,11 @@ fun Modifier.xvoxLiveBlur(
     // Live blur stays on everything that floats over MOVING content (header, navbar, mini player,
     // search bar, lyrics pill, Now Playing bottom box, sheet scrim).
     val photoWallpaper = LocalXvoxPhotoWallpaper.current
-    // Capable devices (tier.liveCards) show a REAL live blur of whatever is behind each card.
-    val flatStatic = blurMode && !tier.liveCards && !photoWallpaper && surfaceSky != null && sky === surfaceSky &&
+    val flatStatic = blurMode && !photoWallpaper && surfaceSky != null && sky === surfaceSky &&
         (level == XvoxBlurLevel.Card || level == XvoxBlurLevel.Selection || level == XvoxBlurLevel.Chrome)
     val wallpaperGlass = LocalXvoxWallpaperGlass.current
     // Photo wallpaper: each surface paints its window of ONE pre-blurred copy (no per-card GPU pass).
-    val useWallpaperGlass = blurMode && !tier.liveCards && photoWallpaper && wallpaperGlass != null &&
+    val useWallpaperGlass = blurMode && photoWallpaper && wallpaperGlass != null &&
         surfaceSky != null && sky === surfaceSky && level != XvoxBlurLevel.Bar
     val flatNowPlaying = blurMode && inNowPlaying && level != XvoxBlurLevel.Bar
     val flatTint = remember(baseColor, level) {
@@ -377,9 +381,21 @@ fun xvoxBandSafeDp(dp: Float, density: Float): Float {
     return dp
 }
 
+/** sigma 17px (downscale level 1/4, outside the 1/8 cross-fade band that starts at 17.6). */
+fun xvoxStableBarBlurDp(density: Float): Float = 17f / .45f / density.coerceAtLeast(1f)
+
 /** Hairline used by every normal blurred element in blur mode: 0.5dp, light, never grey. */
 @Composable
-fun Modifier.xvoxThinEdge(shape: Shape): Modifier = xvoxGlassRim(shape)
+fun Modifier.xvoxThinEdge(shape: Shape): Modifier {
+    val colors = XvoxTheme.colors
+    val hi = Color.White.copy(alpha = if (colors.isLight) .85f else .34f)
+    val lo = Color.White.copy(alpha = if (colors.isLight) .35f else .10f)
+    return drawWithContent {
+        drawContent()
+        val brush = Brush.linearGradient(listOf(hi, lo, hi.copy(alpha = hi.alpha * .7f)), start = Offset.Zero, end = Offset(size.width, size.height))
+        drawPath(outlinePath(shape.createOutline(size, layoutDirection, this)), brush, style = Stroke(width = .5.dp.toPx() * 2f))
+    }
+}
 
 /**
  * Blur-mode border, shared by EVERY blurred element and styled like the liquid navbar edge:

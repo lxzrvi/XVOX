@@ -265,23 +265,8 @@ fun showSongOptionsOverlay(
 
     overlays.showBox(
         title = "Song Options",
-        // Playlist rows have contextual actions only; their Song Options must not expose the
-        // unrelated section gear. The pencil is always present: when no gear is contextual it
-        // occupies that same header slot, and when a gear exists it sits beside it at equal size.
-        onSettings = if (playlist == null) onSectionSettings?.let { act -> { act() } } else null,
-        onEdit = {
-            overlays.hideBox()
-            showSongFileEditOverlay(overlays, sourcedSong, viewModel)
-        },
-        presentation = XvoxBoxPresentation.SONG_OPTIONS,
-        // Long-press menus always expose an explicit, theme-consistent close footer. Actions may
-        // still execute immediately; Cancel/Okay simply leave an untouched menu predictably.
-        bottomAction = {
-            XvoxTransactionalFooterActions(
-                onCancel = overlays::hideBox,
-                onOkay = overlays::hideBox
-            )
-        }
+        // Held-item menu: the song lifts off the blurred page and its actions hang beneath it.
+        presentation = XvoxBoxPresentation.HELD
     ) {
         SongOptionsBox(
             song = sourcedSong,
@@ -315,6 +300,12 @@ fun showSongOptionsOverlay(
                 showPlaylistPickerOverlay(overlays, viewModel, sourcedSong, playlists, songs)
             },
             playlistName = playlist?.name,
+            sectionSettingsLabel = sectionSettingsLabel,
+            onSectionSettings = if (playlist == null) onSectionSettings?.let { act -> { overlays.hideBox(); act() } } else null,
+            onEdit = {
+                overlays.hideBox()
+                showSongFileEditOverlay(overlays, sourcedSong, viewModel)
+            },
             onRemovePlaylist = playlist?.let { activePlaylist ->
                 {
                     viewModel.removeFromPlaylist(activePlaylist.id, sourcedSong) { updated ->

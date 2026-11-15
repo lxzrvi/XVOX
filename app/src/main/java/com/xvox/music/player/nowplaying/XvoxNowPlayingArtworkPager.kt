@@ -402,7 +402,7 @@ private fun XvoxNowPlayingArtworkPage(
                     if (verticalPaging) translationY = offset * extent else translationX = offset * extent
                     alpha = 1f - e
                 } else {
-                    if (verticalPaging) translationY = offset * extent * .08f else translationX = offset * extent * .08f
+                    if (verticalPaging) translationY = offset * (1f - a) * extent * .16f else translationX = offset * (1f - a) * extent * .16f
                 }
             }
             .clickable(

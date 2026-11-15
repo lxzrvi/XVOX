@@ -228,6 +228,16 @@ fun XvoxSheet(
     liveScrim: Boolean = false,
     content: @Composable () -> Unit
 ) {
+    if (presentation == XvoxBoxPresentation.HELD) {
+        XvoxHeldMenuHost(
+            onDismiss = onDismiss,
+            modifier = modifier,
+            closeSignal = closeSignal,
+            liveScrim = liveScrim,
+            content = content
+        )
+        return
+    }
     if (presentation == XvoxBoxPresentation.CENTERED) {
         XvoxCenteredBox(
             onDismiss = onDismiss,

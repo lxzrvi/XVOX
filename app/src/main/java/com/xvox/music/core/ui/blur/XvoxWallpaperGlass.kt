@@ -142,13 +142,22 @@ private data class WallpaperGlassElement(val image: ImageBitmap, val tint: Color
 private class WallpaperGlassNode(var image: ImageBitmap, var tint: Color) :
     Modifier.Node(), DrawModifierNode, GlobalPositionAwareModifierNode {
     private var coords: LayoutCoordinates? = null
+    private var paintedX = 0f
+    private var paintedY = 0f
 
     override fun onGloballyPositioned(coordinates: LayoutCoordinates) {
         coords = coordinates
         // Fires whenever the surface moves on screen. While the user scrolls, repainting every
         // card each frame is what janks the UI thread: skip it, and realign once at idle
         // (draw() reads XvoxScrollActivity.idleTick).
-        if (!XvoxScrollActivity.scrolling) invalidateDraw()
+        if (!XvoxScrollActivity.scrolling) {
+            invalidateDraw()
+        } else {
+            // The glass is a heavily blurred gradient, so repainting every ~28px keeps it visibly
+            // live while scrolling at a fraction of the cost of a repaint per frame.
+            val now = coordinates.positionInRoot()
+            if (kotlin.math.abs(now.x - paintedX) >= 28f || kotlin.math.abs(now.y - paintedY) >= 28f) invalidateDraw()
+        }
     }
 
     override fun ContentDrawScope.draw() {
@@ -156,6 +165,8 @@ private class WallpaperGlassNode(var image: ImageBitmap, var tint: Color) :
         val c = coords
         if (c != null && c.isAttached) {
             val pos = c.positionInRoot()
+            paintedX = pos.x
+            paintedY = pos.y
             val root = c.findRootCoordinates().size
             val rw = root.width.toFloat()
             val rh = root.height.toFloat()

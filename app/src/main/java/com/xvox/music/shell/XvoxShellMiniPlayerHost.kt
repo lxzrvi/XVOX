@@ -145,8 +145,8 @@ fun BoxScope.XvoxShellMiniPlayerHost(
                     // real layout, so hit-testing follows the card.
                     val d = dock().coerceIn(0f, 1f)
                     val edge = XvoxMiniPlayerPlacement.horizontalEdge.roundToPx()
-                    val dockStart = XvoxDockGeometry.miniStart.roundToPx()
-                    val dockEnd = XvoxDockGeometry.miniEndReserve.roundToPx()
+                    val dockStart = XvoxDockGeometry.miniStartFor(dockLane).roundToPx()
+                    val dockEnd = XvoxDockGeometry.miniEndFor(dockLane).roundToPx()
                     val normalW = constraints.maxWidth - 2 * edge
                     val dockW = constraints.maxWidth - dockStart - dockEnd
                     val w = (normalW + (dockW - normalW) * d).toInt().coerceAtLeast(0)

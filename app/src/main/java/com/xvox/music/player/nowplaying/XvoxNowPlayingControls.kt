@@ -133,7 +133,8 @@ fun XvoxNowPlayingControls(
             contentDescription = "Previous track preview",
             onStep = onPreviewPrevious,
             onCommit = onCommitPreview,
-            onCancel = onCancelPreview
+            onCancel = onCancelPreview,
+            bounceKey = isPlaying
         )
     }
 
@@ -147,7 +148,8 @@ fun XvoxNowPlayingControls(
             contentDescription = "Next track preview",
             onStep = onPreviewNext,
             onCommit = onCommitPreview,
-            onCancel = onCancelPreview
+            onCancel = onCancelPreview,
+            bounceKey = isPlaying
         )
     }
 
@@ -291,7 +293,8 @@ private fun PreviewNavigationControl(
     contentDescription: String,
     onStep: () -> Boolean,
     onCommit: () -> Unit,
-    onCancel: () -> Unit
+    onCancel: () -> Unit,
+    bounceKey: Any? = null
 ) {
     val scope = rememberCoroutineScope()
     val haptics = LocalXvoxHaptics.current
@@ -302,6 +305,7 @@ private fun PreviewNavigationControl(
 
     Box(
         modifier = Modifier
+            .xvoxBounceOn(bounceKey)
             .size(42.dp)
             // The key deliberately stays stable while a held button walks across the queue.
             .pointerInput(Unit) {
@@ -367,6 +371,7 @@ private fun PlayControl(
 
     Box(
         modifier = Modifier
+            .xvoxBounceOn(isPlaying, dip = .86f)
             .size(56.dp)
             .xvoxLiveBlur(
                 shape = CircleShape,
