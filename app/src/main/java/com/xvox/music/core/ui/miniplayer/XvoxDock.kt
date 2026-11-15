@@ -78,6 +78,8 @@ object XvoxDockGeometry {
 fun BoxScope.XvoxDockPieces(
     progress: () -> Float,
     homeSelected: Boolean,
+    /** Icon of the tab the user is on (Home, Artist, Album, Playlist) - shown at the left. */
+    leftIconRes: Int = R.drawable.ic_xvox_home,
     searchSelected: Boolean,
     onHome: () -> Unit,
     onSearch: () -> Unit,
@@ -95,7 +97,7 @@ fun BoxScope.XvoxDockPieces(
         verticalAlignment = Alignment.Bottom
     ) {
         XvoxNavCircle(
-            iconRes = R.drawable.ic_xvox_home,
+            iconRes = leftIconRes,
             selected = homeSelected,
             size = laneHeight,
             onClick = onHome,

@@ -132,11 +132,26 @@ fun LazyListScope.librarySongItems(
     keyPrefix: String, title: String, songs: List<Song>, currentSongId: Long?, playing: Boolean,
     selected: Set<Long>, onPlay: (Song) -> Unit, onOptions: (Song) -> Unit, onAdd: (() -> Unit)? = null,
     avatarUri: Any? = null,
-    columns: Int = 1
+    columns: Int = 1,
+    /** Detail pages: Play / Shuffle the whole list from the cover hero. */
+    onPlayAll: (() -> Unit)? = null,
+    onShuffleAll: (() -> Unit)? = null,
+    heroCover: Any? = null
 ) {
     // Top-level list pages (Liked/Recent) have no in-page header any more; only artist/playlist
     // detail pages keep theirs because it is their only title.
-    if (keyPrefix.endsWith("_detail") || onAdd != null || avatarUri != null) {
+    if (keyPrefix.endsWith("_detail") && onPlayAll != null && onShuffleAll != null && songs.isNotEmpty()) {
+        item(key = "${keyPrefix}_hero") {
+            XvoxCollectionHero(
+                title = title,
+                subtitle = "${songs.size} songs",
+                cover = heroCover ?: avatarUri ?: songs.firstOrNull { it.artworkUri != null }?.artworkUri,
+                onPlay = onPlayAll,
+                onShuffle = onShuffleAll,
+                onAdd = onAdd
+            )
+        }
+    } else if (keyPrefix.endsWith("_detail") || onAdd != null || avatarUri != null) {
         item(key = "${keyPrefix}_header") { HomeCollectionHeader(title, songs.size, onAdd, avatarUri = avatarUri) }
     }
     if (songs.isEmpty()) item(key = "${keyPrefix}_empty") {

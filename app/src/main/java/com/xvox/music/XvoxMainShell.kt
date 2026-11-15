@@ -720,9 +720,9 @@ fun XvoxMainShell(
     val navTabForState: com.xvox.music.core.ui.navigation.XvoxNavTab? = when {
         destination != XvoxDestination.HOME -> null
         libraryModeNow == com.xvox.music.features.playlist.XvoxHomeLibraryMode.ARTISTS -> com.xvox.music.core.ui.navigation.XvoxNavTab.ARTIST
+        libraryModeNow == com.xvox.music.features.playlist.XvoxHomeLibraryMode.PLAYLISTS -> com.xvox.music.core.ui.navigation.XvoxNavTab.PLAYLIST
         libraryModeNow == com.xvox.music.features.playlist.XvoxHomeLibraryMode.LIKED ||
             libraryModeNow == com.xvox.music.features.playlist.XvoxHomeLibraryMode.RECENT ||
-            libraryModeNow == com.xvox.music.features.playlist.XvoxHomeLibraryMode.PLAYLISTS ||
             libraryModeNow == com.xvox.music.features.playlist.XvoxHomeLibraryMode.ALBUMS -> com.xvox.music.core.ui.navigation.XvoxNavTab.ALBUM
         else -> com.xvox.music.core.ui.navigation.XvoxNavTab.HOME
     }
@@ -747,6 +747,7 @@ fun XvoxMainShell(
             com.xvox.music.core.ui.navigation.XvoxNavTab.ARTIST ->
                 openLibraryTab(com.xvox.music.features.playlist.XvoxHomeLibraryMode.ARTISTS)
             com.xvox.music.core.ui.navigation.XvoxNavTab.ALBUM -> openLibraryTab(albumLastMode)
+            com.xvox.music.core.ui.navigation.XvoxNavTab.PLAYLIST -> openLibraryTab(com.xvox.music.features.playlist.XvoxHomeLibraryMode.PLAYLISTS)
         }
     }
 
@@ -1161,7 +1162,8 @@ fun XvoxMainShell(
                         selected = selectedNavTab,
                         onSelected = ::selectNavTab,
                         onSearch = { selectNavigationDestination(XvoxDestination.SEARCH) },
-                        searchSelected = destination == XvoxDestination.SEARCH
+                        searchSelected = destination == XvoxDestination.SEARCH,
+                        pillActive = destination != XvoxDestination.SEARCH
                     )
                 }
             }
@@ -1225,6 +1227,7 @@ fun XvoxMainShell(
                         onSelected = ::selectNavTab,
                         onSearch = { selectNavigationDestination(XvoxDestination.SEARCH) },
                         searchSelected = destination == XvoxDestination.SEARCH,
+                        pillActive = destination != XvoxDestination.SEARCH,
                         modifier = Modifier.graphicsLayer { alpha = (1f - dockProgress.value * 2f).coerceIn(0f, 1f) }
                     )
                 }
@@ -1233,9 +1236,10 @@ fun XvoxMainShell(
                 Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().zIndex(10f)) {
                     XvoxDockPieces(
                         progress = { dockProgress.value },
-                        homeSelected = destination == XvoxDestination.HOME && selectedNavTab == com.xvox.music.core.ui.navigation.XvoxNavTab.HOME,
+                        homeSelected = destination != XvoxDestination.SEARCH,
+                        leftIconRes = selectedNavTab.icon,
                         searchSelected = destination == XvoxDestination.SEARCH,
-                        onHome = { selectNavigationDestination(XvoxDestination.HOME) },
+                        onHome = { selectNavTab(selectedNavTab) },
                         onSearch = { selectNavigationDestination(XvoxDestination.SEARCH) },
                         laneHeight = navigationBarHeight,
                         laneBottom = XvoxDockGeometry.laneBottomFor(chrome.navigationBarOffsetY)

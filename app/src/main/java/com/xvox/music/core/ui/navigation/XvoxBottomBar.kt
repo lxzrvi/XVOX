@@ -37,6 +37,7 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.unit.sp
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
@@ -218,6 +219,7 @@ fun XvoxNavCircle(
 
 /** Blur-off only: per-tab 0..1 proximity of the sliding pill (null in blur mode). */
 private val LocalLiquidAccent = androidx.compose.runtime.compositionLocalOf<Color?> { null }
+private val LocalLiquidLabels = androidx.compose.runtime.compositionLocalOf { false }
 private val LocalLiquidTabEmphasis = androidx.compose.runtime.compositionLocalOf<((Int) -> Float)?> { null }
 
 @Composable
@@ -251,22 +253,42 @@ private fun RowScope.LiquidTab(
             },
         contentAlignment = Alignment.Center
     ) {
-        Image(
-            painter = painterResource(navigationIconRes(destination)),
-            contentDescription = destination.label,
-            colorFilter = ColorFilter.tint(LocalLiquidTint.current),
-            modifier = Modifier.size(XvoxNavigationGeometry.iconSize)
-        )
-        if (emphasis != null) {
-            // Accent copy cross-fades in as the pill approaches: one icon, no clipped duplicate row.
-            Image(
-                painter = painterResource(navigationIconRes(destination)),
-                contentDescription = null,
-                colorFilter = ColorFilter.tint(accent),
-                modifier = Modifier
-                    .size(XvoxNavigationGeometry.iconSize)
-                    .graphicsLayer { alpha = emphasis.invoke(index).coerceIn(0f, 1f) }
-            )
+        val showLabel = LocalLiquidLabels.current
+        val iconSize = if (showLabel) 21.dp else XvoxNavigationGeometry.iconSize
+        androidx.compose.foundation.layout.Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Image(
+                    painter = painterResource(navigationIconRes(destination)),
+                    contentDescription = destination.label,
+                    colorFilter = ColorFilter.tint(LocalLiquidTint.current),
+                    modifier = Modifier.size(iconSize)
+                )
+                if (emphasis != null) {
+                    // Accent copy cross-fades in as the pill approaches: one icon, no clipped duplicate row.
+                    Image(
+                        painter = painterResource(navigationIconRes(destination)),
+                        contentDescription = null,
+                        colorFilter = ColorFilter.tint(accent),
+                        modifier = Modifier
+                            .size(iconSize)
+                            .graphicsLayer { alpha = emphasis.invoke(index).coerceIn(0f, 1f) }
+                    )
+                }
+            }
+            if (showLabel) {
+                androidx.compose.material3.Text(
+                    destination.label,
+                    color = LocalLiquidTint.current,
+                    fontSize = 9.5.sp,
+                    lineHeight = 11.sp,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
+                    maxLines = 1,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+            }
         }
     }
 }
@@ -278,6 +300,8 @@ fun XvoxBottomBar(
     /** Search circle to the right of the pill; null hides it. */
     onSearch: (() -> Unit)? = null,
     searchSelected: Boolean = false,
+    /** False while Search is the open page: no tab is lit, only the search circle carries the accent. */
+    pillActive: Boolean = true,
     /** Retained for call-site compatibility; the Bottom Bar owns press-and-drag selection. */
     @Suppress("UNUSED_PARAMETER") onLongPressSettings: () -> Unit = {},
     modifier: Modifier = Modifier
@@ -349,6 +373,8 @@ fun XvoxBottomBar(
                 .offset(y = topOffset)
                 .size(navBarWidth, navBarHeight),
             selectedIndex = selectedIndex,
+            pillActive = pillActive,
+            showLabels = chrome.navigationLabels,
             tabsCount = destinations.size,
             backdrop = navBackdrop,
             blurOn = blurOn,
@@ -370,6 +396,8 @@ fun XvoxBottomBar(
 private fun LiquidBar(
     modifier: Modifier,
     selectedIndex: Int,
+    pillActive: Boolean,
+    showLabels: Boolean,
     tabsCount: Int,
     backdrop: Backdrop?,
     blurOn: Boolean,
@@ -508,7 +536,8 @@ private fun LiquidBar(
     val pillHighlight = rememberGravityRotatedHighlight(iosIndicatorSpecular, extraDegrees = 90f)
     val combinedBackdrop = rememberCombinedBackdrop(backdrop ?: tabsBackdrop, tabsBackdrop)
 
-    val emphasisFn: ((Int) -> Float)? = if (useBlur) null else { i -> if (i == selectedIndex) (1f - kotlin.math.abs(dampedDragAnimation.value - i)).coerceIn(0f, 1f) else 0f }
+    val pillAlphaAnim by androidx.compose.animation.core.animateFloatAsState(if (pillActive) 1f else 0f, androidx.compose.animation.core.tween(220), label = "pillActiveAlpha")
+    val emphasisFn: ((Int) -> Float)? = if (useBlur) null else { i -> if (pillActive && i == selectedIndex) (1f - kotlin.math.abs(dampedDragAnimation.value - i)).coerceIn(0f, 1f) else 0f }
     val tabs: @Composable RowScope.() -> Unit = {
         destinations.forEachIndexed { index, destination ->
             LiquidTab(
@@ -572,7 +601,7 @@ private fun LiquidBar(
                 .padding(4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            CompositionLocalProvider(LocalLiquidTint provides inactiveColor, LocalLiquidTabEmphasis provides emphasisFn, LocalLiquidAccent provides accentColor) {
+            CompositionLocalProvider(LocalLiquidTint provides inactiveColor, LocalLiquidTabEmphasis provides emphasisFn, LocalLiquidAccent provides accentColor, LocalLiquidLabels provides showLabels) {
                 tabs()
             }
         }
@@ -585,6 +614,7 @@ private fun LiquidBar(
                     lerp(1f, 1.2f, dampedDragAnimation.pressProgress)
                 },
                 LocalLiquidTint provides accentColor,
+                LocalLiquidLabels provides showLabels,
             ) {
                 Row(
                     Modifier
@@ -625,6 +655,7 @@ private fun LiquidBar(
                     Modifier
                         .padding(horizontal = 4.dp)
                         .graphicsLayer {
+                            alpha = pillAlphaAnim
                             val progressOffset = dampedDragAnimation.value * tabWidthPx
                             translationX = if (isLtr) progressOffset + panelOffset else -progressOffset + panelOffset
                         }
@@ -673,6 +704,7 @@ private fun LiquidBar(
                     Modifier
                         .padding(horizontal = 4.dp)
                         .graphicsLayer {
+                            alpha = pillAlphaAnim
                             val progressOffset = dampedDragAnimation.value * tabWidthPx
                             translationX = if (isLtr) progressOffset + panelOffset else -progressOffset + panelOffset
                         }

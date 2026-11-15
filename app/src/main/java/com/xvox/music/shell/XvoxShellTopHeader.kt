@@ -105,10 +105,9 @@ fun XvoxShellFloatingControls(
             val options = listOf(
                 AlbumOption(XvoxHomeLibraryMode.RECENT, R.drawable.ic_xvox_recent, "Recently Played"),
                 AlbumOption(XvoxHomeLibraryMode.LIKED, R.drawable.ic_xvox_heart, "Liked Songs"),
-                AlbumOption(XvoxHomeLibraryMode.PLAYLISTS, R.drawable.ic_xvox_playlist, "Playlists"),
                 AlbumOption(XvoxHomeLibraryMode.ALBUMS, R.drawable.ic_xvox_disc, "Albums")
             )
-            val clicks = listOf(onRecentClick, onLikedClick, onPlaylistClick, onAlbumsClick)
+            val clicks = listOf(onRecentClick, onLikedClick, onAlbumsClick)
             val width = 6.dp + 40.dp * options.size.toFloat()
             Box(
                 Modifier

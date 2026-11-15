@@ -651,7 +651,9 @@ fun HomeScreen(
                 selected = selectedSongIds,
                 onPlay = { handleSongClick(it, album.songs, album.name) },
                 onOptions = { if (isSelectionMode) handleSongLongClick(it, album.name) else openSingleSongOptions(it) },
-                avatarUri = null
+                avatarUri = null,
+                onPlayAll = { album.songs.firstOrNull()?.let { handleSongClick(it, album.songs, album.name) } },
+                onShuffleAll = { album.songs.shuffled().let { list -> list.firstOrNull()?.let { handleSongClick(it, list, album.name) } } }
             )
         } else {
             item(key = "albums_grid") {
@@ -849,7 +851,17 @@ fun HomeScreen(
                 // from Home content or leaving a blank band during a drag.
                 item(key = "shell_header_scroll_spacer") {
                     // 6dp == the gap between cards, so the first card sits exactly one card-gap below the header.
-                    Spacer(Modifier.height(topInset + 6.dp))
+                    val heroPage = targetArtist != null || targetPlaylist != null ||
+                        (selectedAlbum != null && (targetKey as? XvoxHomeLibraryMode) == XvoxHomeLibraryMode.ALBUMS)
+                    // Detail pages open with a full-bleed cover hero that runs under the status bar.
+                    Box(Modifier.fillMaxWidth().height(if (heroPage) 0.dp else topInset + 6.dp)) {
+                        // The wordmark sits left of the floating profile avatar and scrolls away with the page.
+                        if (targetArtist == null && targetPlaylist == null &&
+                            (targetKey as? XvoxHomeLibraryMode ?: XvoxHomeLibraryMode.ALL_SONGS) == XvoxHomeLibraryMode.ALL_SONGS
+                        ) {
+                            XvoxHomeLogo()
+                        }
+                    }
                 }
                 if (targetArtist != null) {
                     librarySongItems(
@@ -861,7 +873,10 @@ fun HomeScreen(
                         selected = selectedSongIds,
                         onPlay = { handleSongClick(it, targetArtist.songs, "Playing by " + targetArtist.name) },
                         onOptions = { if (isSelectionMode) handleSongLongClick(it, "Playing by " + targetArtist.name) else openSingleSongOptions(it) },
-                        avatarUri = null
+                        avatarUri = null,
+                        heroCover = targetArtist.customImageUri ?: targetArtist.coverSong?.artworkUri,
+                        onPlayAll = { targetArtist.songs.firstOrNull()?.let { handleSongClick(it, targetArtist.songs, "Playing by " + targetArtist.name) } },
+                        onShuffleAll = { targetArtist.songs.shuffled().let { list -> list.firstOrNull()?.let { handleSongClick(it, list, "Playing by " + targetArtist.name) } } }
                     )
                 } else if (targetPlaylist != null) {
                     librarySongItems(
@@ -873,7 +888,9 @@ fun HomeScreen(
                         selected = selectedSongIds,
                         onPlay = { handleSongClick(it, detailTracks, targetPlaylist.name) },
                         onOptions = { if (isSelectionMode) handleSongLongClick(it, targetPlaylist.name) else openSingleSongOptions(it, targetPlaylist) },
-                        onAdd = { showAddPlaylistSongs(overlays, viewModel, targetPlaylist) }
+                        onAdd = { showAddPlaylistSongs(overlays, viewModel, targetPlaylist) },
+                        onPlayAll = { detailTracks.firstOrNull()?.let { handleSongClick(it, detailTracks, targetPlaylist.name) } },
+                        onShuffleAll = { detailTracks.shuffled().let { list -> list.firstOrNull()?.let { handleSongClick(it, list, targetPlaylist.name) } } }
                     )
                 } else if (state.sourceMode == XvoxSourceMode.ONLINE) {
                     item(key = "online_provider_required") {
@@ -897,6 +914,13 @@ fun HomeScreen(
                         sections.forEach { section ->
                             when (section) {
                                 HomeSections.ALL -> {
+                                    homeDiscoverItems(
+                                        songs = state.songs,
+                                        currentSongId = currentSongId,
+                                        isPlaying = isPlaying,
+                                        onPlay = { song, list, source -> handleSongClick(song, list, source) },
+                                        onLongClick = { song -> if (isSelectionMode) handleSongLongClick(song, "All Songs") else openSingleSongOptions(song) }
+                                    )
                                     val allSongsSelected = if (selectionCategoryName == "All Songs" || selectionCategoryName == null) selectedSongIds else emptySet()
                                     allSongsItems(
                                         state.songs, plans, config, currentSongId, isPlaying, allSongsSelected,

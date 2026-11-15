@@ -155,7 +155,9 @@ data class XvoxChromeStyle(
     /** Gradient angle in degrees 0..360. */
     val bgGradAngle: Float = 35f,
     /** Gradient 'oil paint' spread 0..1: bigger, smeared, flowing colour fields. */
-    val bgGradSpread: Float = .5f
+    val bgGradSpread: Float = .5f,
+    /** Navbar tab titles under the icons (Settings -> Navbar). */
+    val navigationLabels: Boolean = true
 ) {
     fun encode(): String = listOf(
         optionBoxBgAlpha, optionBoxBorder, optionBoxBorderAlpha,
@@ -199,7 +201,8 @@ data class XvoxChromeStyle(
         glassBorderEnabled, glassBorderWidth, glassBorderColor, glassBorderAlpha, glassBorderBlur,
         // Appended after the global-border record so earlier installations retain their values.
         glassBlurEnabled, glassBlurIntensity,
-        bgBlur, bgStyle, bgColors, bgImageBlur, bgGradStyle, bgGradAngle, bgGradSpread
+        bgBlur, bgStyle, bgColors, bgImageBlur, bgGradStyle, bgGradAngle, bgGradSpread,
+        navigationLabels
     ).joinToString("|")
 
     fun resetNowPlayingLayout(): XvoxChromeStyle = copy(
@@ -333,6 +336,7 @@ data class XvoxChromeStyle(
                 bgGradStyle = number(88, 0f).coerceIn(0f, 5f),
                 bgGradAngle = number(89, 35f).coerceIn(0f, 360f),
                 bgGradSpread = number(90, .5f).coerceIn(0f, 1f),
+                navigationLabels = parts.getOrNull(91)?.trim()?.toBooleanStrictOrNull() ?: true,
                 nowPlayingSeekStyle = seekStyle(31),
                 nowPlayingPillSide = side(32, "left"),
                 nowPlayingChangingActionsSide = side(33, "right"),

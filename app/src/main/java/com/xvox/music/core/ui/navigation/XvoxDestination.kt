@@ -19,5 +19,6 @@ enum class XvoxNavTab(
 ) {
     HOME("Home", R.drawable.ic_xvox_home),
     ARTIST("Artist", R.drawable.ic_xvox_artist),
-    ALBUM("Album", R.drawable.ic_xvox_disc)
+    ALBUM("Album", R.drawable.ic_xvox_disc),
+    PLAYLIST("Playlist", R.drawable.ic_xvox_playlist)
 }

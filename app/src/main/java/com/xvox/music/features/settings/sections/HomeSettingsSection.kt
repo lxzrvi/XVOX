@@ -1,3 +1,4 @@
+// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/features/settings/sections/HomeSettingsSection.kt
 package com.xvox.music.features.settings.sections
 
 import androidx.compose.foundation.Canvas
@@ -207,6 +208,15 @@ fun HomeSettingsSection(
             )
 
             Spacer(Modifier.height(10.dp))
+
+            SettingsToggle(
+                title = "Navbar titles",
+                subtitle = "Show the tab name under each navbar icon",
+                checked = chrome.navigationLabels,
+                onChange = { on -> viewModel.setChromeStyle { it.copy(navigationLabels = on) } }
+            )
+
+            Spacer(Modifier.height(6.dp))
 
             val navHeight = chrome.navigationBarHeight.coerceIn(52f, 88f)
             Label("Navigation bar height · ${navHeight.roundToInt()} dp")
