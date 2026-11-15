@@ -2,7 +2,12 @@
 package com.xvox.music.features.home
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.runtime.remember
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.text.style.TextAlign
+import com.xvox.music.core.ui.blur.xvoxGlassRim
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -26,7 +31,7 @@ import com.xvox.music.core.model.Song
 import com.xvox.music.core.ui.effects.xvoxPressScale
 import com.xvox.music.core.ui.overlay.xvoxBoxScroll
 
-private data class SongOptionGridAction(
+private data class SongOptionAction(
     val label: String,
     val icon: Int,
     val onClick: () -> Unit,
@@ -34,8 +39,9 @@ private data class SongOptionGridAction(
 )
 
 /**
- * Compact song action panel shared by song cards and search results. The callbacks remain
- * deliberately contextual: callers only supply the actions that make sense for their entry point.
+ * Held-item long-press menu (BitChord / Apple Music style): the song lifts off the page as a large cover
+ * card and its actions hang beneath it in one frosted plate. Shown through [com.xvox.music.core.ui.overlay.XvoxBoxPresentation.HELD].
+ * Callers still supply only the actions that make sense for their entry point.
  */
 @Composable
 fun SongOptionsBox(
@@ -56,236 +62,114 @@ fun SongOptionsBox(
     playlistName: String? = null,
     onRemovePlaylist: (() -> Unit)? = null,
     onRemoveRecent: (() -> Unit)? = null,
-    sectionSettingsLabel: String? = null
+    sectionSettingsLabel: String? = null,
+    onEdit: (() -> Unit)? = null,
+    onSectionSettings: (() -> Unit)? = null
 ) {
     val colors = XvoxTheme.colors
-    val scrollState = rememberScrollState()
-    val identityShape = RoundedCornerShape(16.dp)
-    // The identity artwork is inset by 4dp, so 12dp follows the outer card curve precisely.
-    val artworkShape = RoundedCornerShape(12.dp)
-    // Action cards deliberately share the song identity card's rounded silhouette.
-    val tileShape = identityShape
-    // Settings-page card fill/border: this overlay is intentionally the same palette in light,
-    // dark, and AMOLED themes rather than a separate translucent dark surface.
-    // The sheet itself is a Settings section card; its actionable rows use the slightly raised
-    // inner-option surface from Settings, with the same restrained edge.
-    val tileFill = colors.cardElevated
-    val tileBorder = colors.cardBorder.copy(alpha = if (colors.isLight) .80f else .72f)
-    val contextLabel = song.source.ifBlank {
-        song.folderName.ifBlank { "XVOX library" }
-    }
+    val dark = !colors.isLight
+    val plate = (if (dark) Color.Black else Color.White).copy(alpha = if (dark) .5f else .5f)
+    val hairline = if (dark) Color.White.copy(alpha = .10f) else Color.Black.copy(alpha = .08f)
+    val coverShape = RoundedCornerShape(22.dp)
+    val panelShape = RoundedCornerShape(22.dp)
+    val contextLabel = song.source.ifBlank { song.folderName.ifBlank { "XVOX library" } }
 
-    // Keep menu order stable so the compact two-column layout stays easy to scan.
     val actions = mutableListOf(
-        SongOptionGridAction("Play next", R.drawable.ic_xvox_play, onPlayNext),
-        SongOptionGridAction("Add to queue", R.drawable.ic_xvox_queue, onAddQueue)
+        SongOptionAction("Play next", R.drawable.ic_xvox_play, onPlayNext),
+        SongOptionAction("Add to queue", R.drawable.ic_xvox_queue, onAddQueue)
     )
-    onSelect?.let { actions += SongOptionGridAction("Select", R.drawable.ic_xvox_check, it) }
-    actions += SongOptionGridAction(
+    onSelect?.let { actions += SongOptionAction("Select", R.drawable.ic_xvox_check, it) }
+    actions += SongOptionAction(
         if (liked) "Unlike" else "Like",
         if (liked) R.drawable.ic_xvox_heart else R.drawable.ic_xvox_heart_outline,
         onLiked
     )
-    actions += SongOptionGridAction("Add to playlist", R.drawable.ic_xvox_playlist, onPlaylist)
-    // Rename and cover editing deliberately live behind the single header pencil. Keeping them
-    // out of the action grid gives every long-press surface the same compact set of cards.
-    actions += SongOptionGridAction("Info", R.drawable.ic_xvox_info, onInfo)
-    actions += SongOptionGridAction("Set as ringtone", R.drawable.ic_xvox_music_note, onRingtone)
-    actions += SongOptionGridAction("Share", R.drawable.ic_xvox_share, onShare)
-    onAddToEach?.let { actions += SongOptionGridAction("Add to each", R.drawable.ic_xvox_add, it) }
+    actions += SongOptionAction("Add to playlist", R.drawable.ic_xvox_playlist, onPlaylist)
+    onEdit?.let { actions += SongOptionAction("Edit details", R.drawable.ic_xvox_edit, it) }
+    actions += SongOptionAction("Info", R.drawable.ic_xvox_info, onInfo)
+    actions += SongOptionAction("Set as ringtone", R.drawable.ic_xvox_music_note, onRingtone)
+    actions += SongOptionAction("Share", R.drawable.ic_xvox_share, onShare)
+    onAddToEach?.let { actions += SongOptionAction("Add to each", R.drawable.ic_xvox_add, it) }
     onRemovePlaylist?.let { remove ->
-        actions += SongOptionGridAction(
-            "Remove from ${playlistName ?: "playlist"}",
-            R.drawable.ic_xvox_close,
-            remove
-        )
+        actions += SongOptionAction("Remove from ${playlistName ?: "playlist"}", R.drawable.ic_xvox_close, remove)
     }
-    onRemoveRecent?.let { actions += SongOptionGridAction("Remove from recent", R.drawable.ic_xvox_close, it) }
-
-    val deleteAction = SongOptionGridAction(
-        label = "Delete",
-        icon = R.drawable.ic_xvox_delete,
-        onClick = onDelete,
-        destructive = true
-    )
-    // Context-specific menus sometimes leave one item by itself. Put Delete beside that item
-    // instead of adding another row, while retaining the full-width delete row for even grids.
-    val deletePairsWithLastAction = actions.size % 2 != 0
-    val gridActions = if (deletePairsWithLastAction) actions + deleteAction else actions
+    onRemoveRecent?.let { actions += SongOptionAction("Remove from recent", R.drawable.ic_xvox_close, it) }
+    onSectionSettings?.let { actions += SongOptionAction(sectionSettingsLabel ?: "Section settings", R.drawable.ic_xvox_settings, it) }
+    actions += SongOptionAction("Delete", R.drawable.ic_xvox_delete, onDelete, destructive = true)
 
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .verticalScroll(scrollState)
-            .xvoxBoxScroll(scrollState),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        modifier = Modifier.width(300.dp).padding(vertical = 12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Row(
+        // The lifted item: tap plays it.
+        Column(
+            modifier = Modifier
+                .shadow(22.dp, coverShape, clip = false)
+                .clip(coverShape)
+                .background(plate)
+                .xvoxGlassRim(coverShape, hairlineColor = hairline)
+                .xvoxPressScale(onClick = onPlay)
+                .padding(8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            XvoxSongArtwork(
+                artwork = song.artworkUri,
+                fallbackSeed = song.id.hashCode(),
+                requestSize = 384,
+                modifier = Modifier.size(196.dp).clip(RoundedCornerShape(15.dp))
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                song.title, color = colors.primaryText, fontSize = 15.sp, lineHeight = 18.sp,
+                fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center, modifier = Modifier.width(196.dp)
+            )
+            Text(
+                song.artist.ifBlank { "Unknown artist" }, color = colors.secondaryText, fontSize = 12.sp,
+                maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center, modifier = Modifier.width(196.dp)
+            )
+            Text(
+                contextLabel, color = colors.mutedText, fontSize = 10.5.sp, maxLines = 1,
+                overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center, modifier = Modifier.width(196.dp)
+            )
+            Spacer(Modifier.height(2.dp))
+        }
+
+        Spacer(Modifier.height(12.dp))
+
+        // Actions hang off it in one frosted plate, rows like an iOS menu: label left, icon right.
+        val scroll = rememberScrollState()
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(identityShape)
-                .background(tileFill)
-                .border(0.7.dp, tileBorder, identityShape)
-                .xvoxPressScale(onClick = onPlay)
-                .padding(4.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .shadow(18.dp, panelShape, clip = false)
+                .clip(panelShape)
+                .background(plate)
+                .xvoxGlassRim(panelShape, hairlineColor = hairline)
+                .heightIn(max = 330.dp)
+                .verticalScroll(scroll)
+                .xvoxBoxScroll(scroll)
         ) {
-            Box(
-                modifier = Modifier
-                    .size(68.dp)
-                    .clip(artworkShape),
-                contentAlignment = Alignment.Center
-            ) {
-                XvoxSongArtwork(
-                    artwork = song.artworkUri,
-                    fallbackSeed = song.id.hashCode(),
-                    requestSize = 192,
-                    modifier = Modifier.fillMaxSize()
-                )
-            }
-
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(horizontal = 10.dp),
-                verticalArrangement = Arrangement.Center
-            ) {
-                Text(
-                    text = song.title,
-                    color = colors.primaryText,
-                    fontSize = 15.sp,
-                    lineHeight = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = song.artist.ifBlank { "Unknown artist" },
-                    color = colors.secondaryText,
-                    fontSize = 12.sp,
-                    lineHeight = 15.sp,
-                    fontWeight = FontWeight.Medium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(top = 2.dp)
-                )
-                Text(
-                    text = contextLabel,
-                    color = colors.mutedText,
-                    fontSize = 10.5.sp,
-                    lineHeight = 13.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(top = 1.dp)
-                )
-            }
-        }
-
-        gridActions.chunked(2).forEach { pair ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                pair.forEach { action ->
-                    SongOptionGridTile(
-                        action = action,
-                        tileShape = tileShape,
-                        background = tileFill,
-                        border = tileBorder,
-                        modifier = Modifier.weight(1f)
+            actions.forEachIndexed { index, action ->
+                val tint = if (action.destructive) XvoxRed else colors.primaryText
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 46.dp)
+                        .xvoxPressScale(pressedScale = .985f, onClick = action.onClick)
+                        .padding(horizontal = 18.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        action.label, color = tint, fontSize = 15.sp, fontWeight = FontWeight.Medium,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f)
                     )
+                    Icon(painterResource(action.icon), null, tint = tint.copy(alpha = .9f), modifier = Modifier.size(19.dp))
                 }
-                if (pair.size == 1) {
-                    Spacer(Modifier.weight(1f))
+                if (index != actions.lastIndex) {
+                    Box(Modifier.fillMaxWidth().padding(horizontal = 18.dp).height(.5.dp).background(hairline))
                 }
             }
         }
-
-        if (!deletePairsWithLastAction) {
-            SongOptionDeleteTile(
-                background = tileFill,
-                border = XvoxRed.copy(alpha = 0.42f),
-                tileShape = tileShape,
-                onClick = onDelete
-            )
-        }
-    }
-}
-
-@Composable
-private fun SongOptionGridTile(
-    action: SongOptionGridAction,
-    tileShape: RoundedCornerShape,
-    background: Color,
-    border: Color,
-    modifier: Modifier = Modifier
-) {
-    val colors = XvoxTheme.colors
-    // Keep destructive emphasis in the edge/text, but retain the exact Settings-card fill.
-    val fill = background
-    val edge = if (action.destructive) XvoxRed.copy(alpha = 0.42f) else border
-    val tint = if (action.destructive) XvoxRed else colors.primaryText.copy(alpha = 0.86f)
-
-    Row(
-        modifier = modifier
-            .heightIn(min = 44.dp)
-            .clip(tileShape)
-            .background(fill)
-            .border(0.7.dp, edge, tileShape)
-            .xvoxPressScale(onClick = action.onClick)
-            .padding(horizontal = 10.dp, vertical = 7.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-            painter = painterResource(action.icon),
-            contentDescription = null,
-            tint = tint,
-            modifier = Modifier.size(15.dp)
-        )
-        Spacer(Modifier.width(7.dp))
-        Text(
-            text = action.label,
-            color = tint,
-            fontSize = 12.sp,
-            lineHeight = 14.sp,
-            fontWeight = FontWeight.SemiBold,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis
-        )
-    }
-}
-
-@Composable
-private fun SongOptionDeleteTile(
-    background: Color,
-    border: Color,
-    tileShape: RoundedCornerShape,
-    onClick: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = 44.dp)
-            .clip(tileShape)
-            .background(background)
-            .border(0.7.dp, border, tileShape)
-            .xvoxPressScale(onClick = onClick)
-            .padding(horizontal = 10.dp, vertical = 7.dp),
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-            painter = painterResource(R.drawable.ic_xvox_delete),
-            contentDescription = null,
-            tint = XvoxRed,
-            modifier = Modifier.size(15.dp)
-        )
-        Spacer(Modifier.width(7.dp))
-        Text(
-            text = "Delete",
-            color = XvoxRed,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Bold
-        )
     }
 }
