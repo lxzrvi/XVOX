@@ -122,7 +122,7 @@ fun XvoxMainShell(
     val player by playerViewModel.state.collectAsState()
     val shellSettings by settingsViewModel.state.collectAsState()
     androidx.compose.runtime.SideEffect {
-        com.xvox.music.core.ui.miniplayer.XvoxMiniBounds.iosGrow = shellSettings.nowPlayingLayout == "ios"
+        com.xvox.music.core.ui.miniplayer.XvoxMiniBounds.iosGrow = true // every layout opens as a reveal from the mini player shape
     }
     val homePreferences = remember { com.xvox.music.data.preferences.UserPreferencesRepository(homeViewModel.getApplication<android.app.Application>()) }
     val overlays = LocalXvoxOverlayController.current
@@ -1290,6 +1290,17 @@ fun XvoxMainShell(
         ) {
             val playingSong = currentSong ?: return@AnimatedVisibility
 
+            // Queue page: scrolling the player up (or any Queue button) slides the whole player off the
+            // top of the screen and the queue page rises in behind it.
+            var queuePageOpen by remember { mutableStateOf(false) }
+            val queueP by androidx.compose.animation.core.animateFloatAsState(
+                if (queuePageOpen) 1f else 0f,
+                androidx.compose.animation.core.tween(380, easing = androidx.compose.animation.core.CubicBezierEasing(.2f, 0f, 0f, 1f)),
+                label = "queuePageP"
+            )
+            LaunchedEffect(player.nowPlayingVisible) { if (!player.nowPlayingVisible) queuePageOpen = false }
+            Box(Modifier.fillMaxSize()) {
+            Box(Modifier.fillMaxSize().graphicsLayer { translationY = -queueP * size.height }) {
             com.xvox.music.core.design.theme.ProvideXvoxNowPlayingChrome {
                 XvoxNowPlaying(
                     song = playingSong,
@@ -1315,7 +1326,7 @@ fun XvoxMainShell(
                         overlays.showP(if (wasLiked) "Removed from liked" else "Added to liked")
                     },
                     onTimer = ::showTimerBox,
-                    onQueue = ::showQueueBox,
+                    onQueue = { queuePageOpen = true },
                     onInfo = {
                         overlays.hideBox()
                         val infoState = androidx.compose.runtime.mutableStateOf(com.xvox.music.features.home.quickSongInfo(playingSong))
@@ -1359,6 +1370,17 @@ fun XvoxMainShell(
                     onActionPageChange = { nowPlayingActionsPage = it },
                     settingsViewModel = settingsViewModel
                 )
+            }
+            }
+            // The queue page rises from the bottom while the player leaves through the top.
+            if (queueP > .001f) {
+                Box(Modifier.fillMaxSize().graphicsLayer { translationY = (1f - queueP) * size.height }) {
+                    com.xvox.music.shell.XvoxQueuePage(
+                        playerViewModel = playerViewModel,
+                        onClose = { queuePageOpen = false }
+                    )
+                }
+            }
             }
         }
     }

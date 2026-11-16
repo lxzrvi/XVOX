@@ -170,7 +170,9 @@ fun XvoxQueueBoxContent(
     onRemoveIndex: (Int) -> Unit,
     onReorderQueue: ((List<Song>) -> Unit)? = null,
     /** Preferred reorder path for the active player queue: preserves duplicate occurrence IDs. */
-    onReorderOccurrences: ((List<String>) -> Unit)? = null
+    onReorderOccurrences: ((List<String>) -> Unit)? = null,
+    /** True on the Now Playing queue page: the list takes all the height it is given. */
+    fullHeight: Boolean = false
 ) {
     val colors = XvoxTheme.colors
     val density = LocalDensity.current
@@ -308,7 +310,7 @@ fun XvoxQueueBoxContent(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .wrapContentHeight()
+            .then(if (fullHeight) Modifier.fillMaxHeight() else Modifier.wrapContentHeight())
     ) {
         if (queue.isEmpty()) {
             Box(
@@ -331,7 +333,7 @@ fun XvoxQueueBoxContent(
                     // Once the bridge has requested a bounded outer height, consume the actual
                     // body viewport. This keeps Queue pinned to the sheet bottom while new rows
                     // are revealed above it, with no artificial gap after the last row.
-                    .then(if (sheetGrowthActive) Modifier.fillMaxHeight() else Modifier.height(desiredQueueHeight))
+                    .then(if (sheetGrowthActive || fullHeight) Modifier.fillMaxHeight() else Modifier.height(desiredQueueHeight))
                     .clipToBounds()
                     .onGloballyPositioned { coordinates ->
                         listViewportHeight = coordinates.size.height.toFloat()
@@ -358,7 +360,9 @@ fun XvoxQueueBoxContent(
                                         val change = event.changes.firstOrNull { it.id == down.id }
                                         if (change == null || !change.pressed) return@withTimeoutOrNull false
                                         val moveDist = Math.abs(change.position.y - down.position.y)
-                                        if (moveDist > 18f) return@withTimeoutOrNull false
+                                        val moveDistX = Math.abs(change.position.x - down.position.x)
+                                        // A sideways move is a swipe-to-remove, not a hold-to-reorder.
+                                        if (moveDist > 18f || moveDistX > 18f) return@withTimeoutOrNull false
                                     }
                                     @Suppress("UNREACHABLE_CODE")
                                     true
@@ -435,14 +439,16 @@ fun XvoxQueueBoxContent(
                         val song = entry.song
                         val isThisItemBeingDragged = draggingEntry?.stableKey == entry.stableKey && idx == currentDragIndex
 
-                        Box(
+                        QueueSwipeToRemove(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(RowHeight)
                                 .then(
                                     if (isThisItemBeingDragged) Modifier.alpha(0.12f)
                                     else Modifier
-                                )
+                                ),
+                            enabled = draggingEntry == null,
+                            onRemove = { remove(idx) }
                         ) {
                             QueueItemRow(
                                 song = song,
@@ -626,5 +632,53 @@ private fun QueueItemRow(
                 modifier = Modifier.size(15.dp)
             )
         }
+    }
+}
+
+
+/** Swipe a queue row to the left to remove it; a red lane with a bin appears behind it. */
+@Composable
+private fun QueueSwipeToRemove(
+    modifier: Modifier,
+    enabled: Boolean,
+    onRemove: () -> Unit,
+    content: @Composable () -> Unit
+) {
+    var dx by remember { mutableFloatStateOf(0f) }
+    var widthPx by remember { mutableFloatStateOf(1f) }
+    val latestRemove by rememberUpdatedState(onRemove)
+    val progress = (-dx / (widthPx * .35f)).coerceIn(0f, 1f)
+    Box(
+        modifier
+            .onGloballyPositioned { widthPx = it.size.width.toFloat().coerceAtLeast(1f) }
+            .clip(RoundedCornerShape(14.dp))
+    ) {
+        Box(
+            Modifier
+                .matchParentSize()
+                .background(Color(0xFFE5484D).copy(alpha = .25f + .55f * progress)),
+            contentAlignment = Alignment.CenterEnd
+        ) {
+            Icon(
+                painterResource(R.drawable.ic_xvox_delete), "Remove", tint = Color.White,
+                modifier = Modifier.padding(end = 20.dp).size(20.dp).alpha(progress)
+            )
+        }
+        Box(
+            Modifier
+                .offset { IntOffset(dx.roundToInt(), 0) }
+                .pointerInput(enabled) {
+                    if (!enabled) return@pointerInput
+                    androidx.compose.foundation.gestures.detectHorizontalDragGestures(
+                        onDragEnd = {
+                            if (-dx > widthPx * .35f) latestRemove() else dx = 0f
+                        },
+                        onDragCancel = { dx = 0f }
+                    ) { change, amount ->
+                        change.consume()
+                        dx = (dx + amount).coerceIn(-widthPx, 0f)
+                    }
+                }
+        ) { content() }
     }
 }

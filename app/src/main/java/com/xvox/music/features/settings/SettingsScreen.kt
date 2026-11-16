@@ -174,6 +174,9 @@ fun SettingsScreen(
     val bottomPadding = bottomInset + if (isLandscape) 10.dp else 30.dp
     val scrollState = rememberLazyGridState()
     var showingWidgetStudio by rememberSaveable { mutableStateOf(false) }
+    // null = the grouped landing list; otherwise the sub-page that is open.
+    var settingsPage by rememberSaveable { mutableStateOf<String?>(null) }
+    androidx.activity.compose.BackHandler(enabled = settingsPage != null) { settingsPage = null }
 
     LaunchedEffect(topResetKey) {
         runCatching { scrollState.scrollToItem(0) }
@@ -183,6 +186,7 @@ fun SettingsScreen(
             // Widget Studio is a Settings-owned full subpage. Any ordinary Settings sheet is also
             // local to this destination, so the active navbar tap closes it with the same return.
             showingWidgetStudio = false
+            settingsPage = null
             overlays.hideBox()
             runCatching { scrollState.scrollToItem(0) }
         }
@@ -262,76 +266,61 @@ fun SettingsScreen(
                 key = "settings_title",
                 span = { GridItemSpan(maxLineSpan) }
             ) {
-                Text(
-                    text = "Settings",
-                    color = colors.primaryAccent,
-                    fontSize = if (isLandscape) 20.sp else 24.sp,
-                    lineHeight = if (isLandscape) 24.sp else 28.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = if (isLandscape) 2.dp else 4.dp)
+                SettingsPageTitle(
+                    title = when (settingsPage) {
+                        null -> "Settings"
+                        "appearance" -> "Appearance"
+                        "sound" -> "Sound & playback"
+                        "background" -> "Background playback"
+                        "library" -> "Library"
+                        "backup" -> "Backup & restore"
+                        "support" -> "Support"
+                        "about" -> "About XVOX"
+                        else -> "Settings"
+                    },
+                    onBack = if (settingsPage != null) ({ settingsPage = null }) else null
                 )
             }
 
-            if (isLandscape) {
-                // The grid remains the scroll host, while this one full-width item balances the
-                // cards inside two equal lanes and lets the shorter lane finish flush.
-                item(
-                    key = "settings_balanced_two_columns",
-                    span = { GridItemSpan(maxLineSpan) }
-                ) {
-                    BalancedTwoColumn(modifier = Modifier.fillMaxWidth(), gap = 10.dp) {
-                        AppearanceSectionCard(
-                            state = state,
-                            viewModel = settingsViewModel,
-                            onOpenColorWheel = ::openCustomColorPicker,
-                            onOpenFontPicker = ::openFontPicker,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        BackgroundPlaybackSectionCard(
-                            state = state,
-                            viewModel = settingsViewModel,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        LibrarySectionCard(
+            item(key = "settings_body", span = { GridItemSpan(maxLineSpan) }) {
+                Column(Modifier.fillMaxWidth()) {
+                    when (settingsPage) {
+                        null -> {
+                            SettingsLandingGroup(header = "General") {
+                                SettingsLandingRow(R.drawable.ic_xvox_settings, "Appearance", "Theme, accent, font, navbar, mini player") { settingsPage = "appearance" }
+                                SettingsLandingDivider()
+                                SettingsLandingRow(R.drawable.ic_xvox_equalizer, "Sound & playback", "Equalizer, 3D sound, crossfade, Bluetooth") { settingsPage = "sound" }
+                                SettingsLandingDivider()
+                                SettingsLandingRow(R.drawable.ic_xvox_play, "Background playback", "Keep music playing when the app is closed") { settingsPage = "background" }
+                            }
+                            SettingsLandingGroup(header = "Library") {
+                                SettingsLandingRow(R.drawable.ic_xvox_music_note, "Library", "Refresh, hide folders, filters") { settingsPage = "library" }
+                                SettingsLandingDivider()
+                                SettingsLandingRow(R.drawable.ic_xvox_delete, "Recycle bin", "Restore or permanently remove songs") { openDeletedItems() }
+                                SettingsLandingDivider()
+                                SettingsLandingRow(R.drawable.ic_xvox_sparkle, "Widgets", "Widget studio") { showingWidgetStudio = true }
+                                SettingsLandingDivider()
+                                SettingsLandingRow(R.drawable.ic_xvox_download, "Backup & restore", "Export and import your library data") { settingsPage = "backup" }
+                            }
+                            SettingsLandingGroup(header = "XVOX") {
+                                SettingsLandingRow(R.drawable.ic_xvox_heart, "Support the developer", null) { settingsPage = "support" }
+                                SettingsLandingDivider()
+                                SettingsLandingRow(R.drawable.ic_xvox_info, "About XVOX", null) { settingsPage = "about" }
+                            }
+                        }
+                        "appearance" -> AppearanceSectionCard(state, settingsViewModel, ::openCustomColorPicker, ::openFontPicker)
+                        "sound" -> SoundSettingsPage(state, settingsViewModel)
+                        "background" -> BackgroundPlaybackSectionCard(state, settingsViewModel)
+                        "library" -> LibrarySectionCard(
                             state = state,
                             settingsViewModel = settingsViewModel,
-                            homeViewModel = homeViewModel,
-                            modifier = Modifier.fillMaxWidth()
+                            homeViewModel = homeViewModel
                         )
-                        DeletedItemsSectionCard(
-                            onOpen = ::openDeletedItems,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        WidgetSectionCard(
-                            onOpenStudio = { showingWidgetStudio = true },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        BackupSectionCard(homeViewModel, Modifier.fillMaxWidth())
-                        SupportDeveloperCard(Modifier.fillMaxWidth())
-                        AboutSectionCard(Modifier.fillMaxWidth())
+                        "backup" -> BackupSectionCard(homeViewModel)
+                        "support" -> SupportDeveloperCard()
+                        "about" -> AboutSectionCard()
                     }
                 }
-            } else {
-                item(key = "section_appearance") {
-                    AppearanceSectionCard(state, settingsViewModel, ::openCustomColorPicker, ::openFontPicker)
-                }
-                item(key = "section_background_playback") {
-                    BackgroundPlaybackSectionCard(state, settingsViewModel)
-                }
-                item(key = "section_library") {
-                    LibrarySectionCard(
-                        state = state,
-                        settingsViewModel = settingsViewModel,
-                        homeViewModel = homeViewModel
-                    )
-                }
-                item(key = "section_deleted_items") { DeletedItemsSectionCard(onOpen = ::openDeletedItems) }
-                item(key = "section_widget") {
-                    WidgetSectionCard(onOpenStudio = { showingWidgetStudio = true })
-                }
-                item(key = "section_backup") { BackupSectionCard(homeViewModel) }
-                item(key = "section_support_dev") { SupportDeveloperCard() }
-                item(key = "section_about") { AboutSectionCard() }
             }
             // Source-mode experiments intentionally stay out of the everyday Settings page.
         }

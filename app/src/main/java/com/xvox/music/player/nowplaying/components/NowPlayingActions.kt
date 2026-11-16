@@ -1,5 +1,5 @@
-// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/player/nowplaying/components/NowPlayingActions.kt
 @file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+// EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/player/nowplaying/components/NowPlayingActions.kt
 
 package com.xvox.music.player.nowplaying.components
 
@@ -113,7 +113,7 @@ fun NowPlayingActions(
     // bottom box, so it falls back to the actual Now Playing backdrop.
     val bottomBoxSky = LocalXvoxNowPlayingBottomSky.current ?: LocalXvoxNowPlayingSky.current
     // Do not clamp at the first/last action page: the pager is a three-stop ring.
-    var pageIndex by remember { mutableIntStateOf(((actionPageIndex % 3) + 3) % 3) }
+    var pageIndex by remember { mutableIntStateOf(((actionPageIndex % ActionPageCount) + ActionPageCount) % ActionPageCount) }
     var showIndicator by remember { mutableStateOf(true) }
     var actionWidthPx by remember { mutableFloatStateOf(0f) }
     var liveSwipeOffsetPx by remember { mutableFloatStateOf(0f) }
@@ -122,7 +122,7 @@ fun NowPlayingActions(
     var settleSerial by remember { mutableIntStateOf(0) }
     var actionSettle by remember { mutableStateOf<XvoxActionSwipeSettle?>(null) }
 
-    fun normalizedPage(index: Int): Int = ((index % 3) + 3) % 3
+    fun normalizedPage(index: Int): Int = ((index % ActionPageCount) + ActionPageCount) % ActionPageCount
     fun targetForOffset(offset: Float): Int = when {
         offset < 0f -> normalizedPage(pageIndex + 1)
         offset > 0f -> normalizedPage(pageIndex - 1)
@@ -148,8 +148,8 @@ fun NowPlayingActions(
         }
         // Pick the short route on the three-page ring. Crucially, 0 → 2 is a one-step backward
         // wrap and 2 → 0 is a one-step forward wrap—neither endpoint can ever feel like a stop.
-        val forwardDistance = (normalized - pageIndex + 3) % 3
-        val backwardDistance = (pageIndex - normalized + 3) % 3
+        val forwardDistance = (normalized - pageIndex + ActionPageCount) % ActionPageCount
+        val backwardDistance = (pageIndex - normalized + ActionPageCount) % ActionPageCount
         val forward = forwardDistance <= backwardDistance
         startSettle(
             start = 0f,
@@ -159,7 +159,7 @@ fun NowPlayingActions(
     }
 
     LaunchedEffect(actionPageIndex) {
-        val next = ((actionPageIndex % 3) + 3) % 3
+        val next = ((actionPageIndex % ActionPageCount) + ActionPageCount) % ActionPageCount
         if (next != pageIndex) {
             actionSettle = null
             actionDragging = false
@@ -398,7 +398,7 @@ fun NowPlayingActions(
                 // A committed release highlights its incoming destination while the last short
                 // settle finishes, keeping dots and the travelling pair visually in sync.
                 val indicatedPage = actionSettle?.targetPage ?: pageIndex
-                repeat(3) { dotIdx ->
+                repeat(if (ActionPageCount > 1) ActionPageCount else 0) { dotIdx ->
                     val isSelected = dotIdx == indicatedPage
                     val dotWidth by animateDpAsState(
                         targetValue = if (isSelected) 12.dp else 4.dp,
@@ -445,6 +445,12 @@ fun NowPlayingActions(
         if (!actionsOnLeft) key("nowPlayingChangingActions") { changingActionCluster() }
     }
 }
+
+/**
+ * Equalizer / 3D sound and Bluetooth / crossfade moved into Settings, so the action cluster is a
+ * single page (Playlist star + Like). Raise this to bring the other pages back.
+ */
+private const val ActionPageCount = 1
 
 /** One of the three two-control action pages; reused by both live swipe layers. */
 @Composable

@@ -127,6 +127,8 @@ fun BoxScope.XvoxShellMiniPlayerHost(
                 imeBottomPx > navBottomPx && imeAboveNavigationPx > imeCloseSnapThresholdPx
             val effectiveImeDp = with(density) { imeAboveNavigationPx.toDp() }
 
+            val isLandscapeDock = androidx.compose.ui.platform.LocalConfiguration.current.orientation ==
+                android.content.res.Configuration.ORIENTATION_LANDSCAPE
             val restingBottomPadding = XvoxMiniPlayerPlacement.miniPlayerBottom(navigationBarHeight)
             // Keep the card above the *actual* keyboard edge with the shared visible 5dp air.
             // The physical navigation inset is applied exactly once by navigationBarsPadding.
@@ -152,7 +154,10 @@ fun BoxScope.XvoxShellMiniPlayerHost(
                     val w = (normalW + (dockW - normalW) * d).toInt().coerceAtLeast(0)
                     val x = (edge + (dockStart - edge) * d).toInt()
                     val rest = currentBottomPadding.roundToPx()
-                    val docked = XvoxDockGeometry.miniBottomFor(dockLaneBottom, dockLane).roundToPx()
+                    // The Mini Player surface is shifted down by its default placement (13dp portrait,
+                    // -0.5dp landscape); add it back so the docked card is centred on the navbar lane.
+                    val placementCompensation = if (isLandscapeDock) (-0.5f).dp else 13.dp
+                    val docked = (XvoxDockGeometry.miniBottomFor(dockLaneBottom, dockLane) + placementCompensation).roundToPx()
                     val bottom = (rest + (docked - rest) * d).toInt()
                     val placeable = measurable.measure(
                         androidx.compose.ui.unit.Constraints(w, w, 0, constraints.maxHeight)

@@ -38,6 +38,11 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.layout.onGloballyPositioned
+import com.xvox.music.R
+import com.xvox.music.core.ui.miniplayer.XvoxGhost
+import com.xvox.music.core.ui.miniplayer.XvoxShared
+import com.xvox.music.core.ui.miniplayer.XvoxSharedGhosts
+import com.xvox.music.core.ui.miniplayer.xvoxShared
 import com.xvox.music.features.home.XvoxSongArtwork
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.offset
@@ -223,7 +228,7 @@ fun XvoxNowPlaying(
     val overlays = LocalXvoxOverlayController.current
     // The player chrome adopts the lyrics-box material once the display mode is known below.
     // The three Customize knobs remain independent multipliers above that shared baseline.
-    val transitionStyle = XvoxPlayerTransitionMotion.normalizedStyle(chrome.miniPlayerTransitionStyle)
+    val transitionStyle = if (com.xvox.music.core.ui.miniplayer.XvoxMiniBounds.iosGrow) XvoxPlayerTransitionMotion.GrowStyle else XvoxPlayerTransitionMotion.normalizedStyle(chrome.miniPlayerTransitionStyle)
     val context = LocalContext.current
     val lyricsState by lyricsViewModel.state.collectAsState()
     val settingsState by settingsViewModel.state.collectAsState()
@@ -355,6 +360,8 @@ fun XvoxNowPlaying(
         settingsViewModel.updateLyrics { draft.lyrics }
     }
     var dismissing by remember { mutableStateOf(false) }
+    // Swipe-up stretch (px, rubber-banded): the player stretches upward, then the queue sheet opens.
+    val upStretch = remember { androidx.compose.animation.core.Animatable(0f) }
     var navigationRequest by remember { mutableIntStateOf(0) }
     // Separate visual browsing from the audio deck. Covers may move immediately while the
     // audible item stays untouched until the navigation button is released. Queue indices are
@@ -671,6 +678,30 @@ fun XvoxNowPlaying(
     val miniRectForGrow = com.xvox.music.core.ui.miniplayer.XvoxMiniBounds.rect
     val growActive = transitionStyle == XvoxPlayerTransitionMotion.GrowStyle && miniRectForGrow != null &&
         slideFraction < .999f
+    androidx.compose.runtime.SideEffect {
+        XvoxShared.growHide = growActive && !isLandscape && slideFraction > .02f
+    }
+    // Layout switch: cover/title/artist of the OLD layout travel to their place in the NEW one.
+    val layoutKey = settingsState.nowPlayingLayout
+    val layoutTravel = remember { androidx.compose.animation.core.Animatable(1f) }
+    var layoutMoving by remember { mutableStateOf(false) }
+    val firstLayoutPass = remember { booleanArrayOf(true) }
+    val layoutFromRects = remember(layoutKey) {
+        val snapshot = HashMap(XvoxShared.rects)
+        if (firstLayoutPass[0]) firstLayoutPass[0] = false
+        else if (!isLandscape) { XvoxShared.hidden = setOf("cover", "title", "artist"); layoutMoving = true }
+        snapshot
+    }
+    LaunchedEffect(layoutKey) {
+        if (layoutMoving) {
+            layoutTravel.snapTo(0f)
+            androidx.compose.runtime.withFrameNanos { }
+            androidx.compose.runtime.withFrameNanos { }
+            layoutTravel.animateTo(1f, androidx.compose.animation.core.spring(dampingRatio = .74f, stiffness = androidx.compose.animation.core.Spring.StiffnessLow))
+            XvoxShared.hidden = emptySet()
+            layoutMoving = false
+        }
+    }
     val cornerRadiusDp = maxOf(
         if (isSlidingDown) (28.dp * slideFraction).coerceIn(0.dp, 28.dp) else 0.dp,
         28.dp * backProgress
@@ -763,7 +794,21 @@ fun XvoxNowPlaying(
                     Modifier.xvoxSwipeDownToClose(
                         onDrag = { dy -> screenY = (screenY + dy).coerceAtLeast(0f) },
                         onEnd = { finishDragDismissal() },
-                        onCancel = { returnToRest() }
+                        onCancel = { returnToRest() },
+                        onUpDrag = if (!isLyricsShowing && !isLandscape && onQueue != null) { dy ->
+                            val cur = upStretch.value
+                            val next = (cur - dy).coerceAtLeast(0f)
+                            // Rubber band: resistance grows with the stretch.
+                            val damped = cur + (next - cur) * (1f - (cur / 520f).coerceIn(0f, .85f))
+                            scope.launch { upStretch.snapTo(damped) }
+                        } else null,
+                        onUpEnd = {
+                            val open = upStretch.value > 70f
+                            scope.launch {
+                                if (open) onQueue?.invoke()
+                                upStretch.animateTo(0f, androidx.compose.animation.core.spring(dampingRatio = .6f, stiffness = 380f))
+                            }
+                        }
                     )
                 } else Modifier
             )
@@ -774,7 +819,8 @@ fun XvoxNowPlaying(
                 transformOrigin = TransformOrigin(.5f, 1f)
                 val back = (1f - .1f * backProgress) * (.93f + .07f * layoutSwap.value)
                 scaleX = handoffScale * back
-                scaleY = handoffScale * back
+                // Upward stretch feel (origin is the bottom edge, so the top edge reaches upward).
+                scaleY = handoffScale * back * (1f + (upStretch.value / size.height.coerceAtLeast(1f)) * .22f)
             }
             .clip(
                 if (growActive) XvoxGrowShape(miniRectForGrow!!, 1f - slideFraction, with(LocalDensity.current) { chrome.miniCornerRadius.coerceIn(6f, 32f).dp.toPx() })
@@ -887,7 +933,7 @@ fun XvoxNowPlaying(
                     onArtworkTap = { setMode(1) },
                     onSwipePalette = { base, adjacent, fraction -> applyPagerPalette(base, adjacent, fraction) },
                     onSettledPage = { settledIndex, settledSong -> commitSettledPreview(settledIndex, settledSong) },
-                    modifier = m.onGloballyPositioned { com.xvox.music.core.ui.miniplayer.XvoxMiniBounds.coverRect = it.boundsInRoot() },
+                    modifier = m.xvoxShared("cover"),
                     contentPadding = pad,
                     pageSpacing = spacing,
                     artworkHorizontalInset = inset,
@@ -1133,7 +1179,8 @@ fun XvoxNowPlaying(
                                 lineHeight = 18.sp,
                                 fontWeight = FontWeight.Bold,
                                 maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.xvoxShared("title")
                             )
 
                             Text(
@@ -1143,7 +1190,8 @@ fun XvoxNowPlaying(
                                 lineHeight = 14.sp,
                                 fontWeight = FontWeight.Normal,
                                 maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.xvoxShared("artist")
                             )
                             }
                         }
@@ -1254,6 +1302,7 @@ fun XvoxNowPlaying(
                     label = "coverLyricsFade"
                 ) { lyricsActive ->
                     if (lyricsActive) {
+                      Box(Modifier.fillMaxSize()) {
                         XvoxArtworkLyrics(
                             state = lyricsState,
                             position = position,
@@ -1290,6 +1339,13 @@ fun XvoxNowPlaying(
                                 }
                                 .clip(RoundedCornerShape(currentCardRadius))
                         )
+                        XvoxLyricsInfoPill(
+                            song = song, isPlaying = isPlaying, isLiked = isLiked,
+                            onToggleLiked = { onToggleLiked?.invoke() }, onTogglePlay = onTogglePlay,
+                            onTap = { setMode(0) },
+                            modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth().padding(horizontal = currentPadH)
+                        )
+                      }
                     } else {
                         NowPlayingEditableCover(
                             session = customizeSession,
@@ -1315,12 +1371,12 @@ fun XvoxNowPlaying(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .padding(horizontal = currentPadH)
-                                .onGloballyPositioned { com.xvox.music.core.ui.miniplayer.XvoxMiniBounds.coverRect = it.boundsInRoot() }
+                                .xvoxShared("cover")
                                 .clip(RoundedCornerShape(currentCardRadius)),
                             contentPadding = PaddingValues(0.dp),
-                            // An opaque zero-gap deck hands the incoming cover directly to the
-                            // outgoing one; the backdrop continues its own palette blend below.
-                            pageSpacing = 0.dp,
+                            // A real gap between covers: the next cover arrives with air between it
+                            // and the current one instead of touching it.
+                            pageSpacing = 18.dp,
                             repeatMode = repeatMode
                         )
                         }
@@ -1485,7 +1541,8 @@ fun XvoxNowPlaying(
                         lineHeight = if (isCompact) 21.sp else 24.sp,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.xvoxShared("title")
                     )
 
                     Text(
@@ -1495,7 +1552,8 @@ fun XvoxNowPlaying(
                         lineHeight = if (isCompact) 15.sp else 17.sp,
                         fontWeight = FontWeight.Normal,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.xvoxShared("artist")
                     )
                     }
                 }
@@ -1598,6 +1656,47 @@ fun XvoxNowPlaying(
                 guide = customizeAlignmentGuide,
                 modifier = Modifier.fillMaxSize().zIndex(40f)
             )
+        }
+
+        // Shared-element ghosts (layout switch + Grow title/artist).
+        run {
+            val titleSp = when (layoutKey) { "ios" -> 24f; "material" -> 30f; else -> if (isCompact) 17f else 20f }
+            val artistSp = when (layoutKey) { "ios" -> 21f; "material" -> 19f; else -> if (isCompact) 11f else 13f }
+            val titleColor = if (layoutKey == "ios") Color.White else colors.primaryText
+            val artistColor = when (layoutKey) { "ios" -> Color.White.copy(alpha = .6f); "material" -> colors.mutedText; else -> colors.secondaryText }
+            val titleWeight = if (layoutKey == "material") FontWeight.Medium else FontWeight.Bold
+            val coverR = when (layoutKey) { "ios" -> 0f; "material" -> 22f; else -> 20f }
+            if (layoutMoving && !isLandscape) {
+                XvoxSharedGhosts(
+                    ghosts = listOf(
+                        XvoxGhost("cover", "cover", null, Color.White, 0f, FontWeight.Normal, song, coverR, coverR),
+                        XvoxGhost("title", "title", song.title, titleColor, titleSp, titleWeight),
+                        XvoxGhost("artist", "artist", song.artist, artistColor, artistSp, FontWeight.Normal)
+                    ),
+                    from = layoutFromRects,
+                    progress = { layoutTravel.value },
+                    modifier = Modifier.zIndex(60f)
+                )
+            }
+            if (growActive && !isLandscape && slideFraction > .02f) {
+                val e = (1f - slideFraction).coerceIn(0f, 1f)
+                XvoxSharedGhosts(
+                    ghosts = buildList {
+                        add(XvoxGhost("mini_title", "title", song.title, titleColor, titleSp, titleWeight))
+                        add(XvoxGhost("mini_artist", "artist", song.artist, artistColor, artistSp, FontWeight.Normal))
+                        if (settingsState.nowPlayingLayout == "ios") {
+                            // Like and play glide between the iOS controls and the Mini Player's buttons.
+                            add(XvoxGhost("mini_like", "ios_like", null, if (isLiked) colors.primaryAccent else Color.White, 0f, FontWeight.Normal,
+                                iconRes = if (isLiked) R.drawable.ic_xvox_heart else R.drawable.ic_xvox_heart_outline, circleFrom = .2f, circleTo = .2f))
+                            add(XvoxGhost("mini_play", "ios_play", null, Color.White, 0f, FontWeight.Normal,
+                                iconRes = if (isPlaying) R.drawable.ic_xvox_pause else R.drawable.ic_xvox_play, circleFrom = .2f, circleTo = 0f))
+                        }
+                    },
+                    from = null,
+                    progress = { e },
+                    modifier = Modifier.zIndex(60f)
+                )
+            }
         }
 
         // Grow: the Mini Player's cover itself travels to Now Playing's cover slot (and back).
@@ -1841,19 +1940,22 @@ fun XvoxNowPlaying(
 private fun Modifier.xvoxSwipeDownToClose(
     onDrag: (Float) -> Unit,
     onEnd: () -> Unit,
-    onCancel: () -> Unit
-): Modifier = pointerInput(Unit) {
+    onCancel: () -> Unit,
+    onUpDrag: ((Float) -> Unit)? = null,
+    onUpEnd: () -> Unit = {}
+): Modifier = pointerInput(onUpDrag != null) {
     awaitEachGesture {
         val down = awaitFirstDown(requireUnconsumed = false, pass = androidx.compose.ui.input.pointer.PointerEventPass.Final)
         val slop = viewConfiguration.touchSlop
         var dragging = false
+        var upDragging = false
         var tx = 0f
         var ty = 0f
         while (true) {
             val event = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Final)
             val change = event.changes.firstOrNull { it.id == down.id } ?: break
             if (!change.pressed) {
-                if (dragging) onEnd()
+                if (upDragging) onUpEnd() else if (dragging) onEnd()
                 break
             }
             val d = change.positionChange()
@@ -1866,8 +1968,16 @@ private fun Modifier.xvoxSwipeDownToClose(
                         dragging = true
                         onDrag(ty)
                         change.consume()
+                    } else if (onUpDrag != null && ty < -slop && -ty > kotlin.math.abs(tx) * 1.4f) {
+                        dragging = true
+                        upDragging = true
+                        onUpDrag(ty)
+                        change.consume()
                     } else break
                 }
+            } else if (upDragging) {
+                onUpDrag?.invoke(d.y)
+                change.consume()
             } else {
                 onDrag(d.y)
                 change.consume()

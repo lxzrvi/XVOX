@@ -314,7 +314,9 @@ fun XvoxBottomBar(
     val navBarHeight = chrome.navigationBarHeight.coerceIn(52f, 88f).dp
     val searchExtra = if (onSearch != null) navBarHeight + 8.dp else 0.dp
     val availableWidth = (LocalConfiguration.current.screenWidthDp.dp - 24.dp - searchExtra).coerceAtLeast(190.dp)
-    val navBarWidth = chrome.navigationBarWidth.coerceIn(190f, 380f).dp.coerceAtMost(availableWidth)
+    // Four tabs (Home, Artist, Album, Playlist) with titles: the bar is wider than the saved width
+    // setting by one extra slot, and still never wider than the screen allows.
+    val navBarWidth = (chrome.navigationBarWidth.coerceIn(190f, 380f) + 70f).dp.coerceAtMost(availableWidth)
     val pillHeight = (navBarHeight - 8.dp).coerceAtLeast(44.dp)
     val destinations = XvoxNavTab.entries
     val selectedIndex = destinations.indexOf(selected)
