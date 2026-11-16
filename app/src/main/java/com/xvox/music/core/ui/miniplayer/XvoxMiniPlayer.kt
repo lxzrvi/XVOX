@@ -92,7 +92,7 @@ fun XvoxMiniPlayer(
 ) {
     val density = LocalDensity.current
     val chrome = com.xvox.music.core.ui.chrome.LocalXvoxChromeStyle.current
-    val transitionStyle = XvoxPlayerTransitionMotion.normalizedStyle(chrome.miniPlayerTransitionStyle)
+    val transitionStyle = if (XvoxMiniBounds.iosGrow) XvoxPlayerTransitionMotion.GrowStyle else XvoxPlayerTransitionMotion.normalizedStyle(chrome.miniPlayerTransitionStyle)
     val scope = rememberCoroutineScope()
     val isLandscape = LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
     val defaultPlacementY = if (isLandscape) (-0.5f).dp else 13.dp
@@ -249,7 +249,7 @@ fun XvoxMiniPlayer(
                 .fillMaxWidth()
                 .height(68.dp)
                 .align(Alignment.BottomCenter)
-                .pointerInput(queue, currentSongId, repeatMode, exiting, transitionStyle) {
+                .pointerInput(queue, currentSongId, repeatMode, exiting) {
                     if (exiting) return@pointerInput
 
                     detectDragGestures(
@@ -282,9 +282,7 @@ fun XvoxMiniPlayer(
                                 }
                                 XvoxMiniAxis.VERTICAL -> {
                                     dragX = 0f
-                                    // Grow opens by tap only: an upward drag must not move or open the card.
-                                    dragY = if (transitionStyle == XvoxPlayerTransitionMotion.GrowStyle && rawY < 0f) 0f
-                                    else XvoxMiniPlayerMotion.verticalResistance(rawY)
+                                    dragY = XvoxMiniPlayerMotion.verticalResistance(rawY)
                                 }
                                 XvoxMiniAxis.NONE -> Unit
                             }
@@ -325,8 +323,7 @@ fun XvoxMiniPlayer(
                                 XvoxMiniAxis.VERTICAL -> {
                                     dragX = 0f
                                     when {
-                                        finalY <= XvoxMiniPlayerMotion.OpenThreshold &&
-                                            transitionStyle != XvoxPlayerTransitionMotion.GrowStyle -> {
+                                        finalY <= XvoxMiniPlayerMotion.OpenThreshold -> {
                                             moved = false
                                             exit(y.value + finalDragY, false)
                                         }

@@ -194,7 +194,7 @@ fun Modifier.xvoxLiveBlur(
 
     // --- Sheets: NEVER blurred. Normal theme material in every mode. ---------------------------
     if (level == XvoxBlurLevel.Sheet) {
-        return clip(shape).background(baseColor).xvoxPlainBorder(shape, borderColor, borderAlpha, borderWidth)
+        return clip(shape).background(baseColor).xvoxPlainBorder(shape, borderColor, borderAlpha, borderWidth).xvoxGlassRim(shape, hairline = false)
     }
     // --- Free area above a sheet: default = nothing (caller draws the faded theme scrim);
     //     blur mode = a LIGHT live blur of the page, small radius so it stays cheap and safe. ---
@@ -386,16 +386,7 @@ fun xvoxStableBarBlurDp(density: Float): Float = 17f / .45f / density.coerceAtLe
 
 /** Hairline used by every normal blurred element in blur mode: 0.5dp, light, never grey. */
 @Composable
-fun Modifier.xvoxThinEdge(shape: Shape): Modifier {
-    val colors = XvoxTheme.colors
-    val hi = Color.White.copy(alpha = if (colors.isLight) .85f else .34f)
-    val lo = Color.White.copy(alpha = if (colors.isLight) .35f else .10f)
-    return drawWithContent {
-        drawContent()
-        val brush = Brush.linearGradient(listOf(hi, lo, hi.copy(alpha = hi.alpha * .7f)), start = Offset.Zero, end = Offset(size.width, size.height))
-        drawPath(outlinePath(shape.createOutline(size, layoutDirection, this)), brush, style = Stroke(width = .5.dp.toPx() * 2f))
-    }
-}
+fun Modifier.xvoxThinEdge(shape: Shape): Modifier = xvoxGlassRim(shape)
 
 /**
  * Blur-mode border, shared by EVERY blurred element and styled like the liquid navbar edge:

@@ -7,7 +7,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.runtime.remember
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.foundation.border
+import com.xvox.music.core.ui.blur.xvoxGlassRim
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -68,7 +68,7 @@ fun SongOptionsBox(
 ) {
     val colors = XvoxTheme.colors
     val dark = !colors.isLight
-    val plate = (if (dark) Color.Black else Color.White).copy(alpha = if (dark) .55f else .62f)
+    val plate = (if (dark) Color.Black else Color.White).copy(alpha = if (dark) .5f else .5f)
     val hairline = if (dark) Color.White.copy(alpha = .10f) else Color.Black.copy(alpha = .08f)
     val coverShape = RoundedCornerShape(22.dp)
     val panelShape = RoundedCornerShape(22.dp)
@@ -107,7 +107,7 @@ fun SongOptionsBox(
                 .shadow(22.dp, coverShape, clip = false)
                 .clip(coverShape)
                 .background(plate)
-                .border(.6.dp, hairline, coverShape)
+                .xvoxGlassRim(coverShape, hairlineColor = hairline)
                 .xvoxPressScale(onClick = onPlay)
                 .padding(8.dp),
             horizontalAlignment = Alignment.CenterHorizontally
@@ -145,7 +145,7 @@ fun SongOptionsBox(
                 .shadow(18.dp, panelShape, clip = false)
                 .clip(panelShape)
                 .background(plate)
-                .border(.6.dp, hairline, panelShape)
+                .xvoxGlassRim(panelShape, hairlineColor = hairline)
                 .heightIn(max = 330.dp)
                 .verticalScroll(scroll)
                 .xvoxBoxScroll(scroll)

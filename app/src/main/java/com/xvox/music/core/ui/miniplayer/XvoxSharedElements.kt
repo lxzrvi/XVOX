@@ -1,7 +1,12 @@
 // EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/core/ui/miniplayer/XvoxSharedElements.kt
 package com.xvox.music.core.ui.miniplayer
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Icon
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
@@ -68,7 +73,11 @@ class XvoxGhost(
     val weight: FontWeight,
     val song: Song? = null,
     val radiusFromDp: Float = 0f,
-    val radiusToDp: Float = 0f
+    val radiusToDp: Float = 0f,
+    /** Icon ghost (like / play buttons): drawable, drawn in a circle whose white fill fades circleFrom -> circleTo. */
+    val iconRes: Int? = null,
+    val circleFrom: Float = 0f,
+    val circleTo: Float = 0f
 )
 
 /** Draws the ghosts at lerp(from, to, progress). [from] null = use the live registry. */
@@ -105,6 +114,24 @@ fun XvoxSharedGhosts(
                             transformOrigin = TransformOrigin(0f, 0f)
                         }
                 )
+            } else if (g.iconRes != null) {
+                val f = progress().coerceIn(0f, 1f)
+                val w = fr.width + (to.width - fr.width) * f
+                val h = fr.height + (to.height - fr.height) * f
+                val fill = g.circleFrom + (g.circleTo - g.circleFrom) * f
+                Box(
+                    Modifier
+                        .offset { IntOffset((fr.left + (to.left - fr.left) * f).toInt(), (fr.top + (to.top - fr.top) * f).toInt()) }
+                        .size(with(density) { w.toDp() }, with(density) { h.toDp() })
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = fill)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        painterResource(g.iconRes), null, tint = g.color,
+                        modifier = Modifier.size(with(density) { (w * .5f).toDp() })
+                    )
+                }
             } else if (g.song != null) {
                 // The rect heights are used for both axes only through width/height lerp below.
                 val f = progress().coerceIn(0f, 1f)

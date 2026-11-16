@@ -379,6 +379,7 @@ fun XvoxMiniPlayerCard(
             Box(
                 modifier = Modifier
                     .size(38.dp)
+                    .xvoxSharedMini("mini_like")
                     // Both actions use the lower Selection blur level so their hit targets stay
                     // visually distinct from the larger frosted Mini Player body.
                     .xvoxLiveBlur(
@@ -406,6 +407,7 @@ fun XvoxMiniPlayerCard(
             Box(
                 modifier = Modifier
                     .size(38.dp)
+                    .xvoxSharedMini("mini_play")
                     // Same light selection-glass treatment as Like.
                     .xvoxLiveBlur(
                         shape = CircleShape,

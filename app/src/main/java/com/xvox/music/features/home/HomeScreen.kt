@@ -189,40 +189,93 @@ fun HomeScreen(
     // always remains above both persistent layers.
     fun showArtistOptions(artist: XvoxArtist) {
         showArtistInfo = artist
+        fun artistSongs() = artist.songs.map { it.copy(source = artist.name) }
+        // Full artist sheet (grid columns, hide text, ...) stays reachable from the held menu.
+        fun showArtistSettings() {
+            overlays.showBox(
+                title = artist.name,
+                headerLeadingContent = { ArtistInfoHeaderArtwork(artist) },
+                onDismiss = { showArtistInfo = null }
+            ) {
+                ArtistInfoBox(
+                    artist = artist,
+                    hideText = config.artistHideText,
+                    liked = artist.name in likedArtistNames,
+                    onToggleLiked = { viewModel.toggleLikedArtist(artist.name) },
+                    columns = config.artistColumns,
+                    onColumnsChange = { viewModel.setArtistColumns(it) },
+                    onHideTextChange = { viewModel.setArtistHideText(it) },
+                    onDismiss = overlays::hideBox,
+                    onPlayNext = {
+                        val message = playerViewModel.playNextInQueue(artistSongs())
+                        overlays.showP(if (message.isNotBlank()) message else "Playing by ${artist.name}")
+                    },
+                    onAddToQueue = { showMultiAddToQueueOverlay(overlays, playerViewModel, artistSongs()) },
+                    onSelectArtist = {
+                        selectedSongIds = emptySet()
+                        selectedPlaylistIds = emptySet()
+                        selectedArtistNames = setOf(artist.name)
+                        selectionCategoryName = "Artists"
+                        selectionLibraryMode = XvoxHomeLibraryMode.ARTISTS
+                    },
+                    onHideArtist = {
+                        viewModel.hideArtist(artist.name)
+                        overlays.showP("${artist.name} hidden")
+                    }
+                )
+            }
+        }
+
+        // Held-item menu: the artist lifts off the blurred page and its actions hang beneath it.
         overlays.showBox(
             title = artist.name,
-            headerLeadingContent = { ArtistInfoHeaderArtwork(artist) },
-            onDismiss = { showArtistInfo = null }
+            onDismiss = { showArtistInfo = null },
+            presentation = com.xvox.music.core.ui.overlay.XvoxBoxPresentation.HELD
         ) {
-            ArtistInfoBox(
-                artist = artist,
-                hideText = config.artistHideText,
-                liked = artist.name in likedArtistNames,
-                onToggleLiked = { viewModel.toggleLikedArtist(artist.name) },
-                columns = config.artistColumns,
-                onColumnsChange = { viewModel.setArtistColumns(it) },
-                onHideTextChange = { viewModel.setArtistHideText(it) },
-                onDismiss = overlays::hideBox,
-                onPlayNext = {
-                    val artistSongs = artist.songs.map { it.copy(source = artist.name) }
-                    val message = playerViewModel.playNextInQueue(artistSongs)
-                    overlays.showP(if (message.isNotBlank()) message else "Playing by ${artist.name}")
+            val liveLiked by viewModel.likedArtists.collectAsState()
+            val liked = artist.name in liveLiked
+            XvoxHeldActionsBox(
+                title = artist.name,
+                subtitle = "${artist.songs.size} songs",
+                coverCircle = false,
+                cover = { m ->
+                    XvoxSongArtwork(
+                        artwork = artist.customImageUri
+                            ?.takeIf { it.isNotBlank() }
+                            ?.let(android.net.Uri::parse)
+                            ?: artist.coverSong?.artworkUri,
+                        fallbackSeed = artist.coverSong?.id?.hashCode() ?: artist.name.hashCode(),
+                        requestSize = 384,
+                        modifier = m
+                    )
                 },
-                onAddToQueue = {
-                    val artistSongs = artist.songs.map { it.copy(source = artist.name) }
-                    showMultiAddToQueueOverlay(overlays, playerViewModel, artistSongs)
-                },
-                onSelectArtist = {
-                    selectedSongIds = emptySet()
-                    selectedPlaylistIds = emptySet()
-                    selectedArtistNames = setOf(artist.name)
-                    selectionCategoryName = "Artists"
-                    selectionLibraryMode = XvoxHomeLibraryMode.ARTISTS
-                },
-                onHideArtist = {
-                    viewModel.hideArtist(artist.name)
-                    overlays.showP("${artist.name} hidden")
-                }
+                actions = listOf(
+                    XvoxHeldAction("Play next", R.drawable.ic_xvox_play) {
+                        val message = playerViewModel.playNextInQueue(artistSongs())
+                        overlays.showP(if (message.isNotBlank()) message else "Playing by ${artist.name}")
+                    },
+                    XvoxHeldAction("Add to queue", R.drawable.ic_xvox_queue) {
+                        showMultiAddToQueueOverlay(overlays, playerViewModel, artistSongs())
+                    },
+                    XvoxHeldAction("Select", R.drawable.ic_xvox_check) {
+                        overlays.hideBox()
+                        selectedSongIds = emptySet()
+                        selectedPlaylistIds = emptySet()
+                        selectedArtistNames = setOf(artist.name)
+                        selectionCategoryName = "Artists"
+                        selectionLibraryMode = XvoxHomeLibraryMode.ARTISTS
+                    },
+                    XvoxHeldAction(
+                        if (liked) "Unlike" else "Like",
+                        if (liked) R.drawable.ic_xvox_heart else R.drawable.ic_xvox_heart_outline
+                    ) { viewModel.toggleLikedArtist(artist.name) },
+                    XvoxHeldAction("Artist settings", R.drawable.ic_xvox_settings) { showArtistSettings() },
+                    XvoxHeldAction("Hide artist", R.drawable.ic_xvox_delete, destructive = true) {
+                        viewModel.hideArtist(artist.name)
+                        overlays.hideBox()
+                        overlays.showP("${artist.name} hidden")
+                    }
+                )
             )
         }
     }

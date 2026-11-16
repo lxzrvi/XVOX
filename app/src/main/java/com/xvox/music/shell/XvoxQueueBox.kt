@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -669,7 +670,7 @@ private fun QueueSwipeToRemove(
                 .offset { IntOffset(dx.roundToInt(), 0) }
                 .pointerInput(enabled) {
                     if (!enabled) return@pointerInput
-                    androidx.compose.foundation.gestures.detectHorizontalDragGestures(
+                    detectHorizontalDragGestures(
                         onDragEnd = {
                             if (-dx > widthPx * .35f) latestRemove() else dx = 0f
                         },

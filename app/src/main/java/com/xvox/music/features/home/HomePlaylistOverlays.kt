@@ -1,5 +1,12 @@
 package com.xvox.music.features.home
 
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import android.net.Uri
@@ -31,77 +38,120 @@ fun showPlaylistActions(
         }
     }
 
-    overlays.showBox("Playlist options", onSettings = ::showSettings) {
+    // Held-item menu: the playlist lifts off the blurred page and its actions hang beneath it.
+    overlays.showBox(
+        title = "Playlist options",
+        presentation = com.xvox.music.core.ui.overlay.XvoxBoxPresentation.HELD
+    ) {
         val liveState by viewModel.state.collectAsState()
         val likedPlaylistIds by viewModel.likedPlaylistIds.collectAsState()
         val current = liveState.playlists.firstOrNull { it.id == playlist.id } ?: playlist
+        val songs = viewModel.playlistSongs(current)
+        val liked = current.id in likedPlaylistIds
 
-        XvoxPlaylistActionsBox(
-            playlist = current,
-            songs = viewModel.playlistSongs(current),
-            onRename = { name ->
-                viewModel.renamePlaylist(current.id, name) { updated ->
-                    if (updated != null) {
-                        overlays.showP("Playlist renamed")
-                    }
+        val actions = mutableListOf<XvoxHeldAction>()
+        if (onSelect != null) {
+            actions += XvoxHeldAction("$selectTitle (${songs.size})", com.xvox.music.R.drawable.ic_xvox_check) {
+                overlays.hideBox()
+                onSelect()
+            }
+        }
+        actions += XvoxHeldAction("Rename", com.xvox.music.R.drawable.ic_xvox_edit) {
+            overlays.showBox("Rename playlist") {
+                var name by androidx.compose.runtime.remember {
+                    androidx.compose.runtime.mutableStateOf(
+                        androidx.compose.ui.text.input.TextFieldValue(
+                            current.name,
+                            androidx.compose.ui.text.TextRange(current.name.length)
+                        )
+                    )
                 }
-            },
-            onSaveCover = { songIds, customUri, done ->
-                viewModel.savePlaylistCover(
-                    playlistId = current.id,
-                    songIds = songIds,
-                    customUri = customUri
-                ) { updated ->
-                    done()
-                    if (updated != null) {
-                        overlays.showP("Playlist cover updated")
-                    }
-                }
-            },
-            onDelete = {
-                // Deleting a playlist now asks first, exactly like exit and song deletion.
-                overlays.showBox("Delete playlist?") {
-                    com.xvox.music.shell.XvoxConfirmBox(
-                        question = "Delete \"${current.name}\"?",
-                        detail = "The songs themselves stay in your library.",
-                        confirmLabel = "Delete",
-                        danger = true,
+                val colors = com.xvox.music.core.design.theme.XvoxTheme.colors
+                val focus = androidx.compose.runtime.remember { androidx.compose.ui.focus.FocusRequester() }
+                androidx.compose.runtime.LaunchedEffect(Unit) { focus.requestFocus() }
+                androidx.compose.foundation.layout.Column(Modifier.fillMaxWidth()) {
+                    androidx.compose.foundation.text.BasicTextField(
+                        value = name,
+                        onValueChange = { name = it },
+                        singleLine = true,
+                        textStyle = androidx.compose.ui.text.TextStyle(
+                            color = colors.primaryText,
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.Bold
+                        ),
+                        cursorBrush = androidx.compose.ui.graphics.SolidColor(colors.primaryText),
+                        modifier = Modifier.fillMaxWidth().focusRequester(focus)
+                    )
+                    androidx.compose.foundation.layout.Spacer(Modifier.height(14.dp))
+                    XvoxTransactionalFooterActions(
                         onCancel = overlays::hideBox,
-                        onConfirm = {
-                            viewModel.deletePlaylist(current.id) {
-                                overlays.hideBox()
-                                onDeleted()
-                                overlays.showP("Playlist deleted")
+                        onOkay = {
+                            val clean = name.text.trim()
+                            if (clean.isNotEmpty()) {
+                                viewModel.renamePlaylist(current.id, clean) { updated ->
+                                    overlays.hideBox()
+                                    if (updated != null) overlays.showP("Playlist renamed")
+                                }
                             }
                         }
                     )
                 }
-            },
-            onInfo = {
-                overlays.showBox(
-                    title = "Playlist info",
-                    bottomAction = {
-                        XvoxTransactionalFooterActions(
-                            onCancel = overlays::hideBox,
-                            onOkay = overlays::hideBox
-                        )
-                    }
-                ) {
-                    PlaylistInfoBox(
-                        playlist = current,
-                        songCount = viewModel.playlistSongs(current).size
+            }
+        }
+        actions += XvoxHeldAction("Edit cover", com.xvox.music.R.drawable.ic_xvox_playlist) {
+            showPlaylistCoverEditor(overlays, viewModel, current)
+        }
+        actions += XvoxHeldAction(
+            if (liked) "Remove from liked" else "Like playlist",
+            if (liked) com.xvox.music.R.drawable.ic_xvox_heart else com.xvox.music.R.drawable.ic_xvox_heart_outline
+        ) { viewModel.toggleLikedPlaylist(current.id) }
+        actions += XvoxHeldAction("Playlist info", com.xvox.music.R.drawable.ic_xvox_info) {
+            overlays.showBox(
+                title = "Playlist info",
+                bottomAction = {
+                    XvoxTransactionalFooterActions(
+                        onCancel = overlays::hideBox,
+                        onOkay = overlays::hideBox
                     )
                 }
-            },
-            liked = current.id in likedPlaylistIds,
-            onToggleLiked = { viewModel.toggleLikedPlaylist(current.id) },
-            selectTitle = selectTitle,
-            onSelect = onSelect?.let { select ->
-                {
-                    overlays.hideBox()
-                    select()
-                }
+            ) {
+                PlaylistInfoBox(playlist = current, songCount = songs.size)
             }
+        }
+        actions += XvoxHeldAction("Layout settings", com.xvox.music.R.drawable.ic_xvox_settings) { showSettings() }
+        actions += XvoxHeldAction("Delete playlist", com.xvox.music.R.drawable.ic_xvox_delete, destructive = true) {
+            overlays.showBox("Delete playlist?") {
+                com.xvox.music.shell.XvoxConfirmBox(
+                    question = "Delete \"${current.name}\"?",
+                    detail = "The songs themselves stay in your library.",
+                    confirmLabel = "Delete",
+                    danger = true,
+                    onCancel = overlays::hideBox,
+                    onConfirm = {
+                        viewModel.deletePlaylist(current.id) {
+                            overlays.hideBox()
+                            onDeleted()
+                            overlays.showP("Playlist deleted")
+                        }
+                    }
+                )
+            }
+        }
+
+        XvoxHeldActionsBox(
+            title = current.name,
+            subtitle = "${songs.size} songs",
+            cover = { m ->
+                com.xvox.music.features.playlist.XvoxPlaylistCover(
+                    songs = songs,
+                    coverSongIds = current.coverSongIds,
+                    customCoverUri = current.customCoverUri,
+                    requestSize = 384,
+                    coverShape = androidx.compose.foundation.shape.RoundedCornerShape(15.dp),
+                    modifier = m
+                )
+            },
+            actions = actions
         )
     }
 }
