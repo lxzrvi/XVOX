@@ -661,7 +661,16 @@ private fun IosControls(
         Spacer(Modifier.weight(.25f))
         // iOS bottom actions: lyrics and queue (audio output / Bluetooth live in Settings now).
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(46.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically) {
-            AltIconButton(R.drawable.ic_xvox_ios_lyrics, if (lyricsActive) accent else white.copy(alpha = .85f), 52.dp, iconSize = 26.dp, onClick = if (lyricsActive) actions.onCloseLyrics else actions.onOpenLyrics)
+            // Active lyrics: light rounded-square plate with a dark glyph, like the BitChord toggle.
+            AltIconButton(
+                R.drawable.ic_xvox_ios_lyrics,
+                if (lyricsActive) Color.Black.copy(alpha = .78f) else white.copy(alpha = .85f),
+                52.dp, Modifier.width(if (lyricsActive) 56.dp else 52.dp),
+                iconSize = 26.dp,
+                background = if (lyricsActive) white.copy(alpha = .82f) else Color.Transparent,
+                shape = RoundedCornerShape(14.dp),
+                onClick = if (lyricsActive) actions.onCloseLyrics else actions.onOpenLyrics
+            )
             AltIconButton(R.drawable.ic_xvox_ios_list, white.copy(alpha = .85f), 52.dp, iconSize = 26.dp, onClick = actions.onQueue)
         }
         Spacer(Modifier.height(22.dp))

@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -22,6 +23,15 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
+import androidx.compose.material3.Icon
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.res.painterResource
+import com.xvox.music.R
+import com.xvox.music.core.design.theme.XvoxLogoFont
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -46,7 +56,10 @@ private val SessionSeed: Long = System.nanoTime()
 private const val QuickPickCount = 24
 private const val QuickPickRows = 4
 
-/** The XVOX wordmark, drawn into the scrolling header lane so it leaves with the page. */
+/**
+ * XVOX mark + Cinzel wordmark, parked on the right of the header just before the floating profile
+ * avatar. It lives in the scrolling header lane, so it leaves with the page.
+ */
 @Composable
 fun XvoxHomeLogo(modifier: Modifier = Modifier) {
     val colors = XvoxTheme.colors
@@ -54,27 +67,56 @@ fun XvoxHomeLogo(modifier: Modifier = Modifier) {
         modifier = modifier
             .fillMaxWidth()
             .windowInsetsPadding(WindowInsets.statusBars)
-            .padding(start = 18.dp, top = 6.dp)
+            .padding(top = 6.dp, end = 58.dp)
             .height(54.dp),
-        contentAlignment = Alignment.CenterStart
+        contentAlignment = Alignment.CenterEnd
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                Modifier
-                    .size(9.dp)
-                    .clip(RoundedCornerShape(50))
-                    .background(colors.primaryAccent)
+            Icon(
+                painter = painterResource(R.drawable.ic_launcher_foreground_vector),
+                contentDescription = null,
+                tint = colors.primaryAccent,
+                modifier = Modifier.size(46.dp)
             )
             Text(
                 "XVOX",
                 color = colors.primaryText,
-                fontWeight = FontWeight.Black,
-                fontSize = 24.sp,
-                letterSpacing = 3.sp,
-                modifier = Modifier.padding(start = 8.dp)
+                fontFamily = XvoxLogoFont,
+                fontWeight = FontWeight.Normal,
+                fontSize = 22.sp,
+                letterSpacing = 2.sp,
+                maxLines = 1,
+                modifier = Modifier.padding(start = 0.dp)
             )
         }
     }
+}
+
+/**
+ * Content that scrolls up behind the status bar fades out instead of being cut hard, like the
+ * BitChord lists. Only the strip above the status-bar line is touched; everything below is opaque.
+ */
+@Composable
+fun Modifier.xvoxStatusBarFade(enabled: Boolean = true): Modifier {
+    if (!enabled) return this
+    val statusBar = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    return this
+        .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+        .drawWithContent {
+            drawContent()
+            val h = statusBar.toPx() + 6.dp.toPx()
+            if (h > 0f) {
+                drawRect(
+                    brush = Brush.verticalGradient(
+                        colorStops = arrayOf(0f to Color.Transparent, .4f to Color.Black.copy(alpha = .25f), 1f to Color.Black),
+                        startY = 0f,
+                        endY = h
+                    ),
+                    size = Size(size.width, h),
+                    blendMode = BlendMode.DstIn
+                )
+            }
+        }
 }
 
 private data class XvoxMood(val title: String, val subtitle: String, val from: Color, val to: Color, val songs: List<Song>)

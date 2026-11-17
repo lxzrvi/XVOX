@@ -896,7 +896,12 @@ fun HomeScreen(
             // without reducing their 256px/512px request quality.
             LazyColumn(
                 state = listState,
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .xvoxStatusBarFade(
+                        enabled = !(targetArtist != null || targetPlaylist != null ||
+                            (selectedAlbum != null && (targetKey as? XvoxHomeLibraryMode) == XvoxHomeLibraryMode.ALBUMS))
+                    ),
                 contentPadding = PaddingValues(bottom = bottomInset)
             ) {
                 // A real first list item gives the shell Header the exact same scroll distance as
