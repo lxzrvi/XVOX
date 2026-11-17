@@ -87,6 +87,43 @@ fun XvoxDesignEngine(content: @Composable () -> Unit) {
 }
 
 /**
+ * Provides everything Glasmio's glass needs for one backdrop: the palette mapped onto the active
+ * XVOX colours, the appearance tokens, and the backdrop itself. Used by the rebuild stage and by
+ * [XvoxDesignEngine] so both stay in sync.
+ */
+@Composable
+fun XvoxGlassEnvironment(
+    backdrop: LayerBackdrop,
+    content: @Composable () -> Unit
+) {
+    val colors = XvoxTheme.colors
+    val glassColors = remember(colors) {
+        defaultGlassColors(isDark = !colors.isLight, accent = colors.primaryAccent).copy(
+            content = colors.primaryText,
+            secondaryContent = colors.secondaryText,
+            tertiaryContent = colors.mutedText,
+            container = colors.card,
+            prominentContainer = colors.primaryAccent.copy(alpha = .86f),
+            subtleStroke = colors.cardBorder,
+            groupedBackground = colors.background,
+            elevatedBackground = colors.cardElevated,
+            separator = colors.cardBorder,
+            destructive = com.xvox.music.core.design.theme.XvoxRed
+        )
+    }
+    CompositionLocalProvider(
+        LocalGlassColors provides glassColors,
+        LocalGlassAppearance provides GlassAppearance(),
+        LocalXvoxGlassBackdrop provides backdrop,
+        LocalXvoxGlassReady provides true
+    ) {
+        GlasmioBackdropProvider(backdrop = backdrop) {
+            content()
+        }
+    }
+}
+
+/**
  * Marks the layer that glass samples. Applied to the root background (wallpaper, gradient or
  * theme fill) so refraction and frost stay faithful to whatever is actually behind the UI.
  */
