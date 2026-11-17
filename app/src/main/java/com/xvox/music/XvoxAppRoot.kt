@@ -343,7 +343,11 @@ fun XvoxAppRoot(
                         .fillMaxSize()
                         .then(appBlurMod)
                 ) {
-                    if (state == AppUiState.Setup) {
+                    if (com.xvox.music.core.design.kit.XvoxStage.OnlyBackgroundAndNavBar) {
+                        // Rebuild staging: only the gradient backdrop and the iOS navigation bar.
+                        // Every existing screen stays composed-off, never deleted.
+                        com.xvox.music.core.design.kit.XvoxStageScaffold()
+                    } else if (state == AppUiState.Setup) {
                         SetupScreen(onSetupComplete = { viewModel.onSetupFinished() })
                     } else {
                         if (shellMounted && homeVm != null && playerVm != null) {

@@ -14,9 +14,9 @@ android {
         minSdk = 33
         targetSdk = 37
 
-        // v1.02.5: dual design engine - Glasmio liquid-glass (iOS) and Material 3 Expressive.
-        versionCode = 10205
-        versionName = "1.02.5"
+        // v1.02.6: rebuild staging - gradient backdrop plus the Glasmio iOS navigation bar.
+        versionCode = 10206
+        versionName = "1.02.6"
     }
 
     compileOptions {
