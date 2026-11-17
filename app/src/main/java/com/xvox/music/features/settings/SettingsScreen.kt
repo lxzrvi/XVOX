@@ -176,6 +176,7 @@ fun SettingsScreen(
     var showingWidgetStudio by rememberSaveable { mutableStateOf(false) }
     // null = the grouped landing list; otherwise the sub-page that is open.
     var settingsPage by rememberSaveable { mutableStateOf<String?>(null) }
+    var settingsQuery by rememberSaveable { mutableStateOf("") }
     androidx.activity.compose.BackHandler(enabled = settingsPage != null) { settingsPage = null }
 
     LaunchedEffect(topResetKey) {
@@ -286,6 +287,23 @@ fun SettingsScreen(
                 Column(Modifier.fillMaxWidth()) {
                     when (settingsPage) {
                         null -> {
+                            SettingsSearchBar(settingsQuery) { settingsQuery = it }
+                            if (settingsQuery.isNotBlank()) {
+                                SettingsSearchResults(
+                                    settingsQuery,
+                                    listOf(
+                                        SettingsSearchEntry(R.drawable.ic_xvox_settings, "Appearance", "Theme, accent, font, navbar, mini player", "theme dark light colour color accent font navbar mini player wallpaper background") { settingsQuery = ""; settingsPage = "appearance" },
+                                        SettingsSearchEntry(R.drawable.ic_xvox_equalizer, "Sound & playback", "Equalizer, 3D sound, crossfade, Bluetooth", "equalizer eq bass 3d surround crossfade gapless bluetooth headset output") { settingsQuery = ""; settingsPage = "sound" },
+                                        SettingsSearchEntry(R.drawable.ic_xvox_play, "Background playback", "Keep music playing when the app is closed", "battery notification service") { settingsQuery = ""; settingsPage = "background" },
+                                        SettingsSearchEntry(R.drawable.ic_xvox_music_note, "Library", "Refresh, hide folders, filters", "scan folders hide filter duration") { settingsQuery = ""; settingsPage = "library" },
+                                        SettingsSearchEntry(R.drawable.ic_xvox_delete, "Recycle bin", "Restore or permanently remove songs", "deleted trash restore") { settingsQuery = ""; openDeletedItems() },
+                                        SettingsSearchEntry(R.drawable.ic_xvox_sparkle, "Widgets", "Widget studio", "home screen widget") { settingsQuery = ""; showingWidgetStudio = true },
+                                        SettingsSearchEntry(R.drawable.ic_xvox_download, "Backup & restore", "Export and import your library data", "export import backup") { settingsQuery = ""; settingsPage = "backup" },
+                                        SettingsSearchEntry(R.drawable.ic_xvox_heart, "Support the developer", null, "donate tip") { settingsQuery = ""; settingsPage = "support" },
+                                        SettingsSearchEntry(R.drawable.ic_xvox_info, "About XVOX", null, "version credits") { settingsQuery = ""; settingsPage = "about" }
+                                    )
+                                )
+                            } else {
                             SettingsLandingGroup(header = "General") {
                                 SettingsLandingRow(R.drawable.ic_xvox_settings, "Appearance", "Theme, accent, font, navbar, mini player") { settingsPage = "appearance" }
                                 SettingsLandingDivider()
@@ -306,6 +324,7 @@ fun SettingsScreen(
                                 SettingsLandingRow(R.drawable.ic_xvox_heart, "Support the developer", null) { settingsPage = "support" }
                                 SettingsLandingDivider()
                                 SettingsLandingRow(R.drawable.ic_xvox_info, "About XVOX", null) { settingsPage = "about" }
+                            }
                             }
                         }
                         "appearance" -> AppearanceSectionCard(state, settingsViewModel, ::openCustomColorPicker, ::openFontPicker)

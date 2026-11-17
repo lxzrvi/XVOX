@@ -14,6 +14,9 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -47,6 +50,58 @@ import com.xvox.music.features.settings.sections.ThreeDSoundDraftSection
 
 // BitChord-style settings: a big page title, inset grouped lists with an uppercase header,
 // rows = glyph + title (+ subtitle) + chevron, hairline dividers between rows.
+
+class SettingsSearchEntry(val iconRes: Int, val title: String, val subtitle: String?, val keywords: String, val onClick: () -> Unit)
+
+/** "Search settings" pill under the page title, BitChord style. */
+@Composable
+fun SettingsSearchBar(query: String, onQueryChange: (String) -> Unit) {
+    val colors = XvoxTheme.colors
+    val shape = RoundedCornerShape(16.dp)
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = GroupInset, vertical = 6.dp).height(46.dp)
+            .clip(shape).background(colors.card).xvoxGlassRim(shape).padding(horizontal = 14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(painterResource(R.drawable.ic_xvox_search), null, tint = colors.mutedText, modifier = Modifier.size(20.dp))
+        Spacer(Modifier.width(10.dp))
+        Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+            if (query.isEmpty()) Text("Search settings", color = colors.mutedText, fontSize = 15.sp)
+            BasicTextField(
+                value = query, onValueChange = onQueryChange, singleLine = true,
+                textStyle = TextStyle(color = colors.primaryText, fontSize = 15.sp),
+                cursorBrush = SolidColor(colors.primaryText),
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+        if (query.isNotEmpty()) {
+            Box(
+                Modifier.size(28.dp).clip(CircleShape)
+                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { onQueryChange("") },
+                contentAlignment = Alignment.Center
+            ) { Icon(painterResource(R.drawable.ic_xvox_close), "Clear", tint = colors.mutedText, modifier = Modifier.size(16.dp)) }
+        }
+    }
+}
+
+@Composable
+fun SettingsSearchResults(query: String, entries: List<SettingsSearchEntry>) {
+    val q = query.trim().lowercase()
+    val hits = entries.filter { (it.title + " " + (it.subtitle ?: "") + " " + it.keywords).lowercase().contains(q) }
+    if (hits.isEmpty()) {
+        Text(
+            "No settings match \"$query\"", color = XvoxTheme.colors.mutedText, fontSize = 14.sp,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = GroupInset + 6.dp, vertical = 24.dp)
+        )
+        return
+    }
+    SettingsLandingGroup(header = "Results") {
+        hits.forEachIndexed { i, e ->
+            SettingsLandingRow(e.iconRes, e.title, e.subtitle, e.onClick)
+            if (i != hits.lastIndex) SettingsLandingDivider()
+        }
+    }
+}
 
 private val GroupInset = 14.dp
 private val RowInset = 16.dp
