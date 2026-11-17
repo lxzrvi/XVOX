@@ -5,12 +5,14 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.unit.dp
+import io.github.neoruaa.glasmio.icons.GlasmioIconResolver
 
 /**
  * Apple SF Symbols geometry, converted from the android-sf-symbols-svg catalogue
  * (https://github.com/kingconan/android-sf-symbols-svg) with its own svg2compose pipeline.
  *
- * The vectors are tinted at the call site, exactly like `SfIcon` on iOS.
+ * Glasmio's own navigation bar asks for symbols by system name, so [XvoxSfResolver] hands it these
+ * real vectors instead of the generic Material fallback. No Apple font is bundled or required.
  */
 object XvoxSfIcons {
 
@@ -93,43 +95,44 @@ object XvoxSfIcons {
         }.build()
     }
 
-    /** SF Symbol: music.microphone */
-    val MusicMicrophone: ImageVector by lazy {
+    /** SF Symbol: microphone.fill */
+    val MicrophoneFill: ImageVector by lazy {
         ImageVector.Builder(
-            name = "MusicMicrophone",
+            name = "MicrophoneFill",
             defaultWidth = 24.dp,
             defaultHeight = 24.dp,
             viewportWidth = 32.0f,
             viewportHeight = 32.0f,
         ).apply {
             path(fill = SolidColor(Color.Black)) {
-                moveTo(15.9872f, 29.5385f)
-                curveTo(16.641f, 29.5385f, 17.1538f, 29.0256f, 17.1538f, 28.3846f)
-                lineTo(17.1538f, 18.8718f)
-                lineTo(20.9872f, 15.3333f)
-                curveTo(22.4487f, 15.5256f, 23.9872f, 14.9231f, 25.3333f, 13.5769f)
-                lineTo(18.282f, 6.5128f)
-                curveTo(16.9231f, 7.859f, 16.359f, 9.3718f, 16.5641f, 10.8462f)
-                lineTo(4.641f, 23.6795f)
-                curveTo(4.1538f, 24.2051f, 4.0769f, 24.9359f, 4.6795f, 25.5385f)
-                lineTo(3.0385f, 27.6538f)
-                curveTo(2.8846f, 27.859f, 2.8718f, 28.1538f, 3.1026f, 28.3846f)
-                lineTo(3.4744f, 28.7692f)
-                curveTo(3.6923f, 28.9872f, 3.9872f, 29f, 4.218f, 28.8205f)
-                lineTo(6.3333f, 27.1667f)
-                curveTo(6.9103f, 27.7692f, 7.6538f, 27.6923f, 8.1667f, 27.2051f)
-                lineTo(14.8205f, 21.0513f)
-                lineTo(14.8205f, 28.3846f)
-                curveTo(14.8205f, 29.0256f, 15.3333f, 29.5385f, 15.9872f, 29.5385f)
-                moveTo(5.9615f, 24.7308f)
-                lineTo(17.2692f, 12.7308f)
-                curveTo(17.4872f, 13.1026f, 17.7436f, 13.4487f, 18.0641f, 13.7949f)
-                curveTo(18.3718f, 14.1154f, 18.7308f, 14.4103f, 19.0641f, 14.6154f)
-                lineTo(7.141f, 25.9103f)
-                moveTo(19.5641f, 5.218f)
-                lineTo(26.6282f, 12.2821f)
-                curveTo(28.8846f, 10.0513f, 28.9743f, 7.1923f, 26.8077f, 5.0385f)
-                curveTo(24.6538f, 2.9103f, 21.8205f, 2.9616f, 19.5641f, 5.218f)
+                moveTo(6.3158f, 16.0658f)
+                curveTo(6.3158f, 21.2237f, 9.7237f, 24.8421f, 14.7368f, 25.2632f)
+                lineTo(14.7368f, 28.3289f)
+                lineTo(9.8553f, 28.3289f)
+                curveTo(9.3026f, 28.3289f, 8.8553f, 28.7763f, 8.8553f, 29.3289f)
+                curveTo(8.8553f, 29.8816f, 9.3026f, 30.3158f, 9.8553f, 30.3158f)
+                lineTo(21.6052f, 30.3158f)
+                curveTo(22.1579f, 30.3158f, 22.6052f, 29.8816f, 22.6052f, 29.3289f)
+                curveTo(22.6052f, 28.7763f, 22.1579f, 28.3289f, 21.6052f, 28.3289f)
+                lineTo(16.7237f, 28.3289f)
+                lineTo(16.7237f, 25.2632f)
+                curveTo(21.75f, 24.8421f, 25.1447f, 21.2237f, 25.1447f, 16.0658f)
+                lineTo(25.1447f, 13.3947f)
+                curveTo(25.1447f, 12.8421f, 24.7105f, 12.4079f, 24.1579f, 12.4079f)
+                curveTo(23.6052f, 12.4079f, 23.1579f, 12.8421f, 23.1579f, 13.3947f)
+                lineTo(23.1579f, 15.9869f)
+                curveTo(23.1579f, 20.4737f, 20.2368f, 23.4474f, 15.7368f, 23.4474f)
+                curveTo(11.2237f, 23.4474f, 8.3026f, 20.4737f, 8.3026f, 15.9869f)
+                lineTo(8.3026f, 13.3947f)
+                curveTo(8.3026f, 12.8421f, 7.8684f, 12.4079f, 7.3026f, 12.4079f)
+                curveTo(6.75f, 12.4079f, 6.3158f, 12.8421f, 6.3158f, 13.3947f)
+                moveTo(15.7368f, 20.6184f)
+                curveTo(18.3552f, 20.6184f, 20.1184f, 18.6579f, 20.1184f, 15.8553f)
+                lineTo(20.1184f, 7.0526f)
+                curveTo(20.1184f, 4.2369f, 18.3552f, 2.2895f, 15.7368f, 2.2895f)
+                curveTo(13.1052f, 2.2895f, 11.3421f, 4.2369f, 11.3421f, 7.0526f)
+                lineTo(11.3421f, 15.8553f)
+                curveTo(11.3421f, 18.6579f, 13.1052f, 20.6184f, 15.7368f, 20.6184f)
             }
         }.build()
     }
@@ -249,5 +252,19 @@ object XvoxSfIcons {
                 curveTo(28.425f, 10.1125f, 28.6875f, 9.7875f, 28.6875f, 9.375f)
             }
         }.build()
+    }
+
+    /** Maps the SF symbol names Glasmio asks for onto the real vector geometry above. */
+    val Resolver: GlasmioIconResolver = GlasmioIconResolver { systemName ->
+        when {
+            systemName.startsWith("house") -> HouseFill
+            systemName.startsWith("magnifyingglass") -> Magnifyingglass
+            systemName == "mic" || systemName.startsWith("microphone") -> MicrophoneFill
+            // Albums: Glasmio's stacked-square symbol, drawn as the disc SF geometry.
+            systemName.contains("stack") -> OpticaldiscFill
+            systemName.startsWith("music.note.list") -> MusicNoteList
+            systemName.startsWith("music.note") -> MusicNoteList
+            else -> null
+        }
     }
 }

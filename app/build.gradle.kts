@@ -14,9 +14,9 @@ android {
         minSdk = 33
         targetSdk = 37
 
-        // v1.02.7: SF Symbols nav bar, finger-draggable pill, live glass, per-tab gradients.
-        versionCode = 10207
-        versionName = "1.02.7"
+        // v1.02.8: Glasmio native navigation bar with live-reflecting glass pill.
+        versionCode = 10208
+        versionName = "1.02.8"
     }
 
     compileOptions {
