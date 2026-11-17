@@ -44,6 +44,7 @@ import coil3.compose.AsyncImage
 import com.xvox.music.core.ui.blur.rememberSky
 import com.xvox.music.core.ui.blur.sky
 import com.xvox.music.artwork.XvoxArtworkPreloader
+import com.xvox.music.core.design.kit.xvoxGlassSource
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.design.theme.XvoxThemeMode
 import com.xvox.music.core.ui.XvoxStartupLoadingScreen
@@ -284,7 +285,7 @@ fun XvoxAppRoot(
                 // The image is blurred only when the master blur setting is enabled; scaling it
                 // slightly avoids hard image edges during the platform blur and keeps this static
                 // source cheap while page/chrome motion uses its own local Sky layers.
-                Box(modifier = Modifier.fillMaxSize().then(appBlurMod).sky(surfaceSky).com.xvox.music.core.design.kit.xvoxGlassSource()) {
+                Box(modifier = Modifier.fillMaxSize().then(appBlurMod).sky(surfaceSky).xvoxGlassSource()) {
                     Box(
                         modifier = Modifier
                             .fillMaxSize()

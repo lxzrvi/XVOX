@@ -21,7 +21,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -458,7 +457,6 @@ fun XvoxKitEq(modifier: Modifier = Modifier, isPlaying: Boolean = true, color: C
 }
 
 /** Thin determinate progress used by kit surfaces (wavy in Material, glass track in iOS). */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun XvoxKitProgressLine(
     progress: Float,
@@ -483,12 +481,22 @@ fun XvoxKitProgressLine(
             )
         }
     } else {
-        androidx.compose.material3.LinearWavyProgressIndicator(
-            progress = { clamped },
-            modifier = modifier.fillMaxWidth(),
-            color = colors.primaryAccent,
-            trackColor = colors.cardElevated
-        )
+        // Expressive progress: a squared continuous-corner track with a tonal indicator.
+        Box(
+            modifier = modifier
+                .fillMaxWidth()
+                .height(6.dp)
+                .clip(XvoxContinuousShape(3.dp))
+                .background(colors.cardElevated)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(clamped)
+                    .height(6.dp)
+                    .clip(XvoxContinuousShape(3.dp))
+                    .background(colors.primaryAccent)
+            )
+        }
     }
 }
 
