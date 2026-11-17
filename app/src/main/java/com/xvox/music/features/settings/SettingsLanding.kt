@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.foundation.shape.CircleShape
@@ -36,6 +37,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.R
+import com.xvox.music.core.design.theme.LocalXvoxDesign
+import com.xvox.music.core.design.theme.XvoxDesignLanguage
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.blur.xvoxGlassRim
 import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
@@ -57,10 +60,12 @@ class SettingsSearchEntry(val iconRes: Int, val title: String, val subtitle: Str
 @Composable
 fun SettingsSearchBar(query: String, onQueryChange: (String) -> Unit) {
     val colors = XvoxTheme.colors
-    val shape = RoundedCornerShape(16.dp)
+    val design = LocalXvoxDesign.current
+    val shape = RoundedCornerShape(design.searchRadius)
+    val fill = if (design.language == XvoxDesignLanguage.MATERIAL) colors.cardElevated else colors.card
     Row(
-        Modifier.fillMaxWidth().padding(horizontal = GroupInset, vertical = 6.dp).height(46.dp)
-            .clip(shape).background(colors.card).xvoxGlassRim(shape).padding(horizontal = 14.dp),
+        Modifier.fillMaxWidth().padding(horizontal = design.groupInset, vertical = 6.dp).height(design.searchHeight)
+            .clip(shape).background(fill).then(if (design.glass) Modifier.xvoxGlassRim(shape) else Modifier).padding(horizontal = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(painterResource(R.drawable.ic_xvox_search), null, tint = colors.mutedText, modifier = Modifier.size(20.dp))
@@ -109,29 +114,38 @@ private val RowInset = 16.dp
 @Composable
 fun SettingsLandingGroup(header: String?, content: @Composable () -> Unit) {
     val colors = XvoxTheme.colors
-    val shape = RoundedCornerShape(18.dp)
+    val design = LocalXvoxDesign.current
+    val shape = RoundedCornerShape(design.groupRadius)
+    val material = design.language == XvoxDesignLanguage.MATERIAL
     Column(Modifier.fillMaxWidth()) {
         if (header != null) {
             Text(
-                header.uppercase(), color = colors.mutedText, fontSize = 11.sp, fontWeight = FontWeight.SemiBold,
-                letterSpacing = .6.sp, modifier = Modifier.padding(start = GroupInset + 6.dp, top = 18.dp, bottom = 8.dp)
+                if (design.headerUppercase) header.uppercase() else header,
+                color = if (material) colors.primaryAccent else colors.mutedText,
+                fontSize = design.headerSize,
+                fontWeight = if (material) FontWeight.Medium else FontWeight.SemiBold,
+                letterSpacing = if (design.headerUppercase) .6.sp else .1.sp,
+                modifier = Modifier.padding(start = design.groupInset + 6.dp, top = 18.dp, bottom = 8.dp)
             )
         } else Spacer(Modifier.height(18.dp))
         Column(
             Modifier
                 .fillMaxWidth()
-                .padding(horizontal = GroupInset)
+                .padding(horizontal = design.groupInset)
                 .clip(shape)
-                .background(colors.card)
-                .xvoxGlassRim(shape)
+                .background(if (material) colors.cardElevated else colors.card)
+                .then(if (design.glass) Modifier.xvoxGlassRim(shape) else Modifier)
         ) { content() }
     }
 }
 
 @Composable
 fun SettingsLandingDivider() {
+    val design = LocalXvoxDesign.current
+    if (!design.rowDividers) return
+    val start = if (design.glyphTile) 16.dp + 30.dp + 14.dp else 16.dp + 24.dp + 14.dp
     Box(
-        Modifier.fillMaxWidth().padding(start = RowInset + 24.dp + 14.dp).height(.5.dp)
+        Modifier.fillMaxWidth().padding(start = start).height(.5.dp)
             .background(XvoxTheme.colors.cardBorder.copy(alpha = .55f))
     )
 }
@@ -139,21 +153,42 @@ fun SettingsLandingDivider() {
 @Composable
 fun SettingsLandingRow(iconRes: Int, title: String, subtitle: String? = null, onClick: () -> Unit) {
     val colors = XvoxTheme.colors
+    val design = LocalXvoxDesign.current
+    val material = design.language == XvoxDesignLanguage.MATERIAL
     Row(
         Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .heightIn(min = 54.dp)
+            .heightIn(min = design.rowMinHeight)
             .padding(horizontal = RowInset, vertical = 11.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(painterResource(iconRes), null, tint = colors.primaryText, modifier = Modifier.size(24.dp))
-        Spacer(Modifier.width(14.dp))
+        if (design.glyphTile) {
+            // iOS: accent squircle with a white glyph. Material: tonal circle with an accent glyph.
+            val tileSize = if (material) 40.dp else 30.dp
+            Box(
+                Modifier.size(tileSize).clip(RoundedCornerShape(design.glyphTileRadius))
+                    .background(if (material) colors.primaryAccent.copy(alpha = .16f) else colors.primaryAccent),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painterResource(iconRes), null,
+                    tint = if (material) colors.primaryAccent else Color.White,
+                    modifier = Modifier.size(if (material) 22.dp else 18.dp)
+                )
+            }
+            Spacer(Modifier.width(if (material) 16.dp else 14.dp))
+        } else {
+            Icon(painterResource(iconRes), null, tint = colors.primaryText, modifier = Modifier.size(24.dp))
+            Spacer(Modifier.width(14.dp))
+        }
         Column(Modifier.weight(1f)) {
-            Text(title, color = colors.primaryText, fontSize = 15.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(title, color = colors.primaryText, fontSize = if (material) 16.sp else 15.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             if (subtitle != null) Text(subtitle, color = colors.mutedText, fontSize = 12.sp, lineHeight = 15.sp, maxLines = 2)
         }
-        Icon(painterResource(R.drawable.ic_xvox_caret_right), null, tint = colors.mutedText, modifier = Modifier.size(16.dp))
+        if (!material) {
+            Icon(painterResource(R.drawable.ic_xvox_caret_right), null, tint = colors.mutedText, modifier = Modifier.size(16.dp))
+        }
     }
 }
 
@@ -170,7 +205,8 @@ fun SettingsPageTitle(title: String, onBack: (() -> Unit)? = null) {
             ) { Icon(painterResource(R.drawable.ic_xvox_arrow_left), "Back", tint = colors.primaryText, modifier = Modifier.size(22.dp)) }
         }
         Text(
-            title, color = colors.primaryText, fontSize = 30.sp, lineHeight = 34.sp, fontWeight = FontWeight.Bold,
+            title, color = colors.primaryText, fontSize = LocalXvoxDesign.current.titleSize,
+            lineHeight = LocalXvoxDesign.current.titleSize * 1.15f, fontWeight = LocalXvoxDesign.current.titleWeight,
             modifier = Modifier.padding(start = if (onBack != null) 6.dp else 6.dp)
         )
     }

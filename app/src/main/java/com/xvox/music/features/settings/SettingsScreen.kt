@@ -465,6 +465,14 @@ private fun AppearanceSectionCard(
     val compact = LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
     SettingsCardFrame(title = "Appearance", modifier = modifier) {
         Column(verticalArrangement = Arrangement.spacedBy(if (compact) 9.dp else 14.dp)) {
+            SettingsField("Design language") {
+                XvoxSegmentedPill(
+                    options = listOf("xvox" to "XVOX", "material" to "Material", "ios" to "iOS"),
+                    selectedKey = state.designLanguage,
+                    onSelect = viewModel::setDesignLanguage
+                )
+            }
+
             SettingsField("Theme Mode") {
                 XvoxSegmentedPill(
                     options = themeOptions,

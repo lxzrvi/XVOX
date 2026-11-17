@@ -157,6 +157,7 @@ fun XvoxAppRoot(
     val backgroundBrightness by prefs.backgroundBrightness.collectAsState(initial = 0.8f)
     val hapticFeedbackEnabled by prefs.hapticFeedbackEnabled.collectAsState(initial = true)
     val hapticIntensity by prefs.hapticIntensity.collectAsState(initial = "medium")
+    val designLanguageKey by prefs.designLanguage.collectAsState(initial = "xvox")
 
     // One root-level chrome policy owns the status bar. Landscape is immersive everywhere—not
     // only in Now Playing—so navigation, sheets, Settings, and all nested surfaces cannot leave
@@ -246,7 +247,10 @@ fun XvoxAppRoot(
                 effectiveChrome.backgroundMode(backgroundImage.isNotBlank()) == com.xvox.music.core.ui.chrome.XvoxBackgroundMode.Custom
             ),
             LocalXvoxOverlaySky provides overlaySky,
-            LocalXvoxGlassTransparency provides effectiveCardTransparency
+            LocalXvoxGlassTransparency provides effectiveCardTransparency,
+            com.xvox.music.core.design.theme.LocalXvoxDesign provides remember(designLanguageKey) {
+                com.xvox.music.core.design.theme.xvoxDesignTokens(com.xvox.music.core.design.theme.XvoxDesignLanguage.from(designLanguageKey))
+            }
         ) {
             val colors = XvoxTheme.colors
             // Theme, wallpaper, dimness, and the real background blur all alter the captured

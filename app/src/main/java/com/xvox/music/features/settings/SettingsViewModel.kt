@@ -31,6 +31,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             launch { sourceModeRepository.mode.collect { v -> _state.update { it.copy(sourceMode = v) } } }
             launch { prefs.nowPlayingLayout.collect { v -> _state.update { it.copy(nowPlayingLayout = v) } } }
+            launch { prefs.designLanguage.collect { v -> _state.update { it.copy(designLanguage = v) } } }
             launch { prefs.nowPlayingStyle.collect { v -> _state.update { it.copy(nowPlayingStyle = v) } } }
             launch { prefs.nowPlayingBackgroundStyle.collect { v -> _state.update { it.copy(nowPlayingBackgroundStyle = v) } } }
             launch { prefs.nowPlayingCoverBlur.collect { value ->
@@ -166,6 +167,11 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setPlaylistCardOrientation(v: String) = viewModelScope.launch { prefs.setPlaylistCardOrientation(v) }
     fun setPreviewHidden(v: Boolean) = viewModelScope.launch { prefs.setSettingsPreviewHidden(v) }
     fun setHeaderImageUri(uri: String?) = viewModelScope.launch { prefs.setHeaderImageUri(uri) }
+    /** One choice restyles the app and switches Now Playing to the matching layout. */
+    fun setDesignLanguage(key: String) = viewModelScope.launch {
+        prefs.setDesignLanguage(key)
+        prefs.setNowPlayingLayout(key)
+    }
     fun setNowPlayingStyle(style: String) = viewModelScope.launch { prefs.setNowPlayingStyle(style) }
     fun setNowPlayingBackgroundStyle(style: String) = viewModelScope.launch { prefs.setNowPlayingBackgroundStyle(style) }
     fun setNowPlayingCoverBlur(amount: Float) {

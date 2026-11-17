@@ -5,6 +5,8 @@ data class SettingsState(
     val nowPlayingStyle: String = "default",
     /** xvox | material | ios */
     val nowPlayingLayout: String = "xvox",
+    /** xvox | material | ios */
+    val designLanguage: String = "xvox",
     /** Experimental source selection; Online is provider-gated and never enables unofficial streams. */
     val sourceMode: com.xvox.music.features.sourcemode.XvoxSourceMode =
         com.xvox.music.features.sourcemode.XvoxSourceMode.OFFLINE,

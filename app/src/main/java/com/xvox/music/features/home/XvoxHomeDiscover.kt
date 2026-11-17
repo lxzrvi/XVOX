@@ -57,27 +57,34 @@ private const val QuickPickCount = 24
 private const val QuickPickRows = 4
 
 /**
- * XVOX mark + Cinzel wordmark, parked on the right of the header just before the floating profile
+ * XVOX app icon + Cinzel wordmark, parked on the left of the header opposite the floating profile
  * avatar. It lives in the scrolling header lane, so it leaves with the page.
  */
 @Composable
 fun XvoxHomeLogo(modifier: Modifier = Modifier) {
     val colors = XvoxTheme.colors
+    val tile = RoundedCornerShape(11.dp)
     Box(
         modifier = modifier
             .fillMaxWidth()
             .windowInsetsPadding(WindowInsets.statusBars)
-            .padding(top = 6.dp, end = 58.dp)
+            .padding(top = 6.dp, start = 14.dp)
             .height(54.dp),
-        contentAlignment = Alignment.CenterEnd
+        contentAlignment = Alignment.CenterStart
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                painter = painterResource(R.drawable.ic_launcher_foreground_vector),
-                contentDescription = null,
-                tint = colors.primaryAccent,
-                modifier = Modifier.size(46.dp)
-            )
+            // The real app icon: launcher background tile + white glyph.
+            Box(
+                Modifier.size(38.dp).clip(tile).background(androidx.compose.ui.res.colorResource(R.color.xvox_launcher_background)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_launcher_foreground_vector),
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(52.dp)
+                )
+            }
             Text(
                 "XVOX",
                 color = colors.primaryText,
@@ -86,37 +93,10 @@ fun XvoxHomeLogo(modifier: Modifier = Modifier) {
                 fontSize = 22.sp,
                 letterSpacing = 2.sp,
                 maxLines = 1,
-                modifier = Modifier.padding(start = 0.dp)
+                modifier = Modifier.padding(start = 10.dp)
             )
         }
     }
-}
-
-/**
- * Content that scrolls up behind the status bar fades out instead of being cut hard, like the
- * BitChord lists. Only the strip above the status-bar line is touched; everything below is opaque.
- */
-@Composable
-fun Modifier.xvoxStatusBarFade(enabled: Boolean = true): Modifier {
-    if (!enabled) return this
-    val statusBar = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    return this
-        .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
-        .drawWithContent {
-            drawContent()
-            val h = statusBar.toPx() + 6.dp.toPx()
-            if (h > 0f) {
-                drawRect(
-                    brush = Brush.verticalGradient(
-                        colorStops = arrayOf(0f to Color.Transparent, .4f to Color.Black.copy(alpha = .25f), 1f to Color.Black),
-                        startY = 0f,
-                        endY = h
-                    ),
-                    size = Size(size.width, h),
-                    blendMode = BlendMode.DstIn
-                )
-            }
-        }
 }
 
 private data class XvoxMood(val title: String, val subtitle: String, val from: Color, val to: Color, val songs: List<Song>)

@@ -5,7 +5,13 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import com.xvox.music.player.playback.RepeatMode
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -63,10 +69,18 @@ fun XvoxQueuePage(
         else -> "Queue 1"
     }
     BackHandler(onBack = onClose)
+    val playingForBackdrop = liveState.queue.getOrNull(liveState.currentIndex)
+    Box(modifier.fillMaxSize().background(colors.background)) {
+    // Same blurred-cover world as Now Playing, so the sheet reads as its continuation to the bottom edge.
+    XvoxSongArtwork(
+        artwork = playingForBackdrop?.artworkUri,
+        requestSize = 96,
+        modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = 1.4f; scaleY = 1.4f }.blur(48.dp)
+    )
+    Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = if (colors.isLight) .18f else .55f)))
     Column(
-        modifier
+        Modifier
             .fillMaxSize()
-            .background(colors.background)
             .statusBarsPadding()
             .navigationBarsPadding()
             .padding(horizontal = 12.dp)
@@ -173,6 +187,38 @@ fun XvoxQueuePage(
                 fullHeight = true
             )
         }
-        Spacer(Modifier.height(4.dp))
+        // iOS-style bottom pill: shuffle / repeat live right under the list.
+        Row(
+            Modifier.fillMaxWidth().padding(vertical = 8.dp),
+            horizontalArrangement = Arrangement.Center
+        ) {
+            val pillShape = RoundedCornerShape(26.dp)
+            Row(
+                Modifier.clip(pillShape).background(Color.White.copy(alpha = .14f)).xvoxGlassRim(pillShape).padding(5.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                val repeatOn = liveState.repeatMode != RepeatMode.OFF
+                QueuePillButton(R.drawable.ic_xvox_shuffle, liveState.isShuffleEnabled) { playerViewModel.toggleShuffle() }
+                Spacer(Modifier.width(4.dp))
+                QueuePillButton(
+                    if (liveState.repeatMode == RepeatMode.ONE) R.drawable.ic_xvox_repeat_one else R.drawable.ic_xvox_repeat,
+                    repeatOn
+                ) { playerViewModel.toggleRepeat() }
+            }
+        }
+    }
+    }
+}
+
+@Composable
+private fun QueuePillButton(icon: Int, active: Boolean, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(22.dp)
+    Box(
+        Modifier.size(width = 72.dp, height = 44.dp).clip(shape)
+            .background(if (active) Color.White.copy(alpha = .9f) else Color.Transparent)
+            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(painterResource(icon), null, tint = if (active) Color.Black.copy(alpha = .8f) else Color.White.copy(alpha = .9f), modifier = Modifier.size(22.dp))
     }
 }
