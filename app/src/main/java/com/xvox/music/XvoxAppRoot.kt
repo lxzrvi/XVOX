@@ -274,13 +274,17 @@ fun XvoxAppRoot(
                 label = "appSheetBlur"
             )
             val appBlurMod = if (sheetBlur > 0.dp) Modifier.blur(sheetBlur, androidx.compose.ui.draw.BlurredEdgeTreatment.Rectangle) else Modifier
+            // The design engine owns presentation: in iOS mode it publishes Glasmio's glass
+            // backdrop (the real wallpaper/gradient layer below) so every kit surface samples
+            // live pixels; Material mode passes straight through to ExpressiveLab.
+            com.xvox.music.core.design.kit.XvoxDesignEngine {
             Box(modifier = Modifier.fillMaxSize()) {
                 // Source 1: the literal app backdrop.  It contains no synthetic accent/radial
                 // layer, so blur on a plain background remains faithful instead of turning red.
                 // The image is blurred only when the master blur setting is enabled; scaling it
                 // slightly avoids hard image edges during the platform blur and keeps this static
                 // source cheap while page/chrome motion uses its own local Sky layers.
-                Box(modifier = Modifier.fillMaxSize().then(appBlurMod).sky(surfaceSky)) {
+                Box(modifier = Modifier.fillMaxSize().then(appBlurMod).sky(surfaceSky).com.xvox.music.core.design.kit.xvoxGlassSource()) {
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
@@ -393,5 +397,6 @@ fun XvoxAppRoot(
                 XvoxOverlayHost(controller = overlays, modifier = Modifier.fillMaxSize())
             }
         }
+            }
     }
 }

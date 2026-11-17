@@ -1,5 +1,13 @@
 [versions]
 cloudy = "1.0.0-alpha01"
+glasmio = "0.1.3"
+expressivelab = "1.2.0"
 
 [libraries]
 cloudy = { module = "com.github.skydoves:cloudy", version.ref = "cloudy" }
+glasmio-core = { module = "io.github.neoruaa.glasmio:glasmio-core", version.ref = "glasmio" }
+glasmio-glass = { module = "io.github.neoruaa.glasmio:glasmio-glass", version.ref = "glasmio" }
+glasmio-ui = { module = "io.github.neoruaa.glasmio:glasmio-ui", version.ref = "glasmio" }
+glasmio-scaffold = { module = "io.github.neoruaa.glasmio:glasmio-scaffold", version.ref = "glasmio" }
+glasmio-preference = { module = "io.github.neoruaa.glasmio:glasmio-preference", version.ref = "glasmio" }
+expressivelab = { module = "com.github.mohdamaan1:JustForPixel-ExpressiveLab", version.ref = "expressivelab" }

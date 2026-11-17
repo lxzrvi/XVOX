@@ -465,12 +465,26 @@ private fun AppearanceSectionCard(
     val compact = LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
     SettingsCardFrame(title = "Appearance", modifier = modifier) {
         Column(verticalArrangement = Arrangement.spacedBy(if (compact) 9.dp else 14.dp)) {
-            SettingsField("Design language") {
-                XvoxSegmentedPill(
-                    options = listOf("xvox" to "XVOX", "material" to "Material", "ios" to "iOS"),
-                    selectedKey = state.designLanguage,
-                    onSelect = viewModel::setDesignLanguage
-                )
+            SettingsField("UI style") {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // One switch restyles the whole app: Material reads the Material 3 Expressive
+                    // engine (JustForPixel ExpressiveLab), iOS reads the liquid-glass engine
+                    // (Glasmio). XVOX keeps the original surface language.
+                    com.xvox.music.core.design.kit.XvoxKitSegmented(
+                        options = listOf("xvox" to "XVOX", "material" to "Material", "ios" to "iOS"),
+                        selectedKey = state.designLanguage,
+                        onSelect = viewModel::setDesignLanguage
+                    )
+                    Text(
+                        text = when (state.designLanguage) {
+                            "ios" -> "Liquid Glass: live backdrop refraction, iOS sheets, menus, alerts and controls."
+                            "material" -> "Material 3 Expressive: bouncy springs, squircle shapes, wavy sliders and shape-morph loading."
+                            else -> "XVOX: the original surface language."
+                        },
+                        color = com.xvox.music.core.design.theme.XvoxTheme.colors.mutedText,
+                        style = androidx.compose.material3.MaterialTheme.typography.bodySmall
+                    )
+                }
             }
 
             SettingsField("Theme Mode") {

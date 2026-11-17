@@ -14,9 +14,9 @@ android {
         minSdk = 33
         targetSdk = 37
 
-        // v1.02.4: post-release media fixes plus GIF crop, playback, and Settings refinements.
-        versionCode = 10204
-        versionName = "1.02.4"
+        // v1.02.5: dual design engine - Glasmio liquid-glass (iOS) and Material 3 Expressive.
+        versionCode = 10205
+        versionName = "1.02.5"
     }
 
     compileOptions {
@@ -102,4 +102,13 @@ dependencies {
     implementation("net.jthink:jaudiotagger:3.0.1")
     // Pure-Java Ogg/Opus packet writer used for standards-compliant OpusTags title/artwork edits.
     implementation("org.gagravarr:vorbis-java-core:0.8")
+
+    // Design engine, half two: iOS 27 liquid glass material, optics and motion (Glasmio).
+    implementation(libs.glasmio.core)
+    implementation(libs.glasmio.glass)
+    implementation(libs.glasmio.ui)
+    implementation(libs.glasmio.scaffold)
+    implementation(libs.glasmio.preference)
+    // Design engine, half one: Material 3 Expressive components, springs and shapes.
+    implementation(libs.expressivelab)
 }
