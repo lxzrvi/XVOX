@@ -99,6 +99,33 @@ fun XvoxHomeLogo(modifier: Modifier = Modifier) {
     }
 }
 
+/**
+ * Content that scrolls up behind the status bar fades out instead of being cut hard, like the
+ * BitChord lists. Only the strip above the status-bar line is touched; everything below is opaque.
+ */
+@Composable
+fun Modifier.xvoxStatusBarFade(enabled: Boolean = true): Modifier {
+    if (!enabled) return this
+    val statusBar = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    return this
+        .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+        .drawWithContent {
+            drawContent()
+            val h = statusBar.toPx() + 6.dp.toPx()
+            if (h > 0f) {
+                drawRect(
+                    brush = Brush.verticalGradient(
+                        colorStops = arrayOf(0f to Color.Transparent, .4f to Color.Black.copy(alpha = .25f), 1f to Color.Black),
+                        startY = 0f,
+                        endY = h
+                    ),
+                    size = Size(size.width, h),
+                    blendMode = BlendMode.DstIn
+                )
+            }
+        }
+}
+
 private data class XvoxMood(val title: String, val subtitle: String, val from: Color, val to: Color, val songs: List<Song>)
 
 private val ChillWords = listOf("chill", "lofi", "lo-fi", "acoustic", "slow", "sleep", "calm", "relax", "unplugged", "soft", "piano")
