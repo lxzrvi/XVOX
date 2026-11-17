@@ -21,6 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
@@ -48,7 +49,7 @@ val XvoxNavTab.sfIcon: ImageVector
     get() = when (this) {
         XvoxNavTab.HOME -> XvoxSfIcons.HouseFill
         XvoxNavTab.ARTIST -> XvoxSfIcons.MusicMicrophone
-        XvoxNavTab.ALBUM -> XvoxSfIcons.OpticalDiscFill
+        XvoxNavTab.ALBUM -> XvoxSfIcons.OpticaldiscFill
         XvoxNavTab.PLAYLIST -> XvoxSfIcons.MusicNoteList
     }
 
@@ -93,7 +94,7 @@ fun XvoxIosNavBar(
     val pill = remember { Animatable(0f) }
     var dragging by remember { mutableFloatStateOf(0f) }
     var dragPx by remember { mutableFloatStateOf(0f) }
-    var lastTicked by remember { mutableFloatStateOf(-1f) }
+    var lastTicked by remember { mutableIntStateOf(-1) }
 
     val selectedIndex = tabs.indexOf(selected).coerceAtLeast(0)
     val currentOnSelect by rememberUpdatedState(onSelect)
@@ -131,7 +132,7 @@ fun XvoxIosNavBar(
                             onDragStart = {
                                 dragging = 1f
                                 dragPx = pill.value
-                                lastTicked = -1f
+                                lastTicked = -1
                             },
                             onDragEnd = {
                                 val target = (dragPx / slotPx).roundToInt().coerceIn(0, maxIndex)
@@ -154,10 +155,10 @@ fun XvoxIosNavBar(
                             }
                             val hovered = (dragPx / slotPx).roundToInt().coerceIn(0, maxIndex)
                             if (hovered != lastTicked) {
-                                if (lastTicked >= 0f) {
+                                if (lastTicked >= 0) {
                                     haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 }
-                                lastTicked = hovered.toFloat()
+                                lastTicked = hovered
                                 // Confirm live so the gradient behind the glass starts moving
                                 // while the finger is still down.
                                 currentOnSelect(tabs[hovered])

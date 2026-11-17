@@ -249,4 +249,5 @@ object XvoxSfIcons {
                 curveTo(28.425f, 10.1125f, 28.6875f, 9.7875f, 28.6875f, 9.375f)
             }
         }.build()
+    }
 }
