@@ -87,7 +87,6 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
     val colors = XvoxTheme.colors
     val context = LocalContext.current
     val haptics = LocalHapticFeedback.current
-    val scope = rememberCoroutineScope()
     val prefs = remember { UserPreferencesRepository(context.applicationContext) }
 
     var selectedIndex by remember { mutableIntStateOf(0) }
