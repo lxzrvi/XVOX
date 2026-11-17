@@ -20,6 +20,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -94,6 +95,7 @@ private fun SettingsRoot(
         title = "Settings",
         onNavigateBack = onBack,
         bottomPadding = 132.dp,
+        backgroundColor = Color.Transparent,
         modifier = Modifier.fillMaxSize()
     ) {
         item {
@@ -167,6 +169,7 @@ private fun SettingsSubPage(
         title = title,
         onNavigateBack = onBack,
         bottomPadding = 132.dp,
+        backgroundColor = Color.Transparent,
         modifier = Modifier.fillMaxSize(),
         content = content
     )

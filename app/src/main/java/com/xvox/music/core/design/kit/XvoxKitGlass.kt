@@ -16,6 +16,7 @@ import io.github.neoruaa.glasmio.glass.GlasmioBackdropProvider
 import io.github.neoruaa.glasmio.glass.glassBackdropSource
 import io.github.neoruaa.glasmio.glass.render.backdrops.LayerBackdrop
 import io.github.neoruaa.glasmio.glass.render.backdrops.rememberLayerBackdrop
+import io.github.neoruaa.glasmio.glass.trackBackdropPosition
 
 /**
  * XVOX design engine.
@@ -54,11 +55,8 @@ fun xvoxUsesGlassBackdrop(): LayerBackdrop? = LocalXvoxGlassBackdrop.current
 @Composable
 fun XvoxDesignEngine(content: @Composable () -> Unit) {
     val colors = XvoxTheme.colors
-    val glass = LocalXvoxDesign.current.language == XvoxDesignLanguage.IOS
-    if (!glass) {
-        content()
-        return
-    }
+    // Every language keeps the glass host mounted: the stage and the kit always need a live
+    // backdrop, and switching the UI style must never leave glass without a source.
     val backdrop = rememberLayerBackdrop()
     val glassColors = remember(colors) {
         defaultGlassColors(isDark = !colors.isLight, accent = colors.primaryAccent).copy(
@@ -130,5 +128,7 @@ fun XvoxGlassEnvironment(
 @Composable
 fun Modifier.xvoxGlassSource(): Modifier {
     val backdrop = LocalXvoxGlassBackdrop.current ?: return this
-    return this.glassBackdropSource(backdrop)
+    return this
+        .glassBackdropSource(backdrop)
+        .trackBackdropPosition(backdrop)
 }
