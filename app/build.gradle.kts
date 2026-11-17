@@ -14,9 +14,9 @@ android {
         minSdk = 33
         targetSdk = 37
 
-        // v1.02.6: rebuild staging - gradient backdrop plus the Glasmio iOS navigation bar.
-        versionCode = 10206
-        versionName = "1.02.6"
+        // v1.02.7: SF Symbols nav bar, finger-draggable pill, live glass, per-tab gradients.
+        versionCode = 10207
+        versionName = "1.02.7"
     }
 
     compileOptions {
