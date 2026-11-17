@@ -254,6 +254,106 @@ object XvoxSfIcons {
         }.build()
     }
 
+
+    /** SF Symbol: xmark */
+    val Xmark: ImageVector by lazy {
+        ImageVector.Builder(
+            name = "Xmark",
+            defaultWidth = 24.dp,
+            defaultHeight = 24.dp,
+            viewportWidth = 32.0f,
+            viewportHeight = 32.0f,
+        ).apply {
+            path(fill = SolidColor(Color.Black)) {
+                moveTo(4.2794f, 27.7207f)
+                curveTo(4.7941f, 28.2207f, 5.6471f, 28.2207f, 6.1471f, 27.7207f)
+                lineTo(15.5588f, 18.3089f)
+                lineTo(24.9706f, 27.7207f)
+                curveTo(25.4706f, 28.2207f, 26.3382f, 28.2354f, 26.8382f, 27.7207f)
+                curveTo(27.3382f, 27.206f, 27.3382f, 26.3677f, 26.8382f, 25.8677f)
+                lineTo(17.4265f, 16.4413f)
+                lineTo(26.8382f, 7.0295f)
+                curveTo(27.3382f, 6.5295f, 27.3529f, 5.6766f, 26.8382f, 5.1766f)
+                curveTo(26.3235f, 4.6619f, 25.4706f, 4.6619f, 24.9706f, 5.1766f)
+                lineTo(15.5588f, 14.5883f)
+                lineTo(6.1471f, 5.1766f)
+                curveTo(5.6471f, 4.6619f, 4.7794f, 4.6472f, 4.2794f, 5.1766f)
+                curveTo(3.7794f, 5.6913f, 3.7794f, 6.5295f, 4.2794f, 7.0295f)
+                lineTo(13.6912f, 16.4413f)
+                lineTo(4.2794f, 25.8677f)
+                curveTo(3.7794f, 26.3677f, 3.7647f, 27.2207f, 4.2794f, 27.7207f)
+            }
+        }.build()
+    }
+
+    /** SF Symbol: gearshape.fill */
+    val GearshapeFill: ImageVector by lazy {
+        ImageVector.Builder(
+            name = "GearshapeFill",
+            defaultWidth = 24.dp,
+            defaultHeight = 24.dp,
+            viewportWidth = 32.0f,
+            viewportHeight = 32.0f,
+        ).apply {
+            path(fill = SolidColor(Color.Black)) {
+                moveTo(14.6795f, 29.5384f)
+                lineTo(17.0385f, 29.5384f)
+                curveTo(17.7051f, 29.5384f, 18.1795f, 29.141f, 18.3333f, 28.4872f)
+                lineTo(19f, 25.6667f)
+                curveTo(19.5f, 25.5f, 19.9872f, 25.3077f, 20.4102f, 25.1026f)
+                lineTo(22.8846f, 26.6154f)
+                curveTo(23.4359f, 26.9615f, 24.0641f, 26.9102f, 24.5256f, 26.4487f)
+                lineTo(26.1795f, 24.8077f)
+                curveTo(26.641f, 24.3461f, 26.7051f, 23.6795f, 26.3333f, 23.1282f)
+                lineTo(24.8205f, 20.6795f)
+                curveTo(25.0384f, 20.2308f, 25.2308f, 19.7692f, 25.3718f, 19.3077f)
+                lineTo(28.2179f, 18.6282f)
+                curveTo(28.8718f, 18.4744f, 29.2564f, 18f, 29.2564f, 17.3333f)
+                lineTo(29.2564f, 15.0128f)
+                curveTo(29.2564f, 14.359f, 28.8718f, 13.8846f, 28.2179f, 13.7308f)
+                lineTo(25.3974f, 13.0513f)
+                curveTo(25.2308f, 12.5256f, 25.0256f, 12.0513f, 24.8461f, 11.6538f)
+                lineTo(26.359f, 9.1667f)
+                curveTo(26.7051f, 8.6026f, 26.6795f, 8f, 26.2051f, 7.5256f)
+                lineTo(24.5256f, 5.8718f)
+                curveTo(24.0513f, 5.4359f, 23.4743f, 5.3333f, 22.9231f, 5.6795f)
+                lineTo(20.4102f, 7.2308f)
+                curveTo(20f, 7.0128f, 19.5256f, 6.8205f, 19f, 6.6538f)
+                lineTo(18.3333f, 3.7949f)
+                curveTo(18.1795f, 3.141f, 17.7051f, 2.7436f, 17.0385f, 2.7436f)
+                lineTo(14.6795f, 2.7436f)
+                curveTo(14.0128f, 2.7436f, 13.5384f, 3.141f, 13.3718f, 3.7949f)
+                lineTo(12.7051f, 6.6282f)
+                curveTo(12.2051f, 6.7949f, 11.7179f, 6.9872f, 11.282f, 7.2179f)
+                lineTo(8.7949f, 5.6795f)
+                curveTo(8.2436f, 5.3333f, 7.641f, 5.4103f, 7.1795f, 5.8718f)
+                lineTo(5.5128f, 7.5256f)
+                curveTo(5.0385f, 8f, 5f, 8.6026f, 5.359f, 9.1667f)
+                lineTo(6.859f, 11.6538f)
+                curveTo(6.6923f, 12.0513f, 6.4872f, 12.5256f, 6.3205f, 13.0513f)
+                lineTo(3.5f, 13.7308f)
+                curveTo(2.8462f, 13.8846f, 2.4615f, 14.359f, 2.4615f, 15.0128f)
+                lineTo(2.4615f, 17.3333f)
+                curveTo(2.4615f, 18f, 2.8462f, 18.4744f, 3.5f, 18.6282f)
+                lineTo(6.3461f, 19.3077f)
+                curveTo(6.4872f, 19.7692f, 6.6795f, 20.2308f, 6.8846f, 20.6795f)
+                lineTo(5.3846f, 23.1282f)
+                curveTo(5f, 23.6795f, 5.0769f, 24.3461f, 5.5385f, 24.8077f)
+                lineTo(7.1795f, 26.4487f)
+                curveTo(7.641f, 26.9102f, 8.282f, 26.9615f, 8.8333f, 26.6154f)
+                lineTo(11.2949f, 25.1026f)
+                curveTo(11.7308f, 25.3077f, 12.2051f, 25.5f, 12.7051f, 25.6667f)
+                lineTo(13.3718f, 28.4872f)
+                curveTo(13.5384f, 29.141f, 14.0128f, 29.5384f, 14.6795f, 29.5384f)
+                moveTo(15.859f, 20.6667f)
+                curveTo(13.359f, 20.6667f, 11.3333f, 18.641f, 11.3333f, 16.141f)
+                curveTo(11.3333f, 13.641f, 13.359f, 11.6154f, 15.859f, 11.6154f)
+                curveTo(18.359f, 11.6154f, 20.3846f, 13.641f, 20.3846f, 16.141f)
+                curveTo(20.3846f, 18.641f, 18.359f, 20.6667f, 15.859f, 20.6667f)
+            }
+        }.build()
+    }
+
     /** Maps the SF symbol names Glasmio asks for onto the real vector geometry above. */
     val Resolver: GlasmioIconResolver = GlasmioIconResolver { systemName ->
         when {
@@ -264,6 +364,8 @@ object XvoxSfIcons {
             systemName.contains("stack") -> OpticaldiscFill
             systemName.startsWith("music.note.list") -> MusicNoteList
             systemName.startsWith("music.note") -> MusicNoteList
+            systemName.startsWith("xmark") || systemName == "close" -> Xmark
+            systemName.startsWith("gear") -> GearshapeFill
             else -> null
         }
     }
