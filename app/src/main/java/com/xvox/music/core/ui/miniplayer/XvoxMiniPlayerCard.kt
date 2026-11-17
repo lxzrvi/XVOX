@@ -92,7 +92,11 @@ fun XvoxMiniPlayerCard(
         }.distinctUntilChanged()
     }.collectAsState(initial = 0L to 0L)
 
-    val cardShape = RoundedCornerShape(miniRadius)
+    val design = com.xvox.music.core.design.theme.LocalXvoxDesign.current
+    // iOS and Material use continuous (squircle) corners; XVOX keeps its classic circular ones.
+    val cardShape: androidx.compose.ui.graphics.Shape =
+        if (design.language == com.xvox.music.core.design.theme.XvoxDesignLanguage.XVOX) RoundedCornerShape(miniRadius)
+        else com.xvox.music.core.design.theme.XvoxContinuousShape(miniRadius)
     // Artwork keeps its full 48dp footprint while following the card's corner language.
     val artworkShape = RoundedCornerShape(androidx.compose.ui.unit.lerp((chrome.miniCornerRadius - 4f).coerceIn(7f, 28f).dp, 24.dp, dockFraction))
     val miniCoverStyle = when (chrome.miniCoverStyle) {

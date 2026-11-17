@@ -21,7 +21,11 @@ fun XvoxAllSongCard(
     /** Five/six-column portrait cards need smaller metadata. */
     dense: Boolean = false
 ) {
-    val shape = remember { RoundedCornerShape(14.dp) }
+    val design = com.xvox.music.core.design.theme.LocalXvoxDesign.current
+    val shape: androidx.compose.ui.graphics.Shape = remember(design.language) {
+        if (design.language == com.xvox.music.core.design.theme.XvoxDesignLanguage.XVOX) RoundedCornerShape(14.dp)
+        else com.xvox.music.core.design.theme.XvoxContinuousShape(if (design.language == com.xvox.music.core.design.theme.XvoxDesignLanguage.MATERIAL) 20.dp else 14.dp)
+    }
     XvoxCoverBlendCard(
         song = song,
         shape = shape,

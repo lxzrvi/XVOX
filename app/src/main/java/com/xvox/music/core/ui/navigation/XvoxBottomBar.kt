@@ -414,7 +414,12 @@ private fun LiquidBar(
     onSelect: (Int) -> Unit,
     destinations: List<XvoxNavTab>
 ) {
-    val pillShape = remember { CircleShape }
+    // Material 3 Expressive: a continuous-corner floating bar; iOS/XVOX keep the full capsule.
+    val design = com.xvox.music.core.design.theme.LocalXvoxDesign.current
+    val pillShape: androidx.compose.ui.graphics.Shape = remember(design.language) {
+        if (design.language == com.xvox.music.core.design.theme.XvoxDesignLanguage.MATERIAL)
+            com.xvox.music.core.design.theme.XvoxContinuousShape(30.dp) else CircleShape
+    }
     val tabsBackdrop = rememberLayerBackdrop()
     val density = LocalDensity.current
     val isLtr = LocalLayoutDirection.current == LayoutDirection.Ltr

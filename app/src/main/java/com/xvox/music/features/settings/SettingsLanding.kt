@@ -40,6 +40,7 @@ import com.xvox.music.R
 import com.xvox.music.core.design.theme.LocalXvoxDesign
 import com.xvox.music.core.design.theme.XvoxDesignLanguage
 import com.xvox.music.core.design.theme.XvoxTheme
+import com.xvox.music.core.design.theme.shapeFor
 import com.xvox.music.core.ui.blur.xvoxGlassRim
 import com.xvox.music.core.ui.overlay.LocalXvoxOverlayController
 import com.xvox.music.core.ui.overlay.XvoxBoxPresentation
@@ -61,7 +62,7 @@ class SettingsSearchEntry(val iconRes: Int, val title: String, val subtitle: Str
 fun SettingsSearchBar(query: String, onQueryChange: (String) -> Unit) {
     val colors = XvoxTheme.colors
     val design = LocalXvoxDesign.current
-    val shape = RoundedCornerShape(design.searchRadius)
+    val shape = design.shapeFor(design.searchRadius)
     val fill = if (design.language == XvoxDesignLanguage.MATERIAL) colors.cardElevated else colors.card
     Row(
         Modifier.fillMaxWidth().padding(horizontal = design.groupInset, vertical = 6.dp).height(design.searchHeight)
@@ -115,7 +116,7 @@ private val RowInset = 16.dp
 fun SettingsLandingGroup(header: String?, content: @Composable () -> Unit) {
     val colors = XvoxTheme.colors
     val design = LocalXvoxDesign.current
-    val shape = RoundedCornerShape(design.groupRadius)
+    val shape = design.shapeFor(design.groupRadius)
     val material = design.language == XvoxDesignLanguage.MATERIAL
     Column(Modifier.fillMaxWidth()) {
         if (header != null) {
@@ -167,7 +168,7 @@ fun SettingsLandingRow(iconRes: Int, title: String, subtitle: String? = null, on
             // iOS: accent squircle with a white glyph. Material: tonal circle with an accent glyph.
             val tileSize = if (material) 40.dp else 30.dp
             Box(
-                Modifier.size(tileSize).clip(RoundedCornerShape(design.glyphTileRadius))
+                Modifier.size(tileSize).clip(if (material) CircleShape else design.shapeFor(design.glyphTileRadius))
                     .background(if (material) colors.primaryAccent.copy(alpha = .16f) else colors.primaryAccent),
                 contentAlignment = Alignment.Center
             ) {

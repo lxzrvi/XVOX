@@ -1128,6 +1128,12 @@ private fun AboutSectionCard(modifier: Modifier = Modifier) {
         // Sharing and feedback are expandable in the About content, keeping one clear action
         // cluster rather than a detached title icon and an unrelated footer.
         AboutSettingsSection(expanded = isLandscape)
+        Text(
+            "Design credits: iOS-style Liquid Glass geometry and motion reference from Glasmio by NEORUAA (Apache-2.0). " +
+                "Material 3 Expressive motion tokens, squircle shapes and components reference from JustForPixel ExpressiveLab by Er. Mohd Amaan (MIT).",
+            color = XvoxTheme.colors.mutedText, fontSize = 11.sp, lineHeight = 15.sp,
+            modifier = Modifier.padding(top = 12.dp)
+        )
     }
 }
 
