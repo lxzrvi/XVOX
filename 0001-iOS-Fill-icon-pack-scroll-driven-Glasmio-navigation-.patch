@@ -1,0 +1,2008 @@
+From a35befc942920619b38cc32b19b318088fbe8241 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Wed, 18 Nov 2026 01:43:03 +0000
+Subject: [PATCH] iOS Fill icon pack + scroll-driven Glasmio navigation in the
+ stage
+
+- Add 55 iOS-style filled icons (ic_ixf_*), generated from Ionicons (MIT), and an "ios" icon pack
+  that is now the default. Existing ic_xvox_ios_* drawables are reused for play/pause/skip/queue/
+  lyrics/more. R8 keep rule added because icons are resolved by name.
+- Route all 58 files through the app's painterResource wrapper so the pack applies everywhere.
+- Stage: navigation bar follows page scroll (compact capsule + scroll hint), root tabs cross-fade,
+  settings page shares its list state with the bar.
+- THIRD_PARTY/IONICONS.md attribution.
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01KievH9end6o7BBBHs4s3kc
+---
+ THIRD_PARTY/IONICONS.md                       | 23 +++++++++
+ .../xvox/music/core/design/kit/XvoxStage.kt   | 48 +++++++++++++------
+ .../core/design/kit/XvoxStageSettings.kt      | 13 +++--
+ .../core/ui/components/XvoxLikedHeartBadge.kt |  2 +-
+ .../core/ui/components/XvoxSelectionTick.kt   |  2 +-
+ .../xvox/music/core/ui/icons/XvoxIconPacks.kt | 32 ++++++++++++-
+ .../xvox/music/core/ui/miniplayer/XvoxDock.kt |  2 +-
+ .../core/ui/miniplayer/XvoxMiniPlayer.kt      |  2 +-
+ .../core/ui/miniplayer/XvoxMiniPlayerCard.kt  |  2 +-
+ .../core/ui/miniplayer/XvoxMiniPlayerIcons.kt |  2 +-
+ .../core/ui/miniplayer/XvoxSharedElements.kt  |  2 +-
+ .../music/core/ui/navigation/XvoxBottomBar.kt |  2 +-
+ .../core/ui/navigation/XvoxNavigationItem.kt  |  2 +-
+ .../com/xvox/music/core/ui/overlay/XvoxBox.kt |  2 +-
+ .../music/features/artist/ArtistInfoDialog.kt |  2 +-
+ .../xvox/music/features/home/AddToQueueBox.kt |  2 +-
+ .../home/HomeCollectionMultiSelectBar.kt      |  2 +-
+ .../features/home/HomeContextualBoxes.kt      |  2 +-
+ .../music/features/home/HomeHeaderIcon.kt     |  2 +-
+ .../music/features/home/HomeLibraryItems.kt   |  2 +-
+ .../music/features/home/HomeMultiSelectBar.kt |  2 +-
+ .../music/features/home/LibraryRefreshBox.kt  |  2 +-
+ .../xvox/music/features/home/PlaybackIcon.kt  |  2 +-
+ .../music/features/home/SongFileEditBox.kt    |  2 +-
+ .../music/features/home/SongOptionsBox.kt     |  2 +-
+ .../music/features/home/XvoxCollectionHero.kt |  2 +-
+ .../music/features/home/XvoxHeldActionsBox.kt |  2 +-
+ .../music/features/home/XvoxHomeDiscover.kt   |  2 +-
+ .../features/home/XvoxWavePatternArtwork.kt   |  2 +-
+ .../features/home/recent/RecentSource.kt      |  2 +-
+ .../features/playlist/CreatePlaylistBox.kt    |  2 +-
+ .../features/playlist/PlaylistPickerBox.kt    |  2 +-
+ .../playlist/XvoxAddPlaylistSongsBox.kt       |  2 +-
+ .../features/playlist/XvoxLikedSongRow.kt     |  2 +-
+ .../playlist/XvoxPlaylistActionsBox.kt        |  2 +-
+ .../playlist/XvoxPlaylistCoverEditor.kt       |  2 +-
+ .../music/features/search/SearchScreen.kt     |  2 +-
+ .../features/settings/SettingsLanding.kt      |  2 +-
+ .../music/features/settings/SettingsScreen.kt |  2 +-
+ .../components/SettingsAccordionItem.kt       |  2 +-
+ .../components/SettingsSectionCard.kt         |  2 +-
+ .../components/SettingsSectionPreviews.kt     |  2 +-
+ .../settings/components/XvoxFontPicker.kt     |  2 +-
+ .../sections/BackupSettingsSection.kt         |  2 +-
+ .../sections/HiddenSongsSettingsSection.kt    |  2 +-
+ .../sections/LibraryFilterSettingsSection.kt  |  2 +-
+ .../settings/sections/WidgetStudioScreen.kt   |  2 +-
+ .../music/features/setup/XvoxAvatarPicker.kt  |  2 +-
+ .../player/nowplaying/XvoxLyricsInfoPill.kt   |  2 +-
+ .../nowplaying/XvoxNowPlayingAltLayouts.kt    |  2 +-
+ .../nowplaying/XvoxNowPlayingControls.kt      |  2 +-
+ .../player/nowplaying/XvoxNowPlayingHeader.kt |  2 +-
+ .../components/NowPlayingActions.kt           |  2 +-
+ .../components/NowPlayingLayoutCustomizer.kt  |  2 +-
+ .../nowplaying/lyrics/XvoxArtworkLyrics.kt    |  2 +-
+ .../nowplaying/lyrics/XvoxFullscreenLyrics.kt |  2 +-
+ .../xvox/music/shell/XvoxPlaylistPickerBox.kt |  2 +-
+ .../java/com/xvox/music/shell/XvoxQueueBox.kt |  2 +-
+ .../com/xvox/music/shell/XvoxQueuePage.kt     |  2 +-
+ .../xvox/music/shell/XvoxShellTopHeader.kt    |  2 +-
+ .../java/com/xvox/music/shell/XvoxTimerBox.kt |  2 +-
+ app/src/main/res/drawable/ic_ixf_add.xml      |  8 ++++
+ .../main/res/drawable/ic_ixf_arrow_left.xml   |  8 ++++
+ app/src/main/res/drawable/ic_ixf_artist.xml   |  8 ++++
+ .../main/res/drawable/ic_ixf_bluetooth.xml    |  7 +++
+ .../main/res/drawable/ic_ixf_caret_right.xml  |  7 +++
+ app/src/main/res/drawable/ic_ixf_check.xml    |  7 +++
+ .../main/res/drawable/ic_ixf_chevron_down.xml |  7 +++
+ app/src/main/res/drawable/ic_ixf_close.xml    |  7 +++
+ app/src/main/res/drawable/ic_ixf_collapse.xml | 14 ++++++
+ app/src/main/res/drawable/ic_ixf_copy.xml     |  8 ++++
+ .../main/res/drawable/ic_ixf_crossfade.xml    | 10 ++++
+ app/src/main/res/drawable/ic_ixf_delete.xml   |  8 ++++
+ app/src/main/res/drawable/ic_ixf_disc.xml     |  8 ++++
+ app/src/main/res/drawable/ic_ixf_done_all.xml |  9 ++++
+ app/src/main/res/drawable/ic_ixf_download.xml |  8 ++++
+ .../main/res/drawable/ic_ixf_drag_dots.xml    |  9 ++++
+ app/src/main/res/drawable/ic_ixf_edit.xml     |  9 ++++
+ .../main/res/drawable/ic_ixf_equalizer.xml    |  9 ++++
+ app/src/main/res/drawable/ic_ixf_folder.xml   |  8 ++++
+ .../main/res/drawable/ic_ixf_fullscreen.xml   | 14 ++++++
+ .../res/drawable/ic_ixf_fullscreen_exit.xml   | 14 ++++++
+ app/src/main/res/drawable/ic_ixf_headset.xml  |  7 +++
+ app/src/main/res/drawable/ic_ixf_heart.xml    |  7 +++
+ .../res/drawable/ic_ixf_heart_outline.xml     |  7 +++
+ app/src/main/res/drawable/ic_ixf_home.xml     |  8 ++++
+ app/src/main/res/drawable/ic_ixf_info.xml     |  7 +++
+ .../main/res/drawable/ic_ixf_lyrics_add.xml   |  7 +++
+ .../main/res/drawable/ic_ixf_lyrics_file.xml  |  8 ++++
+ .../main/res/drawable/ic_ixf_microphone.xml   | 10 ++++
+ .../drawable/ic_ixf_microphone_outline.xml    | 10 ++++
+ .../res/drawable/ic_ixf_microphone_stage.xml  | 10 ++++
+ app/src/main/res/drawable/ic_ixf_more.xml     |  9 ++++
+ .../main/res/drawable/ic_ixf_music_note.xml   |  7 +++
+ app/src/main/res/drawable/ic_ixf_mute.xml     | 12 +++++
+ app/src/main/res/drawable/ic_ixf_phone.xml    |  9 ++++
+ app/src/main/res/drawable/ic_ixf_playlist.xml |  9 ++++
+ app/src/main/res/drawable/ic_ixf_plus.xml     |  8 ++++
+ app/src/main/res/drawable/ic_ixf_recent.xml   |  7 +++
+ app/src/main/res/drawable/ic_ixf_refresh.xml  |  8 ++++
+ app/src/main/res/drawable/ic_ixf_repeat.xml   | 10 ++++
+ .../main/res/drawable/ic_ixf_repeat_one.xml   | 11 +++++
+ app/src/main/res/drawable/ic_ixf_resize.xml   |  9 ++++
+ app/src/main/res/drawable/ic_ixf_search.xml   |  7 +++
+ app/src/main/res/drawable/ic_ixf_settings.xml |  8 ++++
+ app/src/main/res/drawable/ic_ixf_share.xml    |  8 ++++
+ app/src/main/res/drawable/ic_ixf_shuffle.xml  | 11 +++++
+ app/src/main/res/drawable/ic_ixf_sparkle.xml  |  9 ++++
+ app/src/main/res/drawable/ic_ixf_split.xml    |  8 ++++
+ app/src/main/res/drawable/ic_ixf_star.xml     |  7 +++
+ app/src/main/res/drawable/ic_ixf_timer.xml    |  7 +++
+ app/src/main/res/drawable/ic_ixf_undo.xml     |  7 +++
+ app/src/main/res/drawable/ic_ixf_user.xml     |  8 ++++
+ .../main/res/drawable/ic_ixf_volume_high.xml  | 10 ++++
+ .../main/res/drawable/ic_ixf_volume_low.xml   |  8 ++++
+ app/src/main/res/drawable/ic_ixf_waveform.xml |  7 +++
+ app/src/main/res/raw/xvox_keep.xml            |  4 ++
+ 117 files changed, 630 insertions(+), 76 deletions(-)
+ create mode 100644 THIRD_PARTY/IONICONS.md
+ create mode 100644 app/src/main/res/drawable/ic_ixf_add.xml
+ create mode 100644 app/src/main/res/drawable/ic_ixf_arrow_left.xml
+ create mode 100644 app/src/main/res/drawable/ic_ixf_artist.xml
+ create mode 100644 app/src/main/res/drawable/ic_ixf_bluetooth.xml
+ create mode 100644 app/src/main/res/drawable/ic_ixf_caret_right.xml
+ create mode 100644 app/src/main/res/drawable/ic_ixf_check.xml
+ create mode 100644 app/src/main/res/drawable/ic_ixf_chevron_down.xml
+ create mode 100644 app/src/main/res/drawable/ic_ixf_close.xml
+ create mode 100644 app/src/main/res/drawable/ic_ixf_collapse.xml
+ create mode 100644 app/src/main/res/drawable/ic_ixf_copy.xml
+ create mode 100644 app/src/main/res/drawable/ic_ixf_crossfade.xml
+ create mode 100644 app/src/main/res/drawable/ic_ixf_delete.xml
+ create mode 100644 app/src/main/res/drawable/ic_ixf_disc.xml
+ create mode 100644 app/src/main/res/drawable/ic_ixf_done_all.xml
+ create mode 100644 app/src/main/res/drawable/ic_ixf_download.xml
+ create mode 100644 app/src/main/res/drawable/ic_ixf_drag_dots.xml
+ create mode 100644 app/src/main/res/drawable/ic_ixf_edit.xml
+ create mode 100644 app/src/main/res/drawable/ic_ixf_equalizer.xml
+ create mode 100644 app/src/main/res/drawable/ic_ixf_folder.xml
+ create mode 100644 app/src/main/res/drawable/ic_ixf_fullscreen.xml
+ create mode 100644 app/src/main/res/drawable/ic_ixf_fullscreen_exit.xml
+ create mode 100644 app/src/main/res/drawable/ic_ixf_headset.xml
+ create mode 100644 app/src/main/res/drawable/ic_ixf_heart.xml
+ create mode 100644 app/src/main/res/drawable/ic_ixf_heart_outline.xml
+ create mode 100644 app/src/main/res/drawable/ic_ixf_home.xml
+ create mode 100644 app/src/main/res/drawable/ic_ixf_info.xml
+ create mode 100644 app/src/main/res/drawable/ic_ixf_lyrics_add.xml
+ create mode 100644 app/src/main/res/drawable/ic_ixf_lyrics_file.xml
+ create mode 100644 app/src/main/res/drawable/ic_ixf_microphone.xml
+ create mode 100644 app/src/main/res/drawable/ic_ixf_microphone_outline.xml
+ create mode 100644 app/src/main/res/drawable/ic_ixf_microphone_stage.xml
+ create mode 100644 app/src/main/res/drawable/ic_ixf_more.xml
+ create mode 100644 app/src/main/res/drawable/ic_ixf_music_note.xml
+ create mode 100644 app/src/main/res/drawable/ic_ixf_mute.xml
+ create mode 100644 app/src/main/res/drawable/ic_ixf_phone.xml
+ create mode 100644 app/src/main/res/drawable/ic_ixf_playlist.xml
+ create mode 100644 app/src/main/res/drawable/ic_ixf_plus.xml
+ create mode 100644 app/src/main/res/drawable/ic_ixf_recent.xml
+ create mode 100644 app/src/main/res/drawable/ic_ixf_refresh.xml
+ create mode 100644 app/src/main/res/drawable/ic_ixf_repeat.xml
+ create mode 100644 app/src/main/res/drawable/ic_ixf_repeat_one.xml
+ create mode 100644 app/src/main/res/drawable/ic_ixf_resize.xml
+ create mode 100644 app/src/main/res/drawable/ic_ixf_search.xml
+ create mode 100644 app/src/main/res/drawable/ic_ixf_settings.xml
+ create mode 100644 app/src/main/res/drawable/ic_ixf_share.xml
+ create mode 100644 app/src/main/res/drawable/ic_ixf_shuffle.xml
+ create mode 100644 app/src/main/res/drawable/ic_ixf_sparkle.xml
+ create mode 100644 app/src/main/res/drawable/ic_ixf_split.xml
+ create mode 100644 app/src/main/res/drawable/ic_ixf_star.xml
+ create mode 100644 app/src/main/res/drawable/ic_ixf_timer.xml
+ create mode 100644 app/src/main/res/drawable/ic_ixf_undo.xml
+ create mode 100644 app/src/main/res/drawable/ic_ixf_user.xml
+ create mode 100644 app/src/main/res/drawable/ic_ixf_volume_high.xml
+ create mode 100644 app/src/main/res/drawable/ic_ixf_volume_low.xml
+ create mode 100644 app/src/main/res/drawable/ic_ixf_waveform.xml
+ create mode 100644 app/src/main/res/raw/xvox_keep.xml
+
+diff --git a/THIRD_PARTY/IONICONS.md b/THIRD_PARTY/IONICONS.md
+new file mode 100644
+index 0000000..081ffb4
+--- /dev/null
++++ b/THIRD_PARTY/IONICONS.md
+@@ -0,0 +1,23 @@
++# Ionicons
++
++The `ic_ixf_*` drawables in `app/src/main/res/drawable/` (the "iOS Fill" icon pack) are generated
++from [Ionicons](https://github.com/ionic-team/ionicons), converted from SVG to Android vector drawables.
++
++The MIT License (MIT)
++
++Copyright (c) 2015-present Ionic (http://ionic.io/)
++
++Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
++associated documentation files (the "Software"), to deal in the Software without restriction,
++including without limitation the rights to use, copy, modify, merge, publish, distribute,
++sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is
++furnished to do so, subject to the following conditions:
++
++The above copyright notice and this permission notice shall be included in all copies or
++substantial portions of the Software.
++
++THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT
++NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
++DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT
++OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+diff --git a/app/src/main/java/com/xvox/music/core/design/kit/XvoxStage.kt b/app/src/main/java/com/xvox/music/core/design/kit/XvoxStage.kt
+index c7677a0..9873234 100644
+--- a/app/src/main/java/com/xvox/music/core/design/kit/XvoxStage.kt
++++ b/app/src/main/java/com/xvox/music/core/design/kit/XvoxStage.kt
+@@ -1,5 +1,6 @@
+ package com.xvox.music.core.design.kit
+ 
++import androidx.compose.animation.Crossfade
+ import androidx.compose.foundation.layout.Box
+ import androidx.compose.foundation.layout.fillMaxSize
+ import androidx.compose.foundation.layout.fillMaxWidth
+@@ -10,10 +11,11 @@ import androidx.compose.foundation.layout.size
+ import androidx.compose.foundation.layout.statusBarsPadding
+ import androidx.compose.foundation.layout.widthIn
+ import androidx.compose.foundation.layout.Spacer
++import androidx.compose.foundation.lazy.LazyListState
++import androidx.compose.foundation.lazy.rememberLazyListState
+ import androidx.compose.material3.Icon
+ import androidx.compose.runtime.Composable
+ import androidx.compose.runtime.getValue
+-import androidx.compose.runtime.mutableFloatStateOf
+ import androidx.compose.runtime.mutableIntStateOf
+ import androidx.compose.runtime.mutableStateOf
+ import androidx.compose.runtime.remember
+@@ -26,9 +28,10 @@ import androidx.compose.ui.graphics.Color
+ import androidx.compose.ui.graphics.TransformOrigin
+ import androidx.compose.ui.graphics.graphicsLayer
+ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
++import androidx.compose.ui.input.nestedscroll.nestedScroll
+ import androidx.compose.ui.platform.LocalContext
+ import androidx.compose.ui.platform.LocalHapticFeedback
+-import androidx.compose.ui.res.painterResource
++import com.xvox.music.core.ui.icons.painterResource
+ import androidx.compose.ui.text.input.TextFieldValue
+ import androidx.compose.ui.unit.dp
+ import com.xvox.music.R
+@@ -42,6 +45,8 @@ import io.github.neoruaa.glasmio.icons.SfSymbol
+ import io.github.neoruaa.glasmio.scaffold.GlasmioFloatingSearch
+ import io.github.neoruaa.glasmio.scaffold.GlasmioNavigationBarWithTrailingItem
+ import io.github.neoruaa.glasmio.scaffold.GlasmioPinnedListPage
++import io.github.neoruaa.glasmio.scaffold.glasmioNavigationScrollHint
++import io.github.neoruaa.glasmio.scaffold.rememberGlasmioNavigationScrollState
+ import io.github.neoruaa.glasmio.scaffold.rememberGlasmioSearchTransition
+ import io.github.neoruaa.glasmio.ui.GlasmioIconButton
+ import io.github.neoruaa.glasmio.ui.GlasmioMenu
+@@ -86,7 +91,13 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
+     var menuOpen by remember { mutableStateOf(false) }
+     var showProfile by rememberSaveable { mutableStateOf(false) }
+ 
+-    val compact = remember { mutableFloatStateOf(0f) }
++    // One list state per root page. The navigation bar follows whichever page is on screen: it
++    // shrinks to its compact capsule while scrolling away and springs back on tap or at the top.
++    val pageListStates = StageTabs.indices.map { rememberLazyListState() } + rememberLazyListState()
++    val navigationScroll = rememberGlasmioNavigationScrollState(
++        listState = pageListStates[if (selectedIndex == SettingsIndex) pageListStates.lastIndex else selectedIndex],
++        enabled = !searchActive
++    )
+     // The stage owns no background: it samples the application's real backdrop layer, which the
+     // root registered from the live wallpaper, gradient or theme fill.
+     val engineBackdrop = LocalXvoxGlassBackdrop.current
+@@ -121,14 +132,21 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
+                     transition = searchTransition,
+                     sourceBoundsInWindow = searchBounds
+                 ) {
+-                    Box(Modifier.fillMaxSize()) {
+-                        when (selectedIndex) {
+-                            SettingsIndex -> XvoxStageSettingsPage(
+-                                prefs = prefs,
+-                                backdrop = backdrop,
+-                                onBack = { selectedIndex = 0 }
+-                            )
+-                            else -> XvoxStagePage(title = StageTabs[selectedIndex].label)
++                    Box(Modifier.fillMaxSize().nestedScroll(navigationScroll.nestedScrollConnection)) {
++                        // Root tabs cross-fade, exactly like Glasmio's own navigation.
++                        Crossfade(targetState = selectedIndex, label = "stageRoot") { index ->
++                            when (index) {
++                                SettingsIndex -> XvoxStageSettingsPage(
++                                    prefs = prefs,
++                                    backdrop = backdrop,
++                                    onBack = { selectedIndex = 0 },
++                                    listState = pageListStates.last()
++                                )
++                                else -> XvoxStagePage(
++                                    title = StageTabs[index].label,
++                                    listState = pageListStates[index]
++                                )
++                            }
+                         }
+ 
+                         // The bar retires into the search field on Glasmio's own morph clock.
+@@ -151,11 +169,12 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
+                                             else -> selectedIndex = key
+                                         }
+                                     },
+-                                    onExpand = { compact.floatValue = 0f },
+-                                    compactProgress = compact,
++                                    onExpand = navigationScroll::expand,
++                                    compactProgress = navigationScroll.compactProgress,
+                                     modifier = Modifier
+                                         .align(Alignment.Center)
+                                         .widthIn(max = StageBarMaxWidth)
++                                        .glasmioNavigationScrollHint(navigationScroll.scrollHintProgress)
+                                         .graphicsLayer {
+                                             alpha = 1f - morph
+                                             val scale = 1f - .06f * morph
+@@ -238,9 +257,10 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
+  * top strip picks up its blurred material as soon as the page scrolls.
+  */
+ @Composable
+-private fun XvoxStagePage(title: String) {
++private fun XvoxStagePage(title: String, listState: LazyListState) {
+     GlasmioPinnedListPage(
+         title = title,
++        listState = listState,
+         bottomPadding = 132.dp,
+         // Transparent: the page must not paint over the live app backdrop, which is exactly what
+         // the bar, the lens and every glass box sample.
+diff --git a/app/src/main/java/com/xvox/music/core/design/kit/XvoxStageSettings.kt b/app/src/main/java/com/xvox/music/core/design/kit/XvoxStageSettings.kt
+index 22364ad..3a0357a 100644
+--- a/app/src/main/java/com/xvox/music/core/design/kit/XvoxStageSettings.kt
++++ b/app/src/main/java/com/xvox/music/core/design/kit/XvoxStageSettings.kt
+@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.fillMaxSize
+ import androidx.compose.foundation.layout.fillMaxWidth
+ import androidx.compose.foundation.layout.padding
+ import androidx.compose.foundation.lazy.LazyListScope
++import androidx.compose.foundation.lazy.LazyListState
++import androidx.compose.foundation.lazy.rememberLazyListState
+ import androidx.compose.material3.Text
+ import androidx.compose.runtime.Composable
+ import androidx.compose.runtime.collectAsState
+@@ -53,7 +55,9 @@ private const val RouteStyle = "style"
+ fun XvoxStageSettingsPage(
+     prefs: UserPreferencesRepository,
+     backdrop: LayerBackdrop,
+-    onBack: () -> Unit
++    onBack: () -> Unit,
++    /** Owned by the stage so the navigation bar can follow this page's scroll. */
++    listState: LazyListState = rememberLazyListState()
+ ) {
+     var route by remember { mutableStateOf<String?>(null) }
+ 
+@@ -63,7 +67,8 @@ fun XvoxStageSettingsPage(
+                 prefs = prefs,
+                 backdrop = backdrop,
+                 onBack = onBack,
+-                onRoute = { route = it }
++                onRoute = { route = it },
++                listState = listState
+             )
+             RouteTheme -> SettingsThemePage(prefs, backdrop) { route = null }
+             RouteAccent -> SettingsAccentPage(prefs, backdrop) { route = null }
+@@ -80,7 +85,8 @@ private fun SettingsRoot(
+     prefs: UserPreferencesRepository,
+     backdrop: LayerBackdrop,
+     onBack: () -> Unit,
+-    onRoute: (String) -> Unit
++    onRoute: (String) -> Unit,
++    listState: LazyListState
+ ) {
+     val scope = rememberCoroutineScope()
+     val theme by prefs.theme.collectAsState(initial = "System")
+@@ -94,6 +100,7 @@ private fun SettingsRoot(
+     GlasmioPinnedListPage(
+         title = "Settings",
+         onNavigateBack = onBack,
++        listState = listState,
+         bottomPadding = 132.dp,
+         backgroundColor = Color.Transparent,
+         modifier = Modifier.fillMaxSize()
+diff --git a/app/src/main/java/com/xvox/music/core/ui/components/XvoxLikedHeartBadge.kt b/app/src/main/java/com/xvox/music/core/ui/components/XvoxLikedHeartBadge.kt
+index 5493581..2a15504 100644
+--- a/app/src/main/java/com/xvox/music/core/ui/components/XvoxLikedHeartBadge.kt
++++ b/app/src/main/java/com/xvox/music/core/ui/components/XvoxLikedHeartBadge.kt
+@@ -11,7 +11,7 @@ import androidx.compose.ui.Alignment
+ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.draw.clip
+ import androidx.compose.ui.graphics.Color
+-import androidx.compose.ui.res.painterResource
++import com.xvox.music.core.ui.icons.painterResource
+ import androidx.compose.ui.unit.Dp
+ import androidx.compose.ui.unit.dp
+ import com.xvox.music.R
+diff --git a/app/src/main/java/com/xvox/music/core/ui/components/XvoxSelectionTick.kt b/app/src/main/java/com/xvox/music/core/ui/components/XvoxSelectionTick.kt
+index fa5b27b..7bea330 100644
+--- a/app/src/main/java/com/xvox/music/core/ui/components/XvoxSelectionTick.kt
++++ b/app/src/main/java/com/xvox/music/core/ui/components/XvoxSelectionTick.kt
+@@ -24,7 +24,7 @@ import androidx.compose.ui.unit.Dp
+ import androidx.compose.ui.unit.dp
+ import com.xvox.music.R
+ import com.xvox.music.core.design.theme.XvoxTheme
+-import androidx.compose.ui.res.painterResource
++import com.xvox.music.core.ui.icons.painterResource
+ 
+ /**
+  * Selection mark shown over the CENTER of a cover (song, playlist, artist): a soft dim over the
+diff --git a/app/src/main/java/com/xvox/music/core/ui/icons/XvoxIconPacks.kt b/app/src/main/java/com/xvox/music/core/ui/icons/XvoxIconPacks.kt
+index 6d017a4..ed04d4a 100644
+--- a/app/src/main/java/com/xvox/music/core/ui/icons/XvoxIconPacks.kt
++++ b/app/src/main/java/com/xvox/music/core/ui/icons/XvoxIconPacks.kt
+@@ -25,12 +25,13 @@ import kotlin.math.sin
+  * through [painterResource] below, so one Settings choice restyles every icon at once.
+  */
+ object XvoxIconPrefs {
+-    /** monks (bundled Icon Monks) | filled | outlined | rounded | sharp | twotone */
+-    var pack: String by mutableStateOf("monks")
++    /** ios (iOS-style filled, default) | monks (bundled Icon Monks) | filled | outlined | rounded | sharp | twotone */
++    var pack: String by mutableStateOf("ios")
+     /** thin | normal | fill | bold */
+     var style: String by mutableStateOf("normal")
+ 
+     val packs = listOf(
++        "ios" to "iOS Fill",
+         "monks" to "Icon Monks",
+         "rounded" to "Rounded",
+         "outlined" to "Outlined",
+@@ -62,6 +63,17 @@ private val MaterialNames = mapOf(
+     "volume_high" to "VolumeUp", "volume_low" to "VolumeDown", "waveform" to "GraphicEq"
+ )
+ 
++/**
++ * iOS pack: keys that already have a hand-made iOS-filled drawable in the app. Every other key
++ * resolves to the generated Ionicons-based `ic_ixf_<key>` drawable (MIT, see THIRD_PARTY/IONICONS.md).
++ */
++private val IosAliases = mapOf(
++    "play" to "ic_xvox_ios_play", "pause" to "ic_xvox_ios_pause",
++    "skip_next" to "ic_xvox_ios_forward", "skip_previous" to "ic_xvox_ios_rewind",
++    "queue" to "ic_xvox_ios_list", "lyrics" to "ic_xvox_ios_lyrics",
++    "more" to "ic_xvox_ios_ellipsis"
++)
++
+ private val cache = ConcurrentHashMap<String, Any>()
+ private object Missing
+ 
+@@ -127,6 +139,22 @@ fun painterResource(id: Int): Painter {
+     val style = XvoxIconPrefs.style
+     val key = entry.removePrefix("ic_xvox_")
+ 
++    if (pack == "ios") {
++        // Already-iOS drawables (ic_xvox_ios_*) are used as-is; everything else maps by key.
++        val iosName = if (key.startsWith("ios_")) null else IosAliases[key] ?: "ic_ixf_$key"
++        val iosId = remember(iosName) {
++            if (iosName == null) 0 else context.resources.getIdentifier(iosName, "drawable", context.packageName)
++        }
++        val iosPainter = if (iosId != 0) basePainterResource(iosId) else base
++        return remember(iosPainter, style) {
++            when (style) {
++                "bold" -> BoldPainter(iosPainter, .018f)
++                "thin" -> FadedPainter(iosPainter, .94f)
++                else -> iosPainter
++            }
++        }
++    }
++
+     // Thin / Fill steer Material packs to their outline / filled families.
+     val family = if (pack == "monks") null else when (style) {
+         "thin" -> "outlined"
+diff --git a/app/src/main/java/com/xvox/music/core/ui/miniplayer/XvoxDock.kt b/app/src/main/java/com/xvox/music/core/ui/miniplayer/XvoxDock.kt
+index f26c51a..8eb09ac 100644
+--- a/app/src/main/java/com/xvox/music/core/ui/miniplayer/XvoxDock.kt
++++ b/app/src/main/java/com/xvox/music/core/ui/miniplayer/XvoxDock.kt
+@@ -27,7 +27,7 @@ import androidx.compose.ui.Alignment
+ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.geometry.Rect
+ import androidx.compose.ui.graphics.graphicsLayer
+-import androidx.compose.ui.res.painterResource
++import com.xvox.music.core.ui.icons.painterResource
+ import androidx.compose.ui.unit.dp
+ import com.xvox.music.core.design.theme.XvoxTheme
+ import com.xvox.music.core.ui.blur.LocalXvoxShellContentSky
+diff --git a/app/src/main/java/com/xvox/music/core/ui/miniplayer/XvoxMiniPlayer.kt b/app/src/main/java/com/xvox/music/core/ui/miniplayer/XvoxMiniPlayer.kt
+index 0c65a49..ada1f2f 100644
+--- a/app/src/main/java/com/xvox/music/core/ui/miniplayer/XvoxMiniPlayer.kt
++++ b/app/src/main/java/com/xvox/music/core/ui/miniplayer/XvoxMiniPlayer.kt
+@@ -45,7 +45,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
+ import androidx.compose.ui.platform.LocalConfiguration
+ import androidx.compose.ui.platform.LocalDensity
+ import androidx.compose.ui.platform.LocalView
+-import androidx.compose.ui.res.painterResource
++import com.xvox.music.core.ui.icons.painterResource
+ import androidx.compose.ui.unit.dp
+ import androidx.compose.material3.Icon
+ import com.xvox.music.R
+diff --git a/app/src/main/java/com/xvox/music/core/ui/miniplayer/XvoxMiniPlayerCard.kt b/app/src/main/java/com/xvox/music/core/ui/miniplayer/XvoxMiniPlayerCard.kt
+index 97501cf..31b43da 100644
+--- a/app/src/main/java/com/xvox/music/core/ui/miniplayer/XvoxMiniPlayerCard.kt
++++ b/app/src/main/java/com/xvox/music/core/ui/miniplayer/XvoxMiniPlayerCard.kt
+@@ -47,7 +47,7 @@ import androidx.compose.ui.graphics.Color
+ import androidx.compose.ui.graphics.Path
+ import androidx.compose.ui.graphics.drawscope.clipPath
+ import androidx.compose.ui.graphics.graphicsLayer
+-import androidx.compose.ui.res.painterResource
++import com.xvox.music.core.ui.icons.painterResource
+ import androidx.compose.ui.text.font.FontWeight
+ import androidx.compose.ui.text.style.TextOverflow
+ import androidx.compose.ui.unit.dp
+diff --git a/app/src/main/java/com/xvox/music/core/ui/miniplayer/XvoxMiniPlayerIcons.kt b/app/src/main/java/com/xvox/music/core/ui/miniplayer/XvoxMiniPlayerIcons.kt
+index a7d319d..edb94fe 100644
+--- a/app/src/main/java/com/xvox/music/core/ui/miniplayer/XvoxMiniPlayerIcons.kt
++++ b/app/src/main/java/com/xvox/music/core/ui/miniplayer/XvoxMiniPlayerIcons.kt
+@@ -5,7 +5,7 @@ import androidx.compose.material3.Icon
+ import androidx.compose.runtime.Composable
+ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.graphics.Color
+-import androidx.compose.ui.res.painterResource
++import com.xvox.music.core.ui.icons.painterResource
+ import com.xvox.music.R
+ 
+ enum class XvoxMiniIcon {
+diff --git a/app/src/main/java/com/xvox/music/core/ui/miniplayer/XvoxSharedElements.kt b/app/src/main/java/com/xvox/music/core/ui/miniplayer/XvoxSharedElements.kt
+index a99b820..1fe0c79 100644
+--- a/app/src/main/java/com/xvox/music/core/ui/miniplayer/XvoxSharedElements.kt
++++ b/app/src/main/java/com/xvox/music/core/ui/miniplayer/XvoxSharedElements.kt
+@@ -6,7 +6,7 @@ import androidx.compose.foundation.layout.Box
+ import androidx.compose.foundation.shape.CircleShape
+ import androidx.compose.material3.Icon
+ import androidx.compose.ui.Alignment
+-import androidx.compose.ui.res.painterResource
++import com.xvox.music.core.ui.icons.painterResource
+ import androidx.compose.foundation.layout.fillMaxSize
+ import androidx.compose.foundation.layout.offset
+ import androidx.compose.foundation.layout.size
+diff --git a/app/src/main/java/com/xvox/music/core/ui/navigation/XvoxBottomBar.kt b/app/src/main/java/com/xvox/music/core/ui/navigation/XvoxBottomBar.kt
+index 2d46362..9f75340 100644
+--- a/app/src/main/java/com/xvox/music/core/ui/navigation/XvoxBottomBar.kt
++++ b/app/src/main/java/com/xvox/music/core/ui/navigation/XvoxBottomBar.kt
+@@ -60,7 +60,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
+ import androidx.compose.ui.platform.LocalConfiguration
+ import androidx.compose.ui.platform.LocalDensity
+ import androidx.compose.ui.platform.LocalLayoutDirection
+-import androidx.compose.ui.res.painterResource
++import com.xvox.music.core.ui.icons.painterResource
+ import androidx.compose.ui.semantics.Role
+ import androidx.compose.ui.semantics.clearAndSetSemantics
+ import androidx.compose.ui.semantics.onClick
+diff --git a/app/src/main/java/com/xvox/music/core/ui/navigation/XvoxNavigationItem.kt b/app/src/main/java/com/xvox/music/core/ui/navigation/XvoxNavigationItem.kt
+index d305a26..e8f5faf 100644
+--- a/app/src/main/java/com/xvox/music/core/ui/navigation/XvoxNavigationItem.kt
++++ b/app/src/main/java/com/xvox/music/core/ui/navigation/XvoxNavigationItem.kt
+@@ -12,7 +12,7 @@ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.graphics.Color
+ import androidx.compose.ui.graphics.ColorFilter
+ import androidx.compose.ui.graphics.graphicsLayer
+-import androidx.compose.ui.res.painterResource
++import com.xvox.music.core.ui.icons.painterResource
+ import com.xvox.music.R
+ 
+ @Composable
+diff --git a/app/src/main/java/com/xvox/music/core/ui/overlay/XvoxBox.kt b/app/src/main/java/com/xvox/music/core/ui/overlay/XvoxBox.kt
+index 66e38d5..737fe53 100644
+--- a/app/src/main/java/com/xvox/music/core/ui/overlay/XvoxBox.kt
++++ b/app/src/main/java/com/xvox/music/core/ui/overlay/XvoxBox.kt
+@@ -64,7 +64,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
+ import androidx.compose.ui.input.pointer.pointerInput
+ import androidx.compose.ui.layout.onGloballyPositioned
+ import androidx.compose.ui.platform.LocalDensity
+-import androidx.compose.ui.res.painterResource
++import com.xvox.music.core.ui.icons.painterResource
+ import androidx.compose.ui.semantics.paneTitle
+ import androidx.compose.ui.semantics.semantics
+ import androidx.compose.ui.text.font.FontWeight
+diff --git a/app/src/main/java/com/xvox/music/features/artist/ArtistInfoDialog.kt b/app/src/main/java/com/xvox/music/features/artist/ArtistInfoDialog.kt
+index 93febe0..dd50610 100644
+--- a/app/src/main/java/com/xvox/music/features/artist/ArtistInfoDialog.kt
++++ b/app/src/main/java/com/xvox/music/features/artist/ArtistInfoDialog.kt
+@@ -30,7 +30,7 @@ import androidx.compose.ui.Alignment
+ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.draw.clip
+ import androidx.compose.ui.graphics.Color
+-import androidx.compose.ui.res.painterResource
++import com.xvox.music.core.ui.icons.painterResource
+ import androidx.compose.ui.text.font.FontWeight
+ import androidx.compose.ui.text.style.TextAlign
+ import androidx.compose.ui.unit.dp
+diff --git a/app/src/main/java/com/xvox/music/features/home/AddToQueueBox.kt b/app/src/main/java/com/xvox/music/features/home/AddToQueueBox.kt
+index 43547b0..d7f2299 100644
+--- a/app/src/main/java/com/xvox/music/features/home/AddToQueueBox.kt
++++ b/app/src/main/java/com/xvox/music/features/home/AddToQueueBox.kt
+@@ -19,7 +19,7 @@ import androidx.compose.runtime.Composable
+ import androidx.compose.ui.Alignment
+ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.draw.clip
+-import androidx.compose.ui.res.painterResource
++import com.xvox.music.core.ui.icons.painterResource
+ import androidx.compose.ui.text.font.FontWeight
+ import androidx.compose.ui.unit.dp
+ import androidx.compose.ui.unit.sp
+diff --git a/app/src/main/java/com/xvox/music/features/home/HomeCollectionMultiSelectBar.kt b/app/src/main/java/com/xvox/music/features/home/HomeCollectionMultiSelectBar.kt
+index a0023c0..9da4dd1 100644
+--- a/app/src/main/java/com/xvox/music/features/home/HomeCollectionMultiSelectBar.kt
++++ b/app/src/main/java/com/xvox/music/features/home/HomeCollectionMultiSelectBar.kt
+@@ -40,7 +40,7 @@ import androidx.compose.ui.draw.clip
+ import com.xvox.music.core.ui.blur.xvoxLiveBlur
+ import androidx.compose.ui.graphics.graphicsLayer
+ import androidx.compose.ui.platform.LocalConfiguration
+-import androidx.compose.ui.res.painterResource
++import com.xvox.music.core.ui.icons.painterResource
+ import androidx.compose.ui.text.font.FontWeight
+ import androidx.compose.ui.unit.dp
+ import androidx.compose.ui.unit.sp
+diff --git a/app/src/main/java/com/xvox/music/features/home/HomeContextualBoxes.kt b/app/src/main/java/com/xvox/music/features/home/HomeContextualBoxes.kt
+index 21b9a56..fcfef0f 100644
+--- a/app/src/main/java/com/xvox/music/features/home/HomeContextualBoxes.kt
++++ b/app/src/main/java/com/xvox/music/features/home/HomeContextualBoxes.kt
+@@ -23,7 +23,7 @@ import androidx.compose.ui.Alignment
+ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.draw.clip
+ import androidx.compose.ui.graphics.graphicsLayer
+-import androidx.compose.ui.res.painterResource
++import com.xvox.music.core.ui.icons.painterResource
+ import androidx.compose.ui.text.font.FontWeight
+ import androidx.compose.ui.unit.dp
+ import androidx.compose.ui.unit.sp
+diff --git a/app/src/main/java/com/xvox/music/features/home/HomeHeaderIcon.kt b/app/src/main/java/com/xvox/music/features/home/HomeHeaderIcon.kt
+index 4a078fb..606d550 100644
+--- a/app/src/main/java/com/xvox/music/features/home/HomeHeaderIcon.kt
++++ b/app/src/main/java/com/xvox/music/features/home/HomeHeaderIcon.kt
+@@ -6,7 +6,7 @@ import androidx.compose.foundation.layout.size
+ import androidx.compose.material3.Icon
+ import androidx.compose.runtime.Composable
+ import androidx.compose.ui.Modifier
+-import androidx.compose.ui.res.painterResource
++import com.xvox.music.core.ui.icons.painterResource
+ import androidx.compose.ui.unit.dp
+ import com.xvox.music.R
+ import com.xvox.music.core.design.theme.XvoxTheme
+diff --git a/app/src/main/java/com/xvox/music/features/home/HomeLibraryItems.kt b/app/src/main/java/com/xvox/music/features/home/HomeLibraryItems.kt
+index f2973c2..81961ac 100644
+--- a/app/src/main/java/com/xvox/music/features/home/HomeLibraryItems.kt
++++ b/app/src/main/java/com/xvox/music/features/home/HomeLibraryItems.kt
+@@ -15,7 +15,7 @@ import androidx.compose.runtime.Composable
+ import androidx.compose.ui.Alignment
+ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.draw.clip
+-import androidx.compose.ui.res.painterResource
++import com.xvox.music.core.ui.icons.painterResource
+ import androidx.compose.ui.text.font.FontWeight
+ import androidx.compose.ui.unit.dp
+ import androidx.compose.ui.unit.sp
+diff --git a/app/src/main/java/com/xvox/music/features/home/HomeMultiSelectBar.kt b/app/src/main/java/com/xvox/music/features/home/HomeMultiSelectBar.kt
+index 76ca7af..dbcf358 100644
+--- a/app/src/main/java/com/xvox/music/features/home/HomeMultiSelectBar.kt
++++ b/app/src/main/java/com/xvox/music/features/home/HomeMultiSelectBar.kt
+@@ -41,7 +41,7 @@ import androidx.compose.ui.draw.clip
+ import com.xvox.music.core.ui.blur.xvoxLiveBlur
+ import androidx.compose.ui.graphics.graphicsLayer
+ import androidx.compose.ui.platform.LocalConfiguration
+-import androidx.compose.ui.res.painterResource
++import com.xvox.music.core.ui.icons.painterResource
+ import androidx.compose.ui.text.font.FontWeight
+ import androidx.compose.ui.unit.dp
+ import androidx.compose.ui.unit.sp
+diff --git a/app/src/main/java/com/xvox/music/features/home/LibraryRefreshBox.kt b/app/src/main/java/com/xvox/music/features/home/LibraryRefreshBox.kt
+index 2c9beb4..5a33176 100644
+--- a/app/src/main/java/com/xvox/music/features/home/LibraryRefreshBox.kt
++++ b/app/src/main/java/com/xvox/music/features/home/LibraryRefreshBox.kt
+@@ -28,7 +28,7 @@ import androidx.compose.runtime.setValue
+ import androidx.compose.ui.Alignment
+ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.draw.clip
+-import androidx.compose.ui.res.painterResource
++import com.xvox.music.core.ui.icons.painterResource
+ import androidx.compose.ui.text.font.FontWeight
+ import androidx.compose.ui.unit.dp
+ import androidx.compose.ui.unit.sp
+diff --git a/app/src/main/java/com/xvox/music/features/home/PlaybackIcon.kt b/app/src/main/java/com/xvox/music/features/home/PlaybackIcon.kt
+index bfec6ef..d093437 100644
+--- a/app/src/main/java/com/xvox/music/features/home/PlaybackIcon.kt
++++ b/app/src/main/java/com/xvox/music/features/home/PlaybackIcon.kt
+@@ -5,7 +5,7 @@ import androidx.compose.material3.Icon
+ import androidx.compose.runtime.Composable
+ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.graphics.Color
+-import androidx.compose.ui.res.painterResource
++import com.xvox.music.core.ui.icons.painterResource
+ import com.xvox.music.R
+ 
+ enum class PlaybackIconType {
+diff --git a/app/src/main/java/com/xvox/music/features/home/SongFileEditBox.kt b/app/src/main/java/com/xvox/music/features/home/SongFileEditBox.kt
+index c97f732..3b723b2 100644
+--- a/app/src/main/java/com/xvox/music/features/home/SongFileEditBox.kt
++++ b/app/src/main/java/com/xvox/music/features/home/SongFileEditBox.kt
+@@ -40,7 +40,7 @@ import androidx.compose.ui.Alignment
+ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.draw.clip
+ import androidx.compose.ui.graphics.SolidColor
+-import androidx.compose.ui.res.painterResource
++import com.xvox.music.core.ui.icons.painterResource
+ import androidx.compose.ui.text.TextRange
+ import androidx.compose.ui.text.TextStyle
+ import androidx.compose.ui.text.font.FontWeight
+diff --git a/app/src/main/java/com/xvox/music/features/home/SongOptionsBox.kt b/app/src/main/java/com/xvox/music/features/home/SongOptionsBox.kt
+index d327dd1..72c8f24 100644
+--- a/app/src/main/java/com/xvox/music/features/home/SongOptionsBox.kt
++++ b/app/src/main/java/com/xvox/music/features/home/SongOptionsBox.kt
+@@ -19,7 +19,7 @@ import androidx.compose.ui.Alignment
+ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.draw.clip
+ import androidx.compose.ui.graphics.Color
+-import androidx.compose.ui.res.painterResource
++import com.xvox.music.core.ui.icons.painterResource
+ import androidx.compose.ui.text.font.FontWeight
+ import androidx.compose.ui.text.style.TextOverflow
+ import androidx.compose.ui.unit.dp
+diff --git a/app/src/main/java/com/xvox/music/features/home/XvoxCollectionHero.kt b/app/src/main/java/com/xvox/music/features/home/XvoxCollectionHero.kt
+index 3dd30ed..27f58d2 100644
+--- a/app/src/main/java/com/xvox/music/features/home/XvoxCollectionHero.kt
++++ b/app/src/main/java/com/xvox/music/features/home/XvoxCollectionHero.kt
+@@ -25,7 +25,7 @@ import androidx.compose.ui.graphics.Brush
+ import androidx.compose.ui.graphics.Color
+ import androidx.compose.ui.graphics.CompositingStrategy
+ import androidx.compose.ui.graphics.graphicsLayer
+-import androidx.compose.ui.res.painterResource
++import com.xvox.music.core.ui.icons.painterResource
+ import androidx.compose.ui.text.font.FontWeight
+ import androidx.compose.ui.text.style.TextAlign
+ import androidx.compose.ui.text.style.TextOverflow
+diff --git a/app/src/main/java/com/xvox/music/features/home/XvoxHeldActionsBox.kt b/app/src/main/java/com/xvox/music/features/home/XvoxHeldActionsBox.kt
+index 03250ef..0766ee8 100644
+--- a/app/src/main/java/com/xvox/music/features/home/XvoxHeldActionsBox.kt
++++ b/app/src/main/java/com/xvox/music/features/home/XvoxHeldActionsBox.kt
+@@ -23,7 +23,7 @@ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.draw.clip
+ import androidx.compose.ui.draw.shadow
+ import androidx.compose.ui.graphics.Color
+-import androidx.compose.ui.res.painterResource
++import com.xvox.music.core.ui.icons.painterResource
+ import androidx.compose.ui.text.font.FontWeight
+ import androidx.compose.ui.text.style.TextAlign
+ import androidx.compose.ui.text.style.TextOverflow
+diff --git a/app/src/main/java/com/xvox/music/features/home/XvoxHomeDiscover.kt b/app/src/main/java/com/xvox/music/features/home/XvoxHomeDiscover.kt
+index 2083cf8..9bed6e4 100644
+--- a/app/src/main/java/com/xvox/music/features/home/XvoxHomeDiscover.kt
++++ b/app/src/main/java/com/xvox/music/features/home/XvoxHomeDiscover.kt
+@@ -29,7 +29,7 @@ import androidx.compose.ui.geometry.Size
+ import androidx.compose.ui.graphics.BlendMode
+ import androidx.compose.ui.graphics.CompositingStrategy
+ import androidx.compose.ui.graphics.graphicsLayer
+-import androidx.compose.ui.res.painterResource
++import com.xvox.music.core.ui.icons.painterResource
+ import com.xvox.music.R
+ import com.xvox.music.core.design.theme.XvoxLogoFont
+ import androidx.compose.runtime.Composable
+diff --git a/app/src/main/java/com/xvox/music/features/home/XvoxWavePatternArtwork.kt b/app/src/main/java/com/xvox/music/features/home/XvoxWavePatternArtwork.kt
+index f2f79ab..d6d97dc 100644
+--- a/app/src/main/java/com/xvox/music/features/home/XvoxWavePatternArtwork.kt
++++ b/app/src/main/java/com/xvox/music/features/home/XvoxWavePatternArtwork.kt
+@@ -9,7 +9,7 @@ import androidx.compose.runtime.Composable
+ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.graphics.Color
+ import androidx.compose.ui.layout.ContentScale
+-import androidx.compose.ui.res.painterResource
++import com.xvox.music.core.ui.icons.painterResource
+ import com.xvox.music.R
+ import com.xvox.music.artwork.XvoxArtworkCache
+ import com.xvox.music.core.design.theme.XvoxPalette
+diff --git a/app/src/main/java/com/xvox/music/features/home/recent/RecentSource.kt b/app/src/main/java/com/xvox/music/features/home/recent/RecentSource.kt
+index 0227b82..06e235e 100644
+--- a/app/src/main/java/com/xvox/music/features/home/recent/RecentSource.kt
++++ b/app/src/main/java/com/xvox/music/features/home/recent/RecentSource.kt
+@@ -10,7 +10,7 @@ import androidx.compose.runtime.Composable
+ import androidx.compose.ui.Alignment
+ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.graphics.Color
+-import androidx.compose.ui.res.painterResource
++import com.xvox.music.core.ui.icons.painterResource
+ import androidx.compose.ui.unit.dp
+ import com.xvox.music.R
+ import com.xvox.music.core.design.theme.XvoxTheme
+diff --git a/app/src/main/java/com/xvox/music/features/playlist/CreatePlaylistBox.kt b/app/src/main/java/com/xvox/music/features/playlist/CreatePlaylistBox.kt
+index 8514c8c..1ba16b3 100644
+--- a/app/src/main/java/com/xvox/music/features/playlist/CreatePlaylistBox.kt
++++ b/app/src/main/java/com/xvox/music/features/playlist/CreatePlaylistBox.kt
+@@ -34,7 +34,7 @@ import androidx.compose.ui.Alignment
+ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.draw.clip
+ import androidx.compose.ui.graphics.SolidColor
+-import androidx.compose.ui.res.painterResource
++import com.xvox.music.core.ui.icons.painterResource
+ import androidx.compose.ui.text.TextStyle
+ import androidx.compose.ui.text.font.FontWeight
+ import androidx.compose.ui.text.style.TextOverflow
+diff --git a/app/src/main/java/com/xvox/music/features/playlist/PlaylistPickerBox.kt b/app/src/main/java/com/xvox/music/features/playlist/PlaylistPickerBox.kt
+index fcac2b7..22e5315 100644
+--- a/app/src/main/java/com/xvox/music/features/playlist/PlaylistPickerBox.kt
++++ b/app/src/main/java/com/xvox/music/features/playlist/PlaylistPickerBox.kt
+@@ -30,7 +30,7 @@ import androidx.compose.ui.Alignment
+ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.draw.clip
+ import androidx.compose.ui.graphics.Color
+-import androidx.compose.ui.res.painterResource
++import com.xvox.music.core.ui.icons.painterResource
+ import androidx.compose.ui.text.font.FontWeight
+ import androidx.compose.ui.text.style.TextAlign
+ import androidx.compose.ui.text.style.TextOverflow
+diff --git a/app/src/main/java/com/xvox/music/features/playlist/XvoxAddPlaylistSongsBox.kt b/app/src/main/java/com/xvox/music/features/playlist/XvoxAddPlaylistSongsBox.kt
+index ef0722e..92b9f77 100644
+--- a/app/src/main/java/com/xvox/music/features/playlist/XvoxAddPlaylistSongsBox.kt
++++ b/app/src/main/java/com/xvox/music/features/playlist/XvoxAddPlaylistSongsBox.kt
+@@ -33,7 +33,7 @@ import androidx.compose.ui.Alignment
+ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.draw.clip
+ import androidx.compose.ui.graphics.Color
+-import androidx.compose.ui.res.painterResource
++import com.xvox.music.core.ui.icons.painterResource
+ import androidx.compose.ui.text.font.FontWeight
+ import androidx.compose.ui.text.style.TextOverflow
+ import androidx.compose.ui.unit.dp
+diff --git a/app/src/main/java/com/xvox/music/features/playlist/XvoxLikedSongRow.kt b/app/src/main/java/com/xvox/music/features/playlist/XvoxLikedSongRow.kt
+index d97c930..36be91a 100644
+--- a/app/src/main/java/com/xvox/music/features/playlist/XvoxLikedSongRow.kt
++++ b/app/src/main/java/com/xvox/music/features/playlist/XvoxLikedSongRow.kt
+@@ -27,7 +27,7 @@ import androidx.compose.runtime.remember
+ import androidx.compose.ui.Alignment
+ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.draw.clip
+-import androidx.compose.ui.res.painterResource
++import com.xvox.music.core.ui.icons.painterResource
+ import androidx.compose.ui.text.font.FontWeight
+ import androidx.compose.ui.text.style.TextOverflow
+ import androidx.compose.ui.unit.dp
+diff --git a/app/src/main/java/com/xvox/music/features/playlist/XvoxPlaylistActionsBox.kt b/app/src/main/java/com/xvox/music/features/playlist/XvoxPlaylistActionsBox.kt
+index 8cbe214..b5b8cd3 100644
+--- a/app/src/main/java/com/xvox/music/features/playlist/XvoxPlaylistActionsBox.kt
++++ b/app/src/main/java/com/xvox/music/features/playlist/XvoxPlaylistActionsBox.kt
+@@ -35,7 +35,7 @@ import androidx.compose.ui.focus.FocusRequester
+ import androidx.compose.ui.focus.focusRequester
+ import androidx.compose.ui.graphics.Color
+ import androidx.compose.ui.graphics.SolidColor
+-import androidx.compose.ui.res.painterResource
++import com.xvox.music.core.ui.icons.painterResource
+ import androidx.compose.ui.text.TextRange
+ import androidx.compose.ui.text.TextStyle
+ import androidx.compose.ui.text.font.FontWeight
+diff --git a/app/src/main/java/com/xvox/music/features/playlist/XvoxPlaylistCoverEditor.kt b/app/src/main/java/com/xvox/music/features/playlist/XvoxPlaylistCoverEditor.kt
+index 314602f..59d3be7 100644
+--- a/app/src/main/java/com/xvox/music/features/playlist/XvoxPlaylistCoverEditor.kt
++++ b/app/src/main/java/com/xvox/music/features/playlist/XvoxPlaylistCoverEditor.kt
+@@ -43,7 +43,7 @@ import kotlinx.coroutines.launch
+ import androidx.compose.ui.Alignment
+ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.draw.clip
+-import androidx.compose.ui.res.painterResource
++import com.xvox.music.core.ui.icons.painterResource
+ import androidx.compose.ui.text.font.FontWeight
+ import androidx.compose.ui.text.style.TextAlign
+ import androidx.compose.ui.unit.dp
+diff --git a/app/src/main/java/com/xvox/music/features/search/SearchScreen.kt b/app/src/main/java/com/xvox/music/features/search/SearchScreen.kt
+index 748d2ee..a3d0b7a 100644
+--- a/app/src/main/java/com/xvox/music/features/search/SearchScreen.kt
++++ b/app/src/main/java/com/xvox/music/features/search/SearchScreen.kt
+@@ -59,7 +59,7 @@ import androidx.compose.ui.platform.LocalConfiguration
+ import androidx.compose.ui.platform.LocalContext
+ import androidx.compose.ui.platform.LocalFocusManager
+ import androidx.compose.ui.platform.LocalDensity
+-import androidx.compose.ui.res.painterResource
++import com.xvox.music.core.ui.icons.painterResource
+ import androidx.compose.ui.text.TextStyle
+ import androidx.compose.ui.text.font.FontWeight
+ import androidx.compose.ui.text.input.ImeAction
+diff --git a/app/src/main/java/com/xvox/music/features/settings/SettingsLanding.kt b/app/src/main/java/com/xvox/music/features/settings/SettingsLanding.kt
+index ce0c1cd..05d92cf 100644
+--- a/app/src/main/java/com/xvox/music/features/settings/SettingsLanding.kt
++++ b/app/src/main/java/com/xvox/music/features/settings/SettingsLanding.kt
+@@ -31,7 +31,7 @@ import androidx.compose.runtime.setValue
+ import androidx.compose.ui.Alignment
+ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.draw.clip
+-import androidx.compose.ui.res.painterResource
++import com.xvox.music.core.ui.icons.painterResource
+ import androidx.compose.ui.text.font.FontWeight
+ import androidx.compose.ui.text.style.TextOverflow
+ import androidx.compose.ui.unit.dp
+diff --git a/app/src/main/java/com/xvox/music/features/settings/SettingsScreen.kt b/app/src/main/java/com/xvox/music/features/settings/SettingsScreen.kt
+index 5731b4d..7b5d4a0 100644
+--- a/app/src/main/java/com/xvox/music/features/settings/SettingsScreen.kt
++++ b/app/src/main/java/com/xvox/music/features/settings/SettingsScreen.kt
+@@ -48,7 +48,7 @@ import androidx.compose.ui.graphics.lerp
+ import androidx.compose.ui.platform.LocalConfiguration
+ import androidx.compose.ui.platform.LocalContext
+ import androidx.compose.ui.platform.LocalDensity
+-import androidx.compose.ui.res.painterResource
++import com.xvox.music.core.ui.icons.painterResource
+ import androidx.compose.ui.text.font.FontWeight
+ import androidx.compose.ui.unit.dp
+ import androidx.compose.ui.unit.sp
+diff --git a/app/src/main/java/com/xvox/music/features/settings/components/SettingsAccordionItem.kt b/app/src/main/java/com/xvox/music/features/settings/components/SettingsAccordionItem.kt
+index acf2736..8ca7824 100644
+--- a/app/src/main/java/com/xvox/music/features/settings/components/SettingsAccordionItem.kt
++++ b/app/src/main/java/com/xvox/music/features/settings/components/SettingsAccordionItem.kt
+@@ -17,7 +17,7 @@ import androidx.compose.runtime.Composable
+ import androidx.compose.ui.Alignment
+ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.draw.clip
+-import androidx.compose.ui.res.painterResource
++import com.xvox.music.core.ui.icons.painterResource
+ import androidx.compose.ui.text.font.FontWeight
+ import androidx.compose.ui.unit.dp
+ import androidx.compose.ui.unit.sp
+diff --git a/app/src/main/java/com/xvox/music/features/settings/components/SettingsSectionCard.kt b/app/src/main/java/com/xvox/music/features/settings/components/SettingsSectionCard.kt
+index b0d2572..e0ba989 100644
+--- a/app/src/main/java/com/xvox/music/features/settings/components/SettingsSectionCard.kt
++++ b/app/src/main/java/com/xvox/music/features/settings/components/SettingsSectionCard.kt
+@@ -17,7 +17,7 @@ import androidx.compose.runtime.Composable
+ import androidx.compose.ui.Alignment
+ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.draw.clip
+-import androidx.compose.ui.res.painterResource
++import com.xvox.music.core.ui.icons.painterResource
+ import androidx.compose.ui.text.font.FontWeight
+ import androidx.compose.ui.unit.dp
+ import androidx.compose.ui.unit.sp
+diff --git a/app/src/main/java/com/xvox/music/features/settings/components/SettingsSectionPreviews.kt b/app/src/main/java/com/xvox/music/features/settings/components/SettingsSectionPreviews.kt
+index 3838a93..78d3ca1 100644
+--- a/app/src/main/java/com/xvox/music/features/settings/components/SettingsSectionPreviews.kt
++++ b/app/src/main/java/com/xvox/music/features/settings/components/SettingsSectionPreviews.kt
+@@ -44,7 +44,7 @@ import androidx.compose.ui.geometry.Offset
+ import androidx.compose.ui.geometry.Size
+ import androidx.compose.ui.graphics.Color
+ import androidx.compose.ui.graphics.drawscope.Stroke
+-import androidx.compose.ui.res.painterResource
++import com.xvox.music.core.ui.icons.painterResource
+ import androidx.compose.ui.text.font.FontWeight
+ import androidx.compose.ui.unit.dp
+ import androidx.compose.ui.unit.sp
+diff --git a/app/src/main/java/com/xvox/music/features/settings/components/XvoxFontPicker.kt b/app/src/main/java/com/xvox/music/features/settings/components/XvoxFontPicker.kt
+index 7f66b19..dbe2089 100644
+--- a/app/src/main/java/com/xvox/music/features/settings/components/XvoxFontPicker.kt
++++ b/app/src/main/java/com/xvox/music/features/settings/components/XvoxFontPicker.kt
+@@ -23,7 +23,7 @@ import androidx.compose.runtime.remember
+ import androidx.compose.ui.Alignment
+ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.draw.clip
+-import androidx.compose.ui.res.painterResource
++import com.xvox.music.core.ui.icons.painterResource
+ import androidx.compose.ui.text.font.FontWeight
+ import androidx.compose.ui.text.style.TextOverflow
+ import androidx.compose.ui.unit.Dp
+diff --git a/app/src/main/java/com/xvox/music/features/settings/sections/BackupSettingsSection.kt b/app/src/main/java/com/xvox/music/features/settings/sections/BackupSettingsSection.kt
+index 09f9889..40af404 100644
+--- a/app/src/main/java/com/xvox/music/features/settings/sections/BackupSettingsSection.kt
++++ b/app/src/main/java/com/xvox/music/features/settings/sections/BackupSettingsSection.kt
+@@ -27,7 +27,7 @@ import androidx.compose.ui.Alignment
+ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.draw.clip
+ import androidx.compose.ui.platform.LocalContext
+-import androidx.compose.ui.res.painterResource
++import com.xvox.music.core.ui.icons.painterResource
+ import androidx.compose.ui.text.font.FontWeight
+ import androidx.compose.ui.unit.dp
+ import androidx.compose.ui.unit.sp
+diff --git a/app/src/main/java/com/xvox/music/features/settings/sections/HiddenSongsSettingsSection.kt b/app/src/main/java/com/xvox/music/features/settings/sections/HiddenSongsSettingsSection.kt
+index 9f87be6..d4f3dbe 100644
+--- a/app/src/main/java/com/xvox/music/features/settings/sections/HiddenSongsSettingsSection.kt
++++ b/app/src/main/java/com/xvox/music/features/settings/sections/HiddenSongsSettingsSection.kt
+@@ -15,7 +15,7 @@ import androidx.compose.runtime.*
+ import androidx.compose.ui.Alignment
+ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.draw.clip
+-import androidx.compose.ui.res.painterResource
++import com.xvox.music.core.ui.icons.painterResource
+ import androidx.compose.ui.text.font.FontWeight
+ import androidx.compose.ui.text.style.TextOverflow
+ import androidx.compose.ui.unit.dp
+diff --git a/app/src/main/java/com/xvox/music/features/settings/sections/LibraryFilterSettingsSection.kt b/app/src/main/java/com/xvox/music/features/settings/sections/LibraryFilterSettingsSection.kt
+index d2e57c8..176e6c7 100644
+--- a/app/src/main/java/com/xvox/music/features/settings/sections/LibraryFilterSettingsSection.kt
++++ b/app/src/main/java/com/xvox/music/features/settings/sections/LibraryFilterSettingsSection.kt
+@@ -17,7 +17,7 @@ import androidx.compose.runtime.*
+ import androidx.compose.ui.Alignment
+ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.draw.clip
+-import androidx.compose.ui.res.painterResource
++import com.xvox.music.core.ui.icons.painterResource
+ import androidx.compose.ui.text.font.FontWeight
+ import androidx.compose.ui.text.input.KeyboardType
+ import androidx.compose.ui.unit.dp
+diff --git a/app/src/main/java/com/xvox/music/features/settings/sections/WidgetStudioScreen.kt b/app/src/main/java/com/xvox/music/features/settings/sections/WidgetStudioScreen.kt
+index 851f700..9b00a07 100644
+--- a/app/src/main/java/com/xvox/music/features/settings/sections/WidgetStudioScreen.kt
++++ b/app/src/main/java/com/xvox/music/features/settings/sections/WidgetStudioScreen.kt
+@@ -45,7 +45,7 @@ import androidx.compose.ui.graphics.Color
+ import androidx.compose.ui.graphics.asImageBitmap
+ import androidx.compose.ui.layout.ContentScale
+ import androidx.compose.ui.platform.LocalContext
+-import androidx.compose.ui.res.painterResource
++import com.xvox.music.core.ui.icons.painterResource
+ import androidx.compose.ui.text.font.FontWeight
+ import androidx.compose.ui.unit.dp
+ import androidx.compose.ui.unit.sp
+diff --git a/app/src/main/java/com/xvox/music/features/setup/XvoxAvatarPicker.kt b/app/src/main/java/com/xvox/music/features/setup/XvoxAvatarPicker.kt
+index 224ca3e..f1ba31c 100644
+--- a/app/src/main/java/com/xvox/music/features/setup/XvoxAvatarPicker.kt
++++ b/app/src/main/java/com/xvox/music/features/setup/XvoxAvatarPicker.kt
+@@ -25,7 +25,7 @@ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.draw.clip
+ import androidx.compose.ui.graphics.Color
+ import androidx.compose.ui.layout.ContentScale
+-import androidx.compose.ui.res.painterResource
++import com.xvox.music.core.ui.icons.painterResource
+ import androidx.compose.ui.text.font.FontWeight
+ import androidx.compose.ui.unit.Dp
+ import androidx.compose.ui.unit.dp
+diff --git a/app/src/main/java/com/xvox/music/player/nowplaying/XvoxLyricsInfoPill.kt b/app/src/main/java/com/xvox/music/player/nowplaying/XvoxLyricsInfoPill.kt
+index c80d8aa..a493c9b 100644
+--- a/app/src/main/java/com/xvox/music/player/nowplaying/XvoxLyricsInfoPill.kt
++++ b/app/src/main/java/com/xvox/music/player/nowplaying/XvoxLyricsInfoPill.kt
+@@ -29,7 +29,7 @@ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.draw.clip
+ import androidx.compose.ui.graphics.Color
+ import androidx.compose.ui.graphics.graphicsLayer
+-import androidx.compose.ui.res.painterResource
++import com.xvox.music.core.ui.icons.painterResource
+ import androidx.compose.ui.text.font.FontWeight
+ import androidx.compose.ui.text.style.TextOverflow
+ import androidx.compose.ui.unit.dp
+diff --git a/app/src/main/java/com/xvox/music/player/nowplaying/XvoxNowPlayingAltLayouts.kt b/app/src/main/java/com/xvox/music/player/nowplaying/XvoxNowPlayingAltLayouts.kt
+index 3ec207a..1bfcf63 100644
+--- a/app/src/main/java/com/xvox/music/player/nowplaying/XvoxNowPlayingAltLayouts.kt
++++ b/app/src/main/java/com/xvox/music/player/nowplaying/XvoxNowPlayingAltLayouts.kt
+@@ -78,7 +78,7 @@ import androidx.compose.ui.graphics.toArgb
+ import androidx.compose.ui.input.pointer.pointerInput
+ import androidx.compose.ui.platform.LocalContext
+ import androidx.compose.ui.draw.drawWithContent
+-import androidx.compose.ui.res.painterResource
++import com.xvox.music.core.ui.icons.painterResource
+ import androidx.compose.ui.text.font.FontWeight
+ import androidx.compose.ui.text.style.TextOverflow
+ import androidx.compose.ui.unit.Dp
+diff --git a/app/src/main/java/com/xvox/music/player/nowplaying/XvoxNowPlayingControls.kt b/app/src/main/java/com/xvox/music/player/nowplaying/XvoxNowPlayingControls.kt
+index e271cde..d1b9aaa 100644
+--- a/app/src/main/java/com/xvox/music/player/nowplaying/XvoxNowPlayingControls.kt
++++ b/app/src/main/java/com/xvox/music/player/nowplaying/XvoxNowPlayingControls.kt
+@@ -30,7 +30,7 @@ import androidx.compose.ui.graphics.graphicsLayer
+ import androidx.compose.ui.input.pointer.PointerEventPass
+ import androidx.compose.ui.input.pointer.pointerInput
+ import androidx.compose.ui.platform.LocalDensity
+-import androidx.compose.ui.res.painterResource
++import com.xvox.music.core.ui.icons.painterResource
+ import androidx.compose.ui.unit.IntOffset
+ import androidx.compose.ui.unit.dp
+ import kotlin.math.roundToInt
+diff --git a/app/src/main/java/com/xvox/music/player/nowplaying/XvoxNowPlayingHeader.kt b/app/src/main/java/com/xvox/music/player/nowplaying/XvoxNowPlayingHeader.kt
+index d211f54..279e324 100644
+--- a/app/src/main/java/com/xvox/music/player/nowplaying/XvoxNowPlayingHeader.kt
++++ b/app/src/main/java/com/xvox/music/player/nowplaying/XvoxNowPlayingHeader.kt
+@@ -24,7 +24,7 @@ import androidx.compose.ui.Alignment
+ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.draw.clip
+ import androidx.compose.ui.graphics.graphicsLayer
+-import androidx.compose.ui.res.painterResource
++import com.xvox.music.core.ui.icons.painterResource
+ import androidx.compose.ui.text.font.FontWeight
+ import androidx.compose.ui.text.style.TextAlign
+ import androidx.compose.ui.text.style.TextOverflow
+diff --git a/app/src/main/java/com/xvox/music/player/nowplaying/components/NowPlayingActions.kt b/app/src/main/java/com/xvox/music/player/nowplaying/components/NowPlayingActions.kt
+index f02f3ed..e3daf36 100644
+--- a/app/src/main/java/com/xvox/music/player/nowplaying/components/NowPlayingActions.kt
++++ b/app/src/main/java/com/xvox/music/player/nowplaying/components/NowPlayingActions.kt
+@@ -49,7 +49,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
+ import androidx.compose.ui.graphics.graphicsLayer
+ import androidx.compose.ui.input.pointer.pointerInput
+ import androidx.compose.ui.layout.onSizeChanged
+-import androidx.compose.ui.res.painterResource
++import com.xvox.music.core.ui.icons.painterResource
+ import androidx.compose.ui.unit.dp
+ import com.xvox.music.R
+ import com.xvox.music.core.design.theme.XvoxTheme
+diff --git a/app/src/main/java/com/xvox/music/player/nowplaying/components/NowPlayingLayoutCustomizer.kt b/app/src/main/java/com/xvox/music/player/nowplaying/components/NowPlayingLayoutCustomizer.kt
+index 22f24ac..0612fa4 100644
+--- a/app/src/main/java/com/xvox/music/player/nowplaying/components/NowPlayingLayoutCustomizer.kt
++++ b/app/src/main/java/com/xvox/music/player/nowplaying/components/NowPlayingLayoutCustomizer.kt
+@@ -27,7 +27,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
+ import androidx.compose.ui.graphics.TransformOrigin
+ import androidx.compose.ui.graphics.graphicsLayer
+ import androidx.compose.ui.input.pointer.pointerInput
+-import androidx.compose.ui.res.painterResource
++import com.xvox.music.core.ui.icons.painterResource
+ import androidx.compose.ui.unit.dp
+ import androidx.compose.material3.Icon
+ import com.xvox.music.R
+diff --git a/app/src/main/java/com/xvox/music/player/nowplaying/lyrics/XvoxArtworkLyrics.kt b/app/src/main/java/com/xvox/music/player/nowplaying/lyrics/XvoxArtworkLyrics.kt
+index fbf932f..a40a737 100644
+--- a/app/src/main/java/com/xvox/music/player/nowplaying/lyrics/XvoxArtworkLyrics.kt
++++ b/app/src/main/java/com/xvox/music/player/nowplaying/lyrics/XvoxArtworkLyrics.kt
+@@ -45,7 +45,7 @@ import androidx.compose.ui.input.pointer.pointerInput
+ import androidx.compose.ui.platform.LocalContext
+ import androidx.compose.ui.platform.LocalDensity
+ import androidx.compose.ui.platform.LocalView
+-import androidx.compose.ui.res.painterResource
++import com.xvox.music.core.ui.icons.painterResource
+ import androidx.compose.ui.text.style.TextAlign
+ import androidx.compose.ui.unit.dp
+ import androidx.compose.ui.unit.sp
+diff --git a/app/src/main/java/com/xvox/music/player/nowplaying/lyrics/XvoxFullscreenLyrics.kt b/app/src/main/java/com/xvox/music/player/nowplaying/lyrics/XvoxFullscreenLyrics.kt
+index 12d1ce0..bbdb9a8 100644
+--- a/app/src/main/java/com/xvox/music/player/nowplaying/lyrics/XvoxFullscreenLyrics.kt
++++ b/app/src/main/java/com/xvox/music/player/nowplaying/lyrics/XvoxFullscreenLyrics.kt
+@@ -49,7 +49,7 @@ import androidx.compose.ui.platform.LocalConfiguration
+ import androidx.compose.ui.platform.LocalContext
+ import androidx.compose.ui.platform.LocalDensity
+ import androidx.compose.ui.platform.LocalView
+-import androidx.compose.ui.res.painterResource
++import com.xvox.music.core.ui.icons.painterResource
+ import androidx.compose.ui.text.font.FontWeight
+ import androidx.compose.ui.text.style.TextAlign
+ import androidx.compose.ui.text.style.TextOverflow
+diff --git a/app/src/main/java/com/xvox/music/shell/XvoxPlaylistPickerBox.kt b/app/src/main/java/com/xvox/music/shell/XvoxPlaylistPickerBox.kt
+index 0ab011f..3355f45 100644
+--- a/app/src/main/java/com/xvox/music/shell/XvoxPlaylistPickerBox.kt
++++ b/app/src/main/java/com/xvox/music/shell/XvoxPlaylistPickerBox.kt
+@@ -31,7 +31,7 @@ import androidx.compose.runtime.setValue
+ import androidx.compose.ui.Alignment
+ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.draw.clip
+-import androidx.compose.ui.res.painterResource
++import com.xvox.music.core.ui.icons.painterResource
+ import androidx.compose.ui.text.font.FontWeight
+ import androidx.compose.ui.text.style.TextOverflow
+ import androidx.compose.ui.unit.dp
+diff --git a/app/src/main/java/com/xvox/music/shell/XvoxQueueBox.kt b/app/src/main/java/com/xvox/music/shell/XvoxQueueBox.kt
+index 4d7735e..e70a216 100644
+--- a/app/src/main/java/com/xvox/music/shell/XvoxQueueBox.kt
++++ b/app/src/main/java/com/xvox/music/shell/XvoxQueueBox.kt
+@@ -55,7 +55,7 @@ import androidx.compose.ui.graphics.graphicsLayer
+ import androidx.compose.ui.input.pointer.pointerInput
+ import androidx.compose.ui.layout.onGloballyPositioned
+ import androidx.compose.ui.platform.LocalDensity
+-import androidx.compose.ui.res.painterResource
++import com.xvox.music.core.ui.icons.painterResource
+ import androidx.compose.ui.semantics.CustomAccessibilityAction
+ import androidx.compose.ui.semantics.customActions
+ import androidx.compose.ui.semantics.semantics
+diff --git a/app/src/main/java/com/xvox/music/shell/XvoxQueuePage.kt b/app/src/main/java/com/xvox/music/shell/XvoxQueuePage.kt
+index 69e4068..fe2b9cb 100644
+--- a/app/src/main/java/com/xvox/music/shell/XvoxQueuePage.kt
++++ b/app/src/main/java/com/xvox/music/shell/XvoxQueuePage.kt
+@@ -35,7 +35,7 @@ import androidx.compose.runtime.setValue
+ import androidx.compose.ui.Alignment
+ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.draw.clip
+-import androidx.compose.ui.res.painterResource
++import com.xvox.music.core.ui.icons.painterResource
+ import androidx.compose.ui.text.font.FontWeight
+ import androidx.compose.ui.text.style.TextOverflow
+ import androidx.compose.ui.unit.dp
+diff --git a/app/src/main/java/com/xvox/music/shell/XvoxShellTopHeader.kt b/app/src/main/java/com/xvox/music/shell/XvoxShellTopHeader.kt
+index 8e24b59..5249838 100644
+--- a/app/src/main/java/com/xvox/music/shell/XvoxShellTopHeader.kt
++++ b/app/src/main/java/com/xvox/music/shell/XvoxShellTopHeader.kt
+@@ -35,7 +35,7 @@ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.draw.clip
+ import androidx.compose.ui.graphics.graphicsLayer
+ import androidx.compose.ui.platform.LocalDensity
+-import androidx.compose.ui.res.painterResource
++import com.xvox.music.core.ui.icons.painterResource
+ import androidx.compose.ui.unit.IntOffset
+ import androidx.compose.ui.unit.dp
+ import com.xvox.music.R
+diff --git a/app/src/main/java/com/xvox/music/shell/XvoxTimerBox.kt b/app/src/main/java/com/xvox/music/shell/XvoxTimerBox.kt
+index 0bf9ef4..8bb7f9b 100644
+--- a/app/src/main/java/com/xvox/music/shell/XvoxTimerBox.kt
++++ b/app/src/main/java/com/xvox/music/shell/XvoxTimerBox.kt
+@@ -29,7 +29,7 @@ import androidx.compose.ui.Alignment
+ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.draw.clip
+ import androidx.compose.ui.graphics.SolidColor
+-import androidx.compose.ui.res.painterResource
++import com.xvox.music.core.ui.icons.painterResource
+ import androidx.compose.ui.text.TextStyle
+ import androidx.compose.ui.text.font.FontWeight
+ import androidx.compose.ui.text.input.KeyboardType
+diff --git a/app/src/main/res/drawable/ic_ixf_add.xml b/app/src/main/res/drawable/ic_ixf_add.xml
+new file mode 100644
+index 0000000..a099924
+--- /dev/null
++++ b/app/src/main/res/drawable/ic_ixf_add.xml
+@@ -0,0 +1,8 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated from Ionicons (MIT, (c) 2015-present Ionic, http://ionic.io/). See THIRD_PARTY/IONICONS.md -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp" android:height="24dp"
++    android:viewportWidth="512" android:viewportHeight="512" android:autoMirrored="false">
++    <path android:pathData="M256,112L256,400" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++    <path android:pathData="M400,256L112,256" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++</vector>
+diff --git a/app/src/main/res/drawable/ic_ixf_arrow_left.xml b/app/src/main/res/drawable/ic_ixf_arrow_left.xml
+new file mode 100644
+index 0000000..28f7ee0
+--- /dev/null
++++ b/app/src/main/res/drawable/ic_ixf_arrow_left.xml
+@@ -0,0 +1,8 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated from Ionicons (MIT, (c) 2015-present Ionic, http://ionic.io/). See THIRD_PARTY/IONICONS.md -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp" android:height="24dp"
++    android:viewportWidth="512" android:viewportHeight="512" android:autoMirrored="false">
++    <path android:pathData="M244,400L100,256L244,112" android:strokeColor="#FFFFFFFF" android:strokeWidth="48" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++    <path android:pathData="M120,256L412,256" android:strokeColor="#FFFFFFFF" android:strokeWidth="48" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++</vector>
+diff --git a/app/src/main/res/drawable/ic_ixf_artist.xml b/app/src/main/res/drawable/ic_ixf_artist.xml
+new file mode 100644
+index 0000000..41e6461
+--- /dev/null
++++ b/app/src/main/res/drawable/ic_ixf_artist.xml
+@@ -0,0 +1,8 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated from Ionicons (MIT, (c) 2015-present Ionic, http://ionic.io/). See THIRD_PARTY/IONICONS.md -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp" android:height="24dp"
++    android:viewportWidth="512" android:viewportHeight="512" android:autoMirrored="false">
++    <path android:pathData="M332.64,64.58C313.18,43.57,286,32,256,32c-30.16,0-57.43,11.5-76.8,32.38-19.58,21.11-29.12,49.8-26.88,80.78C156.76,206.28,203.27,256,256,256s99.16-49.71,103.67-110.82C361.94,114.48,352.34,85.85,332.64,64.58Z" android:fillColor="#FFFFFFFF"/>
++    <path android:pathData="M432,480H80A31,31,0,0,1,55.8,468.87c-6.5-7.77-9.12-18.38-7.18-29.11C57.06,392.94,83.4,353.61,124.8,326c36.78-24.51,83.37-38,131.2-38s94.42,13.5,131.2,38c41.4,27.6,67.74,66.93,76.18,113.75,1.94,10.73-.68,21.34-7.18,29.11A31,31,0,0,1,432,480Z" android:fillColor="#FFFFFFFF"/>
++</vector>
+diff --git a/app/src/main/res/drawable/ic_ixf_bluetooth.xml b/app/src/main/res/drawable/ic_ixf_bluetooth.xml
+new file mode 100644
+index 0000000..5d44134
+--- /dev/null
++++ b/app/src/main/res/drawable/ic_ixf_bluetooth.xml
+@@ -0,0 +1,7 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated from Ionicons (MIT, (c) 2015-present Ionic, http://ionic.io/). See THIRD_PARTY/IONICONS.md -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp" android:height="24dp"
++    android:viewportWidth="512" android:viewportHeight="512" android:autoMirrored="false">
++    <path android:pathData="M388,160.77a20,20,0,0,0-5.85-14.91l-112-112A20,20,0,0,0,236,48V212.52l-79-67.71a20,20,0,0,0-26,30.38L225.27,256,131,336.81a20,20,0,1,0,26,30.38l79-67.71V464a20,20,0,0,0,34.14,14.14l112-112A20,20,0,0,0,381,336.81L286.73,256,381,175.19A20,20,0,0,0,388,160.77ZM338.58,353.13,276,415.72V299.49ZM276,212.52V96.28l62.59,62.59Z" android:fillColor="#FFFFFFFF"/>
++</vector>
+diff --git a/app/src/main/res/drawable/ic_ixf_caret_right.xml b/app/src/main/res/drawable/ic_ixf_caret_right.xml
+new file mode 100644
+index 0000000..37808a0
+--- /dev/null
++++ b/app/src/main/res/drawable/ic_ixf_caret_right.xml
+@@ -0,0 +1,7 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated from Ionicons (MIT, (c) 2015-present Ionic, http://ionic.io/). See THIRD_PARTY/IONICONS.md -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp" android:height="24dp"
++    android:viewportWidth="512" android:viewportHeight="512" android:autoMirrored="false">
++    <path android:pathData="M184,112L328,256L184,400" android:strokeColor="#FFFFFFFF" android:strokeWidth="48" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++</vector>
+diff --git a/app/src/main/res/drawable/ic_ixf_check.xml b/app/src/main/res/drawable/ic_ixf_check.xml
+new file mode 100644
+index 0000000..8797206
+--- /dev/null
++++ b/app/src/main/res/drawable/ic_ixf_check.xml
+@@ -0,0 +1,7 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated from Ionicons (MIT, (c) 2015-present Ionic, http://ionic.io/). See THIRD_PARTY/IONICONS.md -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp" android:height="24dp"
++    android:viewportWidth="512" android:viewportHeight="512" android:autoMirrored="false">
++    <path android:pathData="M416,128L192,384L96,288" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++</vector>
+diff --git a/app/src/main/res/drawable/ic_ixf_chevron_down.xml b/app/src/main/res/drawable/ic_ixf_chevron_down.xml
+new file mode 100644
+index 0000000..8983a41
+--- /dev/null
++++ b/app/src/main/res/drawable/ic_ixf_chevron_down.xml
+@@ -0,0 +1,7 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated from Ionicons (MIT, (c) 2015-present Ionic, http://ionic.io/). See THIRD_PARTY/IONICONS.md -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp" android:height="24dp"
++    android:viewportWidth="512" android:viewportHeight="512" android:autoMirrored="false">
++    <path android:pathData="M112,184L256,328L400,184" android:strokeColor="#FFFFFFFF" android:strokeWidth="48" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++</vector>
+diff --git a/app/src/main/res/drawable/ic_ixf_close.xml b/app/src/main/res/drawable/ic_ixf_close.xml
+new file mode 100644
+index 0000000..f822e8e
+--- /dev/null
++++ b/app/src/main/res/drawable/ic_ixf_close.xml
+@@ -0,0 +1,7 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated from Ionicons (MIT, (c) 2015-present Ionic, http://ionic.io/). See THIRD_PARTY/IONICONS.md -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp" android:height="24dp"
++    android:viewportWidth="512" android:viewportHeight="512" android:autoMirrored="false">
++    <path android:pathData="M289.94,256l95-95A24,24,0,0,0,351,127l-95,95-95-95A24,24,0,0,0,127,161l95,95-95,95A24,24,0,1,0,161,385l95-95,95,95A24,24,0,0,0,385,351Z" android:fillColor="#FFFFFFFF"/>
++</vector>
+diff --git a/app/src/main/res/drawable/ic_ixf_collapse.xml b/app/src/main/res/drawable/ic_ixf_collapse.xml
+new file mode 100644
+index 0000000..324ad8a
+--- /dev/null
++++ b/app/src/main/res/drawable/ic_ixf_collapse.xml
+@@ -0,0 +1,14 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated from Ionicons (MIT, (c) 2015-present Ionic, http://ionic.io/). See THIRD_PARTY/IONICONS.md -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp" android:height="24dp"
++    android:viewportWidth="512" android:viewportHeight="512" android:autoMirrored="false">
++    <path android:pathData="M304,416L304,304L416,304" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++    <path android:pathData="M314.2,314.23L432,432" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++    <path android:pathData="M208,96L208,208L96,208" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++    <path android:pathData="M197.8,197.77L80,80" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++    <path android:pathData="M416,208L304,208L304,96" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++    <path android:pathData="M314.23,197.8L432,80" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++    <path android:pathData="M96,304L208,304L208,416" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++    <path android:pathData="M197.77,314.2L80,432" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++</vector>
+diff --git a/app/src/main/res/drawable/ic_ixf_copy.xml b/app/src/main/res/drawable/ic_ixf_copy.xml
+new file mode 100644
+index 0000000..63d623f
+--- /dev/null
++++ b/app/src/main/res/drawable/ic_ixf_copy.xml
+@@ -0,0 +1,8 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated from Ionicons (MIT, (c) 2015-present Ionic, http://ionic.io/). See THIRD_PARTY/IONICONS.md -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp" android:height="24dp"
++    android:viewportWidth="512" android:viewportHeight="512" android:autoMirrored="false">
++    <path android:pathData="M408,480H184a72,72,0,0,1-72-72V184a72,72,0,0,1,72-72H408a72,72,0,0,1,72,72V408A72,72,0,0,1,408,480Z" android:fillColor="#FFFFFFFF"/>
++    <path android:pathData="M160,80H395.88A72.12,72.12,0,0,0,328,32H104a72,72,0,0,0-72,72V328a72.12,72.12,0,0,0,48,67.88V160A80,80,0,0,1,160,80Z" android:fillColor="#FFFFFFFF"/>
++</vector>
+diff --git a/app/src/main/res/drawable/ic_ixf_crossfade.xml b/app/src/main/res/drawable/ic_ixf_crossfade.xml
+new file mode 100644
+index 0000000..9fbc8c5
+--- /dev/null
++++ b/app/src/main/res/drawable/ic_ixf_crossfade.xml
+@@ -0,0 +1,10 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated from Ionicons (MIT, (c) 2015-present Ionic, http://ionic.io/). See THIRD_PARTY/IONICONS.md -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp" android:height="24dp"
++    android:viewportWidth="512" android:viewportHeight="512" android:autoMirrored="false">
++    <path android:pathData="M304,48L416,160L304,272" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++    <path android:pathData="M398.87,160L96,160" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++    <path android:pathData="M208,464L96,352L208,240" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++    <path android:pathData="M114,352L416,352" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++</vector>
+diff --git a/app/src/main/res/drawable/ic_ixf_delete.xml b/app/src/main/res/drawable/ic_ixf_delete.xml
+new file mode 100644
+index 0000000..f3c083d
+--- /dev/null
++++ b/app/src/main/res/drawable/ic_ixf_delete.xml
+@@ -0,0 +1,8 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated from Ionicons (MIT, (c) 2015-present Ionic, http://ionic.io/). See THIRD_PARTY/IONICONS.md -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp" android:height="24dp"
++    android:viewportWidth="512" android:viewportHeight="512" android:autoMirrored="false">
++    <path android:pathData="M296,64H216a7.91,7.91,0,0,0-8,8V96h96V72A7.91,7.91,0,0,0,296,64Z"/>
++    <path android:pathData="M432,96H336V72a40,40,0,0,0-40-40H216a40,40,0,0,0-40,40V96H80a16,16,0,0,0,0,32H97L116,432.92c1.42,26.85,22,47.08,48,47.08H348c26.13,0,46.3-19.78,48-47L415,128h17a16,16,0,0,0,0-32ZM192.57,416H192a16,16,0,0,1-16-15.43l-8-224a16,16,0,1,1,32-1.14l8,224A16,16,0,0,1,192.57,416ZM272,400a16,16,0,0,1-32,0V176a16,16,0,0,1,32,0ZM304,96H208V72a7.91,7.91,0,0,1,8-8h80a7.91,7.91,0,0,1,8,8Zm32,304.57A16,16,0,0,1,320,416h-.58A16,16,0,0,1,304,399.43l8-224a16,16,0,1,1,32,1.14Z" android:fillColor="#FFFFFFFF"/>
++</vector>
+diff --git a/app/src/main/res/drawable/ic_ixf_disc.xml b/app/src/main/res/drawable/ic_ixf_disc.xml
+new file mode 100644
+index 0000000..00754e9
+--- /dev/null
++++ b/app/src/main/res/drawable/ic_ixf_disc.xml
+@@ -0,0 +1,8 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated from Ionicons (MIT, (c) 2015-present Ionic, http://ionic.io/). See THIRD_PARTY/IONICONS.md -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp" android:height="24dp"
++    android:viewportWidth="512" android:viewportHeight="512" android:autoMirrored="false">
++    <path android:pathData="M256,176a80,80,0,1,0,80,80A80.09,80.09,0,0,0,256,176Zm0,112a32,32,0,1,1,32-32A32,32,0,0,1,256,288Z" android:fillColor="#FFFFFFFF"/>
++    <path android:pathData="M414.39,97.61A224,224,0,1,0,97.61,414.39,224,224,0,1,0,414.39,97.61ZM256,368A112,112,0,1,1,368,256,112.12,112.12,0,0,1,256,368Z" android:fillColor="#FFFFFFFF"/>
++</vector>
+diff --git a/app/src/main/res/drawable/ic_ixf_done_all.xml b/app/src/main/res/drawable/ic_ixf_done_all.xml
+new file mode 100644
+index 0000000..62e214a
+--- /dev/null
++++ b/app/src/main/res/drawable/ic_ixf_done_all.xml
+@@ -0,0 +1,9 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated from Ionicons (MIT, (c) 2015-present Ionic, http://ionic.io/). See THIRD_PARTY/IONICONS.md -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp" android:height="24dp"
++    android:viewportWidth="512" android:viewportHeight="512" android:autoMirrored="false">
++    <path android:pathData="M464,128L240,384L144,288" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++    <path android:pathData="M144,384L48,288" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++    <path android:pathData="M368,128L232,284" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++</vector>
+diff --git a/app/src/main/res/drawable/ic_ixf_download.xml b/app/src/main/res/drawable/ic_ixf_download.xml
+new file mode 100644
+index 0000000..38753c9
+--- /dev/null
++++ b/app/src/main/res/drawable/ic_ixf_download.xml
+@@ -0,0 +1,8 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated from Ionicons (MIT, (c) 2015-present Ionic, http://ionic.io/). See THIRD_PARTY/IONICONS.md -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp" android:height="24dp"
++    android:viewportWidth="512" android:viewportHeight="512" android:autoMirrored="false">
++    <path android:pathData="M376,160H272V313.37l52.69-52.68a16,16,0,0,1,22.62,22.62l-80,80a16,16,0,0,1-22.62,0l-80-80a16,16,0,0,1,22.62-22.62L240,313.37V160H136a56.06,56.06,0,0,0-56,56V424a56.06,56.06,0,0,0,56,56H376a56.06,56.06,0,0,0,56-56V216A56.06,56.06,0,0,0,376,160Z" android:fillColor="#FFFFFFFF"/>
++    <path android:pathData="M272,48a16,16,0,0,0-32,0V160h32Z" android:fillColor="#FFFFFFFF"/>
++</vector>
+diff --git a/app/src/main/res/drawable/ic_ixf_drag_dots.xml b/app/src/main/res/drawable/ic_ixf_drag_dots.xml
+new file mode 100644
+index 0000000..83fdce6
+--- /dev/null
++++ b/app/src/main/res/drawable/ic_ixf_drag_dots.xml
+@@ -0,0 +1,9 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated from Ionicons (MIT, (c) 2015-present Ionic, http://ionic.io/). See THIRD_PARTY/IONICONS.md -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp" android:height="24dp"
++    android:viewportWidth="512" android:viewportHeight="512" android:autoMirrored="false">
++    <path android:pathData="M102,256L410,256" android:strokeColor="#FFFFFFFF" android:strokeWidth="44" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++    <path android:pathData="M102,176L410,176" android:strokeColor="#FFFFFFFF" android:strokeWidth="44" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++    <path android:pathData="M102,336L410,336" android:strokeColor="#FFFFFFFF" android:strokeWidth="44" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++</vector>
+diff --git a/app/src/main/res/drawable/ic_ixf_edit.xml b/app/src/main/res/drawable/ic_ixf_edit.xml
+new file mode 100644
+index 0000000..af3c0ea
+--- /dev/null
++++ b/app/src/main/res/drawable/ic_ixf_edit.xml
+@@ -0,0 +1,9 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated from Ionicons (MIT, (c) 2015-present Ionic, http://ionic.io/). See THIRD_PARTY/IONICONS.md -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp" android:height="24dp"
++    android:viewportWidth="512" android:viewportHeight="512" android:autoMirrored="false">
++    <path android:pathData="M459.94,53.25a16.06,16.06,0,0,0-23.22-.56L424.35,65a8,8,0,0,0,0,11.31l11.34,11.32a8,8,0,0,0,11.34,0l12.06-12C465.19,69.54,465.76,59.62,459.94,53.25Z" android:fillColor="#FFFFFFFF"/>
++    <path android:pathData="M399.34,90,218.82,270.2a9,9,0,0,0-2.31,3.93L208.16,299a3.91,3.91,0,0,0,4.86,4.86l24.85-8.35a9,9,0,0,0,3.93-2.31L422,112.66A9,9,0,0,0,422,100L412.05,90A9,9,0,0,0,399.34,90Z" android:fillColor="#FFFFFFFF"/>
++    <path android:pathData="M386.34,193.66,264.45,315.79A41.08,41.08,0,0,1,247.58,326l-25.9,8.67a35.92,35.92,0,0,1-44.33-44.33l8.67-25.9a41.08,41.08,0,0,1,10.19-16.87L318.34,125.66A8,8,0,0,0,312.69,112H104a56,56,0,0,0-56,56V408a56,56,0,0,0,56,56H344a56,56,0,0,0,56-56V199.31A8,8,0,0,0,386.34,193.66Z" android:fillColor="#FFFFFFFF"/>
++</vector>
+diff --git a/app/src/main/res/drawable/ic_ixf_equalizer.xml b/app/src/main/res/drawable/ic_ixf_equalizer.xml
+new file mode 100644
+index 0000000..9f2c691
+--- /dev/null
++++ b/app/src/main/res/drawable/ic_ixf_equalizer.xml
+@@ -0,0 +1,9 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated from Ionicons (MIT, (c) 2015-present Ionic, http://ionic.io/). See THIRD_PARTY/IONICONS.md -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp" android:height="24dp"
++    android:viewportWidth="512" android:viewportHeight="512" android:autoMirrored="false">
++    <path android:pathData="M64,144H290.75a48,48,0,0,0,90.5,0H448a16,16,0,0,0,0-32H381.25a48,48,0,0,0-90.5,0H64a16,16,0,0,0,0,32Z" android:fillColor="#FFFFFFFF"/>
++    <path android:pathData="M448,368H381.25a48,48,0,0,0-90.5,0H64a16,16,0,0,0,0,32H290.75a48,48,0,0,0,90.5,0H448a16,16,0,0,0,0-32Z" android:fillColor="#FFFFFFFF"/>
++    <path android:pathData="M448,240H221.25a48,48,0,0,0-90.5,0H64a16,16,0,0,0,0,32h66.75a48,48,0,0,0,90.5,0H448a16,16,0,0,0,0-32Z" android:fillColor="#FFFFFFFF"/>
++</vector>
+diff --git a/app/src/main/res/drawable/ic_ixf_folder.xml b/app/src/main/res/drawable/ic_ixf_folder.xml
+new file mode 100644
+index 0000000..e87a92b
+--- /dev/null
++++ b/app/src/main/res/drawable/ic_ixf_folder.xml
+@@ -0,0 +1,8 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated from Ionicons (MIT, (c) 2015-present Ionic, http://ionic.io/). See THIRD_PARTY/IONICONS.md -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp" android:height="24dp"
++    android:viewportWidth="512" android:viewportHeight="512" android:autoMirrored="false">
++    <path android:pathData="M496,152a56,56,0,0,0-56-56H220.11a23.89,23.89,0,0,1-13.31-4L179,73.41A55.77,55.77,0,0,0,147.89,64H72a56,56,0,0,0-56,56v48a8,8,0,0,0,8,8H488a8,8,0,0,0,8-8Z" android:fillColor="#FFFFFFFF"/>
++    <path android:pathData="M16,392a56,56,0,0,0,56,56H440a56,56,0,0,0,56-56V216a8,8,0,0,0-8-8H24a8,8,0,0,0-8,8Z" android:fillColor="#FFFFFFFF"/>
++</vector>
+diff --git a/app/src/main/res/drawable/ic_ixf_fullscreen.xml b/app/src/main/res/drawable/ic_ixf_fullscreen.xml
+new file mode 100644
+index 0000000..5df4bcf
+--- /dev/null
++++ b/app/src/main/res/drawable/ic_ixf_fullscreen.xml
+@@ -0,0 +1,14 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated from Ionicons (MIT, (c) 2015-present Ionic, http://ionic.io/). See THIRD_PARTY/IONICONS.md -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp" android:height="24dp"
++    android:viewportWidth="512" android:viewportHeight="512" android:autoMirrored="false">
++    <path android:pathData="M432,320L432,432L320,432" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++    <path android:pathData="M421.8,421.77L304,304" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++    <path android:pathData="M80,192L80,80L192,80" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++    <path android:pathData="M90.2,90.23L208,208" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++    <path android:pathData="M320,80L432,80L432,192" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++    <path android:pathData="M421.77,90.2L304,208" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++    <path android:pathData="M192,432L80,432L80,320" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++    <path android:pathData="M90.23,421.8L208,304" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++</vector>
+diff --git a/app/src/main/res/drawable/ic_ixf_fullscreen_exit.xml b/app/src/main/res/drawable/ic_ixf_fullscreen_exit.xml
+new file mode 100644
+index 0000000..324ad8a
+--- /dev/null
++++ b/app/src/main/res/drawable/ic_ixf_fullscreen_exit.xml
+@@ -0,0 +1,14 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated from Ionicons (MIT, (c) 2015-present Ionic, http://ionic.io/). See THIRD_PARTY/IONICONS.md -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp" android:height="24dp"
++    android:viewportWidth="512" android:viewportHeight="512" android:autoMirrored="false">
++    <path android:pathData="M304,416L304,304L416,304" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++    <path android:pathData="M314.2,314.23L432,432" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++    <path android:pathData="M208,96L208,208L96,208" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++    <path android:pathData="M197.8,197.77L80,80" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++    <path android:pathData="M416,208L304,208L304,96" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++    <path android:pathData="M314.23,197.8L432,80" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++    <path android:pathData="M96,304L208,304L208,416" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++    <path android:pathData="M197.77,314.2L80,432" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++</vector>
+diff --git a/app/src/main/res/drawable/ic_ixf_headset.xml b/app/src/main/res/drawable/ic_ixf_headset.xml
+new file mode 100644
+index 0000000..5e0bf7a
+--- /dev/null
++++ b/app/src/main/res/drawable/ic_ixf_headset.xml
+@@ -0,0 +1,7 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated from Ionicons (MIT, (c) 2015-present Ionic, http://ionic.io/). See THIRD_PARTY/IONICONS.md -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp" android:height="24dp"
++    android:viewportWidth="512" android:viewportHeight="512" android:autoMirrored="false">
++    <path android:pathData="M411.16,97.46C368.43,55.86,311.88,32,256,32S143.57,55.86,100.84,97.46C56.45,140.67,32,197,32,256c0,26.67,8.75,61.09,32.88,125.55S137,473,157.27,477.41c5.81,1.27,12.62,2.59,18.73,2.59a60.06,60.06,0,0,0,30-8l14-8c15.07-8.82,19.47-28.13,10.8-43.35L143.88,268.08a31.73,31.73,0,0,0-43.57-11.76l-13.69,8a56.49,56.49,0,0,0-14,11.59,4,4,0,0,1-7-2A114.68,114.68,0,0,1,64,256c0-50.31,21-98.48,59.16-135.61C160,84.55,208.39,64,256,64s96,20.55,132.84,56.39C427,157.52,448,205.69,448,256a114.68,114.68,0,0,1-1.68,17.91,4,4,0,0,1-7,2,56.49,56.49,0,0,0-14-11.59l-13.69-8a31.73,31.73,0,0,0-43.57,11.76L281.2,420.65c-8.67,15.22-4.27,34.53,10.8,43.35l14,8a60.06,60.06,0,0,0,30,8c6.11,0,12.92-1.32,18.73-2.59C375,473,423,446,447.12,381.55S480,282.67,480,256C480,197,455.55,140.67,411.16,97.46Z" android:fillColor="#FFFFFFFF"/>
++</vector>
+diff --git a/app/src/main/res/drawable/ic_ixf_heart.xml b/app/src/main/res/drawable/ic_ixf_heart.xml
+new file mode 100644
+index 0000000..07f32a0
+--- /dev/null
++++ b/app/src/main/res/drawable/ic_ixf_heart.xml
+@@ -0,0 +1,7 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated from Ionicons (MIT, (c) 2015-present Ionic, http://ionic.io/). See THIRD_PARTY/IONICONS.md -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp" android:height="24dp"
++    android:viewportWidth="512" android:viewportHeight="512" android:autoMirrored="false">
++    <path android:pathData="M256,448a32,32,0,0,1-18-5.57c-78.59-53.35-112.62-89.93-131.39-112.8-40-48.75-59.15-98.8-58.61-153C48.63,114.52,98.46,64,159.08,64c44.08,0,74.61,24.83,92.39,45.51a6,6,0,0,0,9.06,0C278.31,88.81,308.84,64,352.92,64,413.54,64,463.37,114.52,464,176.64c.54,54.21-18.63,104.26-58.61,153-18.77,22.87-52.8,59.45-131.39,112.8A32,32,0,0,1,256,448Z" android:fillColor="#FFFFFFFF"/>
++</vector>
+diff --git a/app/src/main/res/drawable/ic_ixf_heart_outline.xml b/app/src/main/res/drawable/ic_ixf_heart_outline.xml
+new file mode 100644
+index 0000000..9b08ebd
+--- /dev/null
++++ b/app/src/main/res/drawable/ic_ixf_heart_outline.xml
+@@ -0,0 +1,7 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated from Ionicons (MIT, (c) 2015-present Ionic, http://ionic.io/). See THIRD_PARTY/IONICONS.md -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp" android:height="24dp"
++    android:viewportWidth="512" android:viewportHeight="512" android:autoMirrored="false">
++    <path android:pathData="M352.92,80C288,80,256,144,256,144s-32-64-96.92-64C106.32,80,64.54,124.14,64,176.81c-1.1,109.33,86.73,187.08,183,252.42a16,16,0,0,0,18,0c96.26-65.34,184.09-143.09,183-252.42C447.46,124.14,405.68,80,352.92,80Z" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++</vector>
+diff --git a/app/src/main/res/drawable/ic_ixf_home.xml b/app/src/main/res/drawable/ic_ixf_home.xml
+new file mode 100644
+index 0000000..cfd37b9
+--- /dev/null
++++ b/app/src/main/res/drawable/ic_ixf_home.xml
+@@ -0,0 +1,8 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated from Ionicons (MIT, (c) 2015-present Ionic, http://ionic.io/). See THIRD_PARTY/IONICONS.md -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp" android:height="24dp"
++    android:viewportWidth="512" android:viewportHeight="512" android:autoMirrored="false">
++    <path android:pathData="M261.56,101.28a8,8,0,0,0-11.06,0L66.4,277.15a8,8,0,0,0-2.47,5.79L63.9,448a32,32,0,0,0,32,32H192a16,16,0,0,0,16-16V328a8,8,0,0,1,8-8h80a8,8,0,0,1,8,8l0,136a16,16,0,0,0,16,16h96.06a32,32,0,0,0,32-32l0-165.06a8,8,0,0,0-2.47-5.79Z" android:fillColor="#FFFFFFFF"/>
++    <path android:pathData="M490.91,244.15l-74.8-71.56,0-108.59a16,16,0,0,0-16-16h-48a16,16,0,0,0-16,16l0,32L278.19,40.62C272.77,35.14,264.71,32,256,32h0c-8.68,0-16.72,3.14-22.14,8.63L21.16,244.13c-6.22,6-7,15.87-1.34,22.37A16,16,0,0,0,43,267.56L250.5,69.28a8,8,0,0,1,11.06,0L469.08,267.56a16,16,0,0,0,22.59-.44C497.81,260.76,497.3,250.26,490.91,244.15Z" android:fillColor="#FFFFFFFF"/>
++</vector>
+diff --git a/app/src/main/res/drawable/ic_ixf_info.xml b/app/src/main/res/drawable/ic_ixf_info.xml
+new file mode 100644
+index 0000000..46a7565
+--- /dev/null
++++ b/app/src/main/res/drawable/ic_ixf_info.xml
+@@ -0,0 +1,7 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated from Ionicons (MIT, (c) 2015-present Ionic, http://ionic.io/). See THIRD_PARTY/IONICONS.md -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp" android:height="24dp"
++    android:viewportWidth="512" android:viewportHeight="512" android:autoMirrored="false">
++    <path android:pathData="M256,56C145.72,56,56,145.72,56,256s89.72,200,200,200,200-89.72,200-200S366.28,56,256,56Zm0,82a26,26,0,1,1-26,26A26,26,0,0,1,256,138Zm48,226H216a16,16,0,0,1,0-32h28V244H228a16,16,0,0,1,0-32h32a16,16,0,0,1,16,16V332h28a16,16,0,0,1,0,32Z" android:fillColor="#FFFFFFFF"/>
++</vector>
+diff --git a/app/src/main/res/drawable/ic_ixf_lyrics_add.xml b/app/src/main/res/drawable/ic_ixf_lyrics_add.xml
+new file mode 100644
+index 0000000..23d96b3
+--- /dev/null
++++ b/app/src/main/res/drawable/ic_ixf_lyrics_add.xml
+@@ -0,0 +1,7 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated from Ionicons (MIT, (c) 2015-present Ionic, http://ionic.io/). See THIRD_PARTY/IONICONS.md -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp" android:height="24dp"
++    android:viewportWidth="512" android:viewportHeight="512" android:autoMirrored="false">
++    <path android:pathData="M256,48C141.31,48,48,141.31,48,256s93.31,208,208,208,208-93.31,208-208S370.69,48,256,48Zm80,224H272v64a16,16,0,0,1-32,0V272H176a16,16,0,0,1,0-32h64V176a16,16,0,0,1,32,0v64h64a16,16,0,0,1,0,32Z" android:fillColor="#FFFFFFFF"/>
++</vector>
+diff --git a/app/src/main/res/drawable/ic_ixf_lyrics_file.xml b/app/src/main/res/drawable/ic_ixf_lyrics_file.xml
+new file mode 100644
+index 0000000..19c1dd8
+--- /dev/null
++++ b/app/src/main/res/drawable/ic_ixf_lyrics_file.xml
+@@ -0,0 +1,8 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated from Ionicons (MIT, (c) 2015-present Ionic, http://ionic.io/). See THIRD_PARTY/IONICONS.md -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp" android:height="24dp"
++    android:viewportWidth="512" android:viewportHeight="512" android:autoMirrored="false">
++    <path android:pathData="M428,224H288a48,48,0,0,1-48-48V36a4,4,0,0,0-4-4H144A64,64,0,0,0,80,96V416a64,64,0,0,0,64,64H368a64,64,0,0,0,64-64V228A4,4,0,0,0,428,224ZM336,384H176a16,16,0,0,1,0-32H336a16,16,0,0,1,0,32Zm0-80H176a16,16,0,0,1,0-32H336a16,16,0,0,1,0,32Z" android:fillColor="#FFFFFFFF"/>
++    <path android:pathData="M419.22,188.59,275.41,44.78A2,2,0,0,0,272,46.19V176a16,16,0,0,0,16,16H417.81A2,2,0,0,0,419.22,188.59Z" android:fillColor="#FFFFFFFF"/>
++</vector>
+diff --git a/app/src/main/res/drawable/ic_ixf_microphone.xml b/app/src/main/res/drawable/ic_ixf_microphone.xml
+new file mode 100644
+index 0000000..d6609cb
+--- /dev/null
++++ b/app/src/main/res/drawable/ic_ixf_microphone.xml
+@@ -0,0 +1,10 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated from Ionicons (MIT, (c) 2015-present Ionic, http://ionic.io/). See THIRD_PARTY/IONICONS.md -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp" android:height="24dp"
++    android:viewportWidth="512" android:viewportHeight="512" android:autoMirrored="false">
++    <path android:pathData="M192,448L320,448" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++    <path android:pathData="M384,208v32c0,70.4-57.6,128-128,128h0c-70.4,0-128-57.6-128-128V208" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++    <path android:pathData="M256,368L256,448" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++    <path android:pathData="M256,320a78.83,78.83,0,0,1-56.55-24.1A80.89,80.89,0,0,1,176,239V128a79.69,79.69,0,0,1,80-80c44.86,0,80,35.14,80,80V239C336,283.66,300.11,320,256,320Z" android:fillColor="#FFFFFFFF"/>
++</vector>
+diff --git a/app/src/main/res/drawable/ic_ixf_microphone_outline.xml b/app/src/main/res/drawable/ic_ixf_microphone_outline.xml
+new file mode 100644
+index 0000000..bce87fc
+--- /dev/null
++++ b/app/src/main/res/drawable/ic_ixf_microphone_outline.xml
+@@ -0,0 +1,10 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated from Ionicons (MIT, (c) 2015-present Ionic, http://ionic.io/). See THIRD_PARTY/IONICONS.md -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp" android:height="24dp"
++    android:viewportWidth="512" android:viewportHeight="512" android:autoMirrored="false">
++    <path android:pathData="M192,448L320,448" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++    <path android:pathData="M384,208v32c0,70.4-57.6,128-128,128h0c-70.4,0-128-57.6-128-128V208" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++    <path android:pathData="M256,368L256,448" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++    <path android:pathData="M256,64a63.68,63.68,0,0,0-64,64V239c0,35.2,29,65,64,65s64-29,64-65V128C320,92,292,64,256,64Z" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++</vector>
+diff --git a/app/src/main/res/drawable/ic_ixf_microphone_stage.xml b/app/src/main/res/drawable/ic_ixf_microphone_stage.xml
+new file mode 100644
+index 0000000..d6609cb
+--- /dev/null
++++ b/app/src/main/res/drawable/ic_ixf_microphone_stage.xml
+@@ -0,0 +1,10 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated from Ionicons (MIT, (c) 2015-present Ionic, http://ionic.io/). See THIRD_PARTY/IONICONS.md -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp" android:height="24dp"
++    android:viewportWidth="512" android:viewportHeight="512" android:autoMirrored="false">
++    <path android:pathData="M192,448L320,448" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++    <path android:pathData="M384,208v32c0,70.4-57.6,128-128,128h0c-70.4,0-128-57.6-128-128V208" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++    <path android:pathData="M256,368L256,448" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++    <path android:pathData="M256,320a78.83,78.83,0,0,1-56.55-24.1A80.89,80.89,0,0,1,176,239V128a79.69,79.69,0,0,1,80-80c44.86,0,80,35.14,80,80V239C336,283.66,300.11,320,256,320Z" android:fillColor="#FFFFFFFF"/>
++</vector>
+diff --git a/app/src/main/res/drawable/ic_ixf_more.xml b/app/src/main/res/drawable/ic_ixf_more.xml
+new file mode 100644
+index 0000000..9b2b22f
+--- /dev/null
++++ b/app/src/main/res/drawable/ic_ixf_more.xml
+@@ -0,0 +1,9 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated from Ionicons (MIT, (c) 2015-present Ionic, http://ionic.io/). See THIRD_PARTY/IONICONS.md -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp" android:height="24dp"
++    android:viewportWidth="512" android:viewportHeight="512" android:autoMirrored="false">
++    <path android:pathData="M208,256A48,48,0,1,0,304,256A48,48,0,1,0,208,256Z" android:fillColor="#FFFFFFFF"/>
++    <path android:pathData="M208,416A48,48,0,1,0,304,416A48,48,0,1,0,208,416Z" android:fillColor="#FFFFFFFF"/>
++    <path android:pathData="M208,96A48,48,0,1,0,304,96A48,48,0,1,0,208,96Z" android:fillColor="#FFFFFFFF"/>
++</vector>
+diff --git a/app/src/main/res/drawable/ic_ixf_music_note.xml b/app/src/main/res/drawable/ic_ixf_music_note.xml
+new file mode 100644
+index 0000000..6cdae51
+--- /dev/null
++++ b/app/src/main/res/drawable/ic_ixf_music_note.xml
+@@ -0,0 +1,7 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated from Ionicons (MIT, (c) 2015-present Ionic, http://ionic.io/). See THIRD_PARTY/IONICONS.md -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp" android:height="24dp"
++    android:viewportWidth="512" android:viewportHeight="512" android:autoMirrored="false">
++    <path android:pathData="M183.83,480a55.2,55.2,0,0,1-32.36-10.55A56.64,56.64,0,0,1,128,423.58a50.26,50.26,0,0,1,34.14-47.73L213,358.73a16.25,16.25,0,0,0,11-15.49V92a32.1,32.1,0,0,1,24.09-31.15L356.48,32.71A22,22,0,0,1,384,54v57.75a32.09,32.09,0,0,1-24.2,31.19l-91.65,23.13A16.24,16.24,0,0,0,256,181.91V424a48.22,48.22,0,0,1-32.78,45.81l-21.47,7.23A56,56,0,0,1,183.83,480Z" android:fillColor="#FFFFFFFF"/>
++</vector>
+diff --git a/app/src/main/res/drawable/ic_ixf_mute.xml b/app/src/main/res/drawable/ic_ixf_mute.xml
+new file mode 100644
+index 0000000..9655ec7
+--- /dev/null
++++ b/app/src/main/res/drawable/ic_ixf_mute.xml
+@@ -0,0 +1,12 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated from Ionicons (MIT, (c) 2015-present Ionic, http://ionic.io/). See THIRD_PARTY/IONICONS.md -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp" android:height="24dp"
++    android:viewportWidth="512" android:viewportHeight="512" android:autoMirrored="false">
++    <path android:pathData="M416,432L64,80" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="miter"/>
++    <path android:pathData="M243.33,98.86a23.89,23.89,0,0,0-25.55,1.82l-.66.51L188.6,124.54a8,8,0,0,0-.59,11.85l54.33,54.33A8,8,0,0,0,256,185.06V120.57A24.51,24.51,0,0,0,243.33,98.86Z" android:fillColor="#FFFFFFFF"/>
++    <path android:pathData="M251.33,335.29,96.69,180.69A16,16,0,0,0,85.38,176H56a24,24,0,0,0-24,24V312a24,24,0,0,0,24,24h69.76l92,75.31A23.9,23.9,0,0,0,243.63,413,24.51,24.51,0,0,0,256,391.45V346.59A16,16,0,0,0,251.33,335.29Z" android:fillColor="#FFFFFFFF"/>
++    <path android:pathData="M352,256c0-24.56-5.81-47.87-17.75-71.27a16,16,0,1,0-28.5,14.55C315.34,218.06,320,236.62,320,256q0,4-.31,8.13a8,8,0,0,0,2.32,6.25l14.36,14.36a8,8,0,0,0,13.55-4.31A146,146,0,0,0,352,256Z" android:fillColor="#FFFFFFFF"/>
++    <path android:pathData="M416,256c0-51.18-13.08-83.89-34.18-120.06a16,16,0,0,0-27.64,16.12C373.07,184.44,384,211.83,384,256c0,23.83-3.29,42.88-9.37,60.65a8,8,0,0,0,1.9,8.26L389,337.4a8,8,0,0,0,13.13-2.79C411,311.76,416,287.26,416,256Z" android:fillColor="#FFFFFFFF"/>
++    <path android:pathData="M480,256c0-74.25-20.19-121.11-50.51-168.61a16,16,0,1,0-27,17.22C429.82,147.38,448,189.5,448,256c0,46.19-8.43,80.27-22.43,110.53a8,8,0,0,0,1.59,9l11.92,11.92A8,8,0,0,0,452,385.29C471.6,344.9,480,305,480,256Z" android:fillColor="#FFFFFFFF"/>
++</vector>
+diff --git a/app/src/main/res/drawable/ic_ixf_phone.xml b/app/src/main/res/drawable/ic_ixf_phone.xml
+new file mode 100644
+index 0000000..b8f411a
+--- /dev/null
++++ b/app/src/main/res/drawable/ic_ixf_phone.xml
+@@ -0,0 +1,9 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated from Ionicons (MIT, (c) 2015-present Ionic, http://ionic.io/). See THIRD_PARTY/IONICONS.md -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp" android:height="24dp"
++    android:viewportWidth="512" android:viewportHeight="512" android:autoMirrored="false">
++    <path android:pathData="M336,0H176a64,64,0,0,0-64,64V448a64,64,0,0,0,64,64H336a64,64,0,0,0,64-64V64A64,64,0,0,0,336,0Zm32,448a32,32,0,0,1-32,32H176a32,32,0,0,1-32-32V64a32,32,0,0,1,32-32h11.35a7.94,7.94,0,0,1,7.3,4.75A32,32,0,0,0,224,56h64a32,32,0,0,0,29.35-19.25,7.94,7.94,0,0,1,7.3-4.75H336a32,32,0,0,1,32,32Z" android:fillColor="#FFFFFFFF"/>
++    <path android:pathData="M336,48h0a11.88,11.88,0,0,0-9.53,4.69A48,48,0,0,1,288,72H224a48,48,0,0,1-38.47-19.31A11.88,11.88,0,0,0,176,48h0a16,16,0,0,0-16,16V448a16,16,0,0,0,16,16H336a16,16,0,0,0,16-16V64A16,16,0,0,0,336,48Z" android:fillColor="#FFFFFFFF"/>
++    <path android:pathData="M336,0H176a64,64,0,0,0-64,64V448a64,64,0,0,0,64,64H336a64,64,0,0,0,64-64V64A64,64,0,0,0,336,0Zm32,448a32,32,0,0,1-32,32H176a32,32,0,0,1-32-32V64a32,32,0,0,1,32-32h11.35a7.94,7.94,0,0,1,7.3,4.75A32,32,0,0,0,224,56h64a32,32,0,0,0,29.35-19.25,7.94,7.94,0,0,1,7.3-4.75H336a32,32,0,0,1,32,32Z" android:fillColor="#FFFFFFFF"/>
++</vector>
+diff --git a/app/src/main/res/drawable/ic_ixf_playlist.xml b/app/src/main/res/drawable/ic_ixf_playlist.xml
+new file mode 100644
+index 0000000..a7b5d03
+--- /dev/null
++++ b/app/src/main/res/drawable/ic_ixf_playlist.xml
+@@ -0,0 +1,9 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated from Ionicons (MIT, (c) 2015-present Ionic, http://ionic.io/). See THIRD_PARTY/IONICONS.md -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp" android:height="24dp"
++    android:viewportWidth="512" android:viewportHeight="512" android:autoMirrored="false">
++    <path android:pathData="M368,96H144a16,16,0,0,1,0-32H368a16,16,0,0,1,0,32Z" android:fillColor="#FFFFFFFF"/>
++    <path android:pathData="M400,144H112a16,16,0,0,1,0-32H400a16,16,0,0,1,0,32Z" android:fillColor="#FFFFFFFF"/>
++    <path android:pathData="M419.13,448H92.87A44.92,44.92,0,0,1,48,403.13V204.87A44.92,44.92,0,0,1,92.87,160H419.13A44.92,44.92,0,0,1,464,204.87V403.13A44.92,44.92,0,0,1,419.13,448Z" android:fillColor="#FFFFFFFF"/>
++</vector>
+diff --git a/app/src/main/res/drawable/ic_ixf_plus.xml b/app/src/main/res/drawable/ic_ixf_plus.xml
+new file mode 100644
+index 0000000..a099924
+--- /dev/null
++++ b/app/src/main/res/drawable/ic_ixf_plus.xml
+@@ -0,0 +1,8 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated from Ionicons (MIT, (c) 2015-present Ionic, http://ionic.io/). See THIRD_PARTY/IONICONS.md -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp" android:height="24dp"
++    android:viewportWidth="512" android:viewportHeight="512" android:autoMirrored="false">
++    <path android:pathData="M256,112L256,400" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++    <path android:pathData="M400,256L112,256" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++</vector>
+diff --git a/app/src/main/res/drawable/ic_ixf_recent.xml b/app/src/main/res/drawable/ic_ixf_recent.xml
+new file mode 100644
+index 0000000..faa2b04
+--- /dev/null
++++ b/app/src/main/res/drawable/ic_ixf_recent.xml
+@@ -0,0 +1,7 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated from Ionicons (MIT, (c) 2015-present Ionic, http://ionic.io/). See THIRD_PARTY/IONICONS.md -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp" android:height="24dp"
++    android:viewportWidth="512" android:viewportHeight="512" android:autoMirrored="false">
++    <path android:pathData="M256,48C141.13,48,48,141.13,48,256s93.13,208,208,208,208-93.13,208-208S370.87,48,256,48Zm96,240H256a16,16,0,0,1-16-16V128a16,16,0,0,1,32,0V256h80a16,16,0,0,1,0,32Z" android:fillColor="#FFFFFFFF"/>
++</vector>
+diff --git a/app/src/main/res/drawable/ic_ixf_refresh.xml b/app/src/main/res/drawable/ic_ixf_refresh.xml
+new file mode 100644
+index 0000000..83e43f1
+--- /dev/null
++++ b/app/src/main/res/drawable/ic_ixf_refresh.xml
+@@ -0,0 +1,8 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated from Ionicons (MIT, (c) 2015-present Ionic, http://ionic.io/). See THIRD_PARTY/IONICONS.md -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp" android:height="24dp"
++    android:viewportWidth="512" android:viewportHeight="512" android:autoMirrored="false">
++    <path android:pathData="M320,146s24.36-12-64-12A160,160,0,1,0,416,294" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="miter"/>
++    <path android:pathData="M256,58L336,138L256,218" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++</vector>
+diff --git a/app/src/main/res/drawable/ic_ixf_repeat.xml b/app/src/main/res/drawable/ic_ixf_repeat.xml
+new file mode 100644
+index 0000000..5b534a8
+--- /dev/null
++++ b/app/src/main/res/drawable/ic_ixf_repeat.xml
+@@ -0,0 +1,10 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated from Ionicons (MIT, (c) 2015-present Ionic, http://ionic.io/). See THIRD_PARTY/IONICONS.md -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp" android:height="24dp"
++    android:viewportWidth="512" android:viewportHeight="512" android:autoMirrored="false">
++    <path android:pathData="M320,120L368,168L320,216" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++    <path android:pathData="M352,168H144a80.24,80.24,0,0,0-80,80v16" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++    <path android:pathData="M192,392L144,344L192,296" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++    <path android:pathData="M160,344H368a80.24,80.24,0,0,0,80-80V248" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++</vector>
+diff --git a/app/src/main/res/drawable/ic_ixf_repeat_one.xml b/app/src/main/res/drawable/ic_ixf_repeat_one.xml
+new file mode 100644
+index 0000000..074a21f
+--- /dev/null
++++ b/app/src/main/res/drawable/ic_ixf_repeat_one.xml
+@@ -0,0 +1,11 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated from Ionicons (MIT, (c) 2015-present Ionic, http://ionic.io/). See THIRD_PARTY/IONICONS.md -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp" android:height="24dp"
++    android:viewportWidth="512" android:viewportHeight="512" android:autoMirrored="false">
++    <path android:pathData="M320,120L368,168L320,216" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++    <path android:pathData="M352,168H144a80.24,80.24,0,0,0-80,80v16" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++    <path android:pathData="M192,392L144,344L192,296" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++    <path android:pathData="M160,344H368a80.24,80.24,0,0,0,80-80V248" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++    <path android:pathData="M238,236L264,216L264,296" android:strokeColor="#FFFFFFFF" android:strokeWidth="28" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++</vector>
+diff --git a/app/src/main/res/drawable/ic_ixf_resize.xml b/app/src/main/res/drawable/ic_ixf_resize.xml
+new file mode 100644
+index 0000000..8aecdee
+--- /dev/null
++++ b/app/src/main/res/drawable/ic_ixf_resize.xml
+@@ -0,0 +1,9 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated from Ionicons (MIT, (c) 2015-present Ionic, http://ionic.io/). See THIRD_PARTY/IONICONS.md -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp" android:height="24dp"
++    android:viewportWidth="512" android:viewportHeight="512" android:autoMirrored="false">
++    <path android:pathData="M304,96L416,96L416,208" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++    <path android:pathData="M405.77,106.2L111.98,400.02" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++    <path android:pathData="M208,416L96,416L96,304" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++</vector>
+diff --git a/app/src/main/res/drawable/ic_ixf_search.xml b/app/src/main/res/drawable/ic_ixf_search.xml
+new file mode 100644
+index 0000000..9e423f3
+--- /dev/null
++++ b/app/src/main/res/drawable/ic_ixf_search.xml
+@@ -0,0 +1,7 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated from Ionicons (MIT, (c) 2015-present Ionic, http://ionic.io/). See THIRD_PARTY/IONICONS.md -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp" android:height="24dp"
++    android:viewportWidth="512" android:viewportHeight="512" android:autoMirrored="false">
++    <path android:pathData="M456.69,421.39,362.6,327.3a173.81,173.81,0,0,0,34.84-104.58C397.44,126.38,319.06,48,222.72,48S48,126.38,48,222.72s78.38,174.72,174.72,174.72A173.81,173.81,0,0,0,327.3,362.6l94.09,94.09a25,25,0,0,0,35.3-35.3ZM97.92,222.72a124.8,124.8,0,1,1,124.8,124.8A124.95,124.95,0,0,1,97.92,222.72Z" android:fillColor="#FFFFFFFF"/>
++</vector>
+diff --git a/app/src/main/res/drawable/ic_ixf_settings.xml b/app/src/main/res/drawable/ic_ixf_settings.xml
+new file mode 100644
+index 0000000..71aa65f
+--- /dev/null
++++ b/app/src/main/res/drawable/ic_ixf_settings.xml
+@@ -0,0 +1,8 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated from Ionicons (MIT, (c) 2015-present Ionic, http://ionic.io/). See THIRD_PARTY/IONICONS.md -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp" android:height="24dp"
++    android:viewportWidth="512" android:viewportHeight="512" android:autoMirrored="false">
++    <path android:pathData="M208,256A48,48,0,1,0,304,256A48,48,0,1,0,208,256Z" android:fillColor="#FFFFFFFF"/>
++    <path android:pathData="M470.39,300l-.47-.38-31.56-24.75a16.11,16.11,0,0,1-6.1-13.33l0-11.56a16,16,0,0,1,6.11-13.22L469.92,212l.47-.38a26.68,26.68,0,0,0,5.9-34.06l-42.71-73.9a1.59,1.59,0,0,1-.13-.22A26.86,26.86,0,0,0,401,92.14l-.35.13L363.55,107.2a15.94,15.94,0,0,1-14.47-1.29q-4.92-3.1-10-5.86a15.94,15.94,0,0,1-8.19-11.82L325.3,48.64l-.12-.72A27.22,27.22,0,0,0,298.76,26H213.24a26.92,26.92,0,0,0-26.45,22.39l-.09.56-5.57,39.67A16,16,0,0,1,173,100.44c-3.42,1.84-6.76,3.79-10,5.82a15.92,15.92,0,0,1-14.43,1.27l-37.13-15-.35-.14a26.87,26.87,0,0,0-32.48,11.34l-.13.22L35.71,177.9A26.71,26.71,0,0,0,41.61,212l.47.38,31.56,24.75a16.11,16.11,0,0,1,6.1,13.33l0,11.56a16,16,0,0,1-6.11,13.22L42.08,300l-.47.38a26.68,26.68,0,0,0-5.9,34.06l42.71,73.9a1.59,1.59,0,0,1,.13.22A26.86,26.86,0,0,0,111,419.86l.35-.13,37.07-14.93a15.94,15.94,0,0,1,14.47,1.29q4.92,3.11,10,5.86a15.94,15.94,0,0,1,8.19,11.82l5.56,39.59.12.72A27.22,27.22,0,0,0,213.24,486h85.52a26.92,26.92,0,0,0,26.45-22.39l.09-.56,5.57-39.67a16,16,0,0,1,8.18-11.82c3.42-1.84,6.76-3.79,10-5.82a15.92,15.92,0,0,1,14.43-1.27l37.13,14.95.35.14a26.85,26.85,0,0,0,32.48-11.34,2.53,2.53,0,0,1,.13-.22l42.71-73.89A26.7,26.7,0,0,0,470.39,300ZM335.91,259.76a80,80,0,1,1-83.66-83.67A80.21,80.21,0,0,1,335.91,259.76Z" android:fillColor="#FFFFFFFF"/>
++</vector>
+diff --git a/app/src/main/res/drawable/ic_ixf_share.xml b/app/src/main/res/drawable/ic_ixf_share.xml
+new file mode 100644
+index 0000000..ddddd75
+--- /dev/null
++++ b/app/src/main/res/drawable/ic_ixf_share.xml
+@@ -0,0 +1,8 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated from Ionicons (MIT, (c) 2015-present Ionic, http://ionic.io/). See THIRD_PARTY/IONICONS.md -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp" android:height="24dp"
++    android:viewportWidth="512" android:viewportHeight="512" android:autoMirrored="false">
++    <path android:pathData="M376,176H272V321a16,16,0,0,1-32,0V176H136a56.06,56.06,0,0,0-56,56V424a56.06,56.06,0,0,0,56,56H376a56.06,56.06,0,0,0,56-56V232A56.06,56.06,0,0,0,376,176Z" android:fillColor="#FFFFFFFF"/>
++    <path android:pathData="M272,86.63l52.69,52.68a16,16,0,0,0,22.62-22.62l-80-80a16,16,0,0,0-22.62,0l-80,80a16,16,0,0,0,22.62,22.62L240,86.63V176h32Z" android:fillColor="#FFFFFFFF"/>
++</vector>
+diff --git a/app/src/main/res/drawable/ic_ixf_shuffle.xml b/app/src/main/res/drawable/ic_ixf_shuffle.xml
+new file mode 100644
+index 0000000..07dd0ec
+--- /dev/null
++++ b/app/src/main/res/drawable/ic_ixf_shuffle.xml
+@@ -0,0 +1,11 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated from Ionicons (MIT, (c) 2015-present Ionic, http://ionic.io/). See THIRD_PARTY/IONICONS.md -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp" android:height="24dp"
++    android:viewportWidth="512" android:viewportHeight="512" android:autoMirrored="false">
++    <path android:pathData="M400,304L448,352L400,400" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++    <path android:pathData="M400,112L448,160L400,208" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++    <path android:pathData="M64,352h85.19a80,80,0,0,0,66.56-35.62L256,256" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++    <path android:pathData="M64,160h85.19a80,80,0,0,1,66.56,35.62l80.5,120.76A80,80,0,0,0,362.81,352H416" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++    <path android:pathData="M416,160H362.81a80,80,0,0,0-66.56,35.62L288,208" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
++</vector>
+diff --git a/app/src/main/res/drawable/ic_ixf_sparkle.xml b/app/src/main/res/drawable/ic_ixf_sparkle.xml
+new file mode 100644
+index 0000000..868de12
+--- /dev/null
++++ b/app/src/main/res/drawable/ic_ixf_sparkle.xml
+@@ -0,0 +1,9 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated from Ionicons (MIT, (c) 2015-present Ionic, http://ionic.io/). See THIRD_PARTY/IONICONS.md -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp" android:height="24dp"
++    android:viewportWidth="512" android:viewportHeight="512" android:autoMirrored="false">
++    <path android:pathData="M208,512a24.84,24.84,0,0,1-23.34-16l-39.84-103.6a16.06,16.06,0,0,0-9.19-9.19L32,343.34a25,25,0,0,1,0-46.68l103.6-39.84a16.06,16.06,0,0,0,9.19-9.19L184.66,144a25,25,0,0,1,46.68,0l39.84,103.6a16.06,16.06,0,0,0,9.19,9.19l103,39.63A25.49,25.49,0,0,1,400,320.52a24.82,24.82,0,0,1-16,22.82l-103.6,39.84a16.06,16.06,0,0,0-9.19,9.19L231.34,496A24.84,24.84,0,0,1,208,512Zm66.85-254.84h0Z" android:fillColor="#FFFFFFFF"/>
++    <path android:pathData="M88,176a14.67,14.67,0,0,1-13.69-9.4L57.45,122.76a7.28,7.28,0,0,0-4.21-4.21L9.4,101.69a14.67,14.67,0,0,1,0-27.38L53.24,57.45a7.31,7.31,0,0,0,4.21-4.21L74.16,9.79A15,15,0,0,1,86.23.11,14.67,14.67,0,0,1,101.69,9.4l16.86,43.84a7.31,7.31,0,0,0,4.21,4.21L166.6,74.31a14.67,14.67,0,0,1,0,27.38l-43.84,16.86a7.28,7.28,0,0,0-4.21,4.21L101.69,166.6A14.67,14.67,0,0,1,88,176Z" android:fillColor="#FFFFFFFF"/>
++    <path android:pathData="M400,256a16,16,0,0,1-14.93-10.26l-22.84-59.37a8,8,0,0,0-4.6-4.6l-59.37-22.84a16,16,0,0,1,0-29.86l59.37-22.84a8,8,0,0,0,4.6-4.6L384.9,42.68a16.45,16.45,0,0,1,13.17-10.57,16,16,0,0,1,16.86,10.15l22.84,59.37a8,8,0,0,0,4.6,4.6l59.37,22.84a16,16,0,0,1,0,29.86l-59.37,22.84a8,8,0,0,0-4.6,4.6l-22.84,59.37A16,16,0,0,1,400,256Z" android:fillColor="#FFFFFFFF"/>
++</vector>
+diff --git a/app/src/main/res/drawable/ic_ixf_split.xml b/app/src/main/res/drawable/ic_ixf_split.xml
+new file mode 100644
+index 0000000..b6693ea
+--- /dev/null
++++ b/app/src/main/res/drawable/ic_ixf_split.xml
+@@ -0,0 +1,8 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated from Ionicons (MIT, (c) 2015-present Ionic, http://ionic.io/). See THIRD_PARTY/IONICONS.md -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp" android:height="24dp"
++    android:viewportWidth="512" android:viewportHeight="512" android:autoMirrored="false">
++    <path android:pathData="M218.31,340.69A16,16,0,0,0,191,352v32H171a28,28,0,0,1-28-28V152a64,64,0,1,0-64-1.16V356a92.1,92.1,0,0,0,92,92h20v32a16,16,0,0,0,27.31,11.31l64-64a16,16,0,0,0,0-22.62ZM112,64A32,32,0,1,1,80,96,32,32,0,0,1,112,64Z" android:fillColor="#FFFFFFFF"/>
++    <path android:pathData="M432,360.61V156a92.1,92.1,0,0,0-92-92H320V32a16,16,0,0,0-27.31-11.31l-64,64a16,16,0,0,0,0,22.62l64,64A16,16,0,0,0,320,160V128h20a28,28,0,0,1,28,28V360.61a64,64,0,1,0,64,0ZM400,448a32,32,0,1,1,32-32A32,32,0,0,1,400,448Z" android:fillColor="#FFFFFFFF"/>
++</vector>
+diff --git a/app/src/main/res/drawable/ic_ixf_star.xml b/app/src/main/res/drawable/ic_ixf_star.xml
+new file mode 100644
+index 0000000..45d2c1b
+--- /dev/null
++++ b/app/src/main/res/drawable/ic_ixf_star.xml
+@@ -0,0 +1,7 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated from Ionicons (MIT, (c) 2015-present Ionic, http://ionic.io/). See THIRD_PARTY/IONICONS.md -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp" android:height="24dp"
++    android:viewportWidth="512" android:viewportHeight="512" android:autoMirrored="false">
++    <path android:pathData="M394,480a16,16,0,0,1-9.39-3L256,383.76,127.39,477a16,16,0,0,1-24.55-18.08L153,310.35,23,221.2A16,16,0,0,1,32,192H192.38l48.4-148.95a16,16,0,0,1,30.44,0l48.4,149H480a16,16,0,0,1,9.05,29.2L359,310.35l50.13,148.53A16,16,0,0,1,394,480Z" android:fillColor="#FFFFFFFF"/>
++</vector>
+diff --git a/app/src/main/res/drawable/ic_ixf_timer.xml b/app/src/main/res/drawable/ic_ixf_timer.xml
+new file mode 100644
+index 0000000..981c4d5
+--- /dev/null
++++ b/app/src/main/res/drawable/ic_ixf_timer.xml
+@@ -0,0 +1,7 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated from Ionicons (MIT, (c) 2015-present Ionic, http://ionic.io/). See THIRD_PARTY/IONICONS.md -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp" android:height="24dp"
++    android:viewportWidth="512" android:viewportHeight="512" android:autoMirrored="false">
++    <path android:pathData="M256,48C141.12,48,48,141.12,48,256s93.12,208,208,208,208-93.12,208-208S370.88,48,256,48ZM173.67,162.34l105,71a32.5,32.5,0,0,1-37.25,53.26,33.21,33.21,0,0,1-8-8l-71-105a8.13,8.13,0,0,1,11.32-11.32ZM256,432C159,432,80,353.05,80,256a174.55,174.55,0,0,1,53.87-126.72,14.15,14.15,0,1,1,19.64,20.37A146.53,146.53,0,0,0,108.3,256c0,81.44,66.26,147.7,147.7,147.7S403.7,337.44,403.7,256c0-76.67-58.72-139.88-133.55-147V164a14.15,14.15,0,1,1-28.3,0V94.15A14.15,14.15,0,0,1,256,80C353.05,80,432,159,432,256S353.05,432,256,432Z" android:fillColor="#FFFFFFFF"/>
++</vector>
+diff --git a/app/src/main/res/drawable/ic_ixf_undo.xml b/app/src/main/res/drawable/ic_ixf_undo.xml
+new file mode 100644
+index 0000000..4c5dd82
+--- /dev/null
++++ b/app/src/main/res/drawable/ic_ixf_undo.xml
+@@ -0,0 +1,7 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated from Ionicons (MIT, (c) 2015-present Ionic, http://ionic.io/). See THIRD_PARTY/IONICONS.md -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp" android:height="24dp"
++    android:viewportWidth="512" android:viewportHeight="512" android:autoMirrored="false">
++    <path android:pathData="M448,440a16,16,0,0,1-12.61-6.15c-22.86-29.27-44.07-51.86-73.32-67C335,352.88,301,345.59,256,344.23V424A16,16,0,0,1,229,435.57l-176-168a16,16,0,0,1,0-23.14l176-168A16,16,0,0,1,256,88v80.36c74.14,3.41,129.38,30.91,164.35,81.87C449.32,292.44,464,350.9,464,424a16,16,0,0,1-16,16Z" android:fillColor="#FFFFFFFF"/>
++</vector>
+diff --git a/app/src/main/res/drawable/ic_ixf_user.xml b/app/src/main/res/drawable/ic_ixf_user.xml
+new file mode 100644
+index 0000000..41e6461
+--- /dev/null
++++ b/app/src/main/res/drawable/ic_ixf_user.xml
+@@ -0,0 +1,8 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated from Ionicons (MIT, (c) 2015-present Ionic, http://ionic.io/). See THIRD_PARTY/IONICONS.md -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp" android:height="24dp"
++    android:viewportWidth="512" android:viewportHeight="512" android:autoMirrored="false">
++    <path android:pathData="M332.64,64.58C313.18,43.57,286,32,256,32c-30.16,0-57.43,11.5-76.8,32.38-19.58,21.11-29.12,49.8-26.88,80.78C156.76,206.28,203.27,256,256,256s99.16-49.71,103.67-110.82C361.94,114.48,352.34,85.85,332.64,64.58Z" android:fillColor="#FFFFFFFF"/>
++    <path android:pathData="M432,480H80A31,31,0,0,1,55.8,468.87c-6.5-7.77-9.12-18.38-7.18-29.11C57.06,392.94,83.4,353.61,124.8,326c36.78-24.51,83.37-38,131.2-38s94.42,13.5,131.2,38c41.4,27.6,67.74,66.93,76.18,113.75,1.94,10.73-.68,21.34-7.18,29.11A31,31,0,0,1,432,480Z" android:fillColor="#FFFFFFFF"/>
++</vector>
+diff --git a/app/src/main/res/drawable/ic_ixf_volume_high.xml b/app/src/main/res/drawable/ic_ixf_volume_high.xml
+new file mode 100644
+index 0000000..f656fde
+--- /dev/null
++++ b/app/src/main/res/drawable/ic_ixf_volume_high.xml
+@@ -0,0 +1,10 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated from Ionicons (MIT, (c) 2015-present Ionic, http://ionic.io/). See THIRD_PARTY/IONICONS.md -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp" android:height="24dp"
++    android:viewportWidth="512" android:viewportHeight="512" android:autoMirrored="false">
++    <path android:pathData="M232,416a23.88,23.88,0,0,1-14.2-4.68,8.27,8.27,0,0,1-.66-.51L125.76,336H56a24,24,0,0,1-24-24V200a24,24,0,0,1,24-24h69.75l91.37-74.81a8.27,8.27,0,0,1,.66-.51A24,24,0,0,1,256,120V392a24,24,0,0,1-24,24ZM125.82,336Zm-.27-159.86Z" android:fillColor="#FFFFFFFF"/>
++    <path android:pathData="M320,336a16,16,0,0,1-14.29-23.19c9.49-18.87,14.3-38,14.3-56.81,0-19.38-4.66-37.94-14.25-56.73a16,16,0,0,1,28.5-14.54C346.19,208.12,352,231.44,352,256c0,23.86-6,47.81-17.7,71.19A16,16,0,0,1,320,336Z" android:fillColor="#FFFFFFFF"/>
++    <path android:pathData="M368,384a16,16,0,0,1-13.86-24C373.05,327.09,384,299.51,384,256c0-44.17-10.93-71.56-29.82-103.94a16,16,0,0,1,27.64-16.12C402.92,172.11,416,204.81,416,256c0,50.43-13.06,83.29-34.13,120A16,16,0,0,1,368,384Z" android:fillColor="#FFFFFFFF"/>
++    <path android:pathData="M416,432a16,16,0,0,1-13.39-24.74C429.85,365.47,448,323.76,448,256c0-66.5-18.18-108.62-45.49-151.39a16,16,0,1,1,27-17.22C459.81,134.89,480,181.74,480,256c0,64.75-14.66,113.63-50.6,168.74A16,16,0,0,1,416,432Z" android:fillColor="#FFFFFFFF"/>
++</vector>
+diff --git a/app/src/main/res/drawable/ic_ixf_volume_low.xml b/app/src/main/res/drawable/ic_ixf_volume_low.xml
+new file mode 100644
+index 0000000..de63585
+--- /dev/null
++++ b/app/src/main/res/drawable/ic_ixf_volume_low.xml
+@@ -0,0 +1,8 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated from Ionicons (MIT, (c) 2015-present Ionic, http://ionic.io/). See THIRD_PARTY/IONICONS.md -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp" android:height="24dp"
++    android:viewportWidth="512" android:viewportHeight="512" android:autoMirrored="false">
++    <path android:pathData="M296,416.19a23.92,23.92,0,0,1-14.21-4.69l-.66-.51-91.46-75H120a24,24,0,0,1-24-24V200a24,24,0,0,1,24-24h69.65l91.46-75,.66-.51A24,24,0,0,1,320,119.83V392.17a24,24,0,0,1-24,24Z" android:fillColor="#FFFFFFFF"/>
++    <path android:pathData="M384,336a16,16,0,0,1-14.29-23.18c9.49-18.9,14.3-38,14.3-56.82,0-19.36-4.66-37.92-14.25-56.73a16,16,0,0,1,28.5-14.54C410.2,208.16,416,231.47,416,256c0,23.83-6,47.78-17.7,71.18A16,16,0,0,1,384,336Z" android:fillColor="#FFFFFFFF"/>
++</vector>
+diff --git a/app/src/main/res/drawable/ic_ixf_waveform.xml b/app/src/main/res/drawable/ic_ixf_waveform.xml
+new file mode 100644
+index 0000000..5eb833b
+--- /dev/null
++++ b/app/src/main/res/drawable/ic_ixf_waveform.xml
+@@ -0,0 +1,7 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generated from Ionicons (MIT, (c) 2015-present Ionic, http://ionic.io/). See THIRD_PARTY/IONICONS.md -->
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp" android:height="24dp"
++    android:viewportWidth="512" android:viewportHeight="512" android:autoMirrored="false">
++    <path android:pathData="M432,272a48.09,48.09,0,0,0-45.25,32H347.53l-28.35-85.06a16,16,0,0,0-30.56.66L244.11,375.36l-52.33-314a16,16,0,0,0-31.3-1.25L99.51,304H48a16,16,0,0,0,0,32h64a16,16,0,0,0,15.52-12.12l45.34-181.37,51.36,308.12A16,16,0,0,0,239.1,464c.3,0,.6,0,.91,0a16,16,0,0,0,15.37-11.6l49.8-174.28,15.64,46.94A16,16,0,0,0,336,336h50.75A48,48,0,1,0,432,272Z" android:fillColor="#FFFFFFFF"/>
++</vector>
+diff --git a/app/src/main/res/raw/xvox_keep.xml b/app/src/main/res/raw/xvox_keep.xml
+new file mode 100644
+index 0000000..d2eefed
+--- /dev/null
++++ b/app/src/main/res/raw/xvox_keep.xml
+@@ -0,0 +1,4 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Icons are resolved by name at runtime (XvoxIconPacks), so R8 resource shrinking must keep them. -->
++<resources xmlns:tools="http://schemas.android.com/tools"
++    tools:keep="@drawable/ic_ixf_*,@drawable/ic_xvox_*" />
+-- 
+2.43.0
+
