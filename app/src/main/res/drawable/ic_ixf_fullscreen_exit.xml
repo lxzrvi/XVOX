@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generated from Ionicons (MIT, (c) 2015-present Ionic, http://ionic.io/). See THIRD_PARTY/IONICONS.md -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp"
+    android:viewportWidth="512" android:viewportHeight="512" android:autoMirrored="false">
+    <path android:pathData="M304,416L304,304L416,304" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
+    <path android:pathData="M314.2,314.23L432,432" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
+    <path android:pathData="M208,96L208,208L96,208" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
+    <path android:pathData="M197.8,197.77L80,80" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
+    <path android:pathData="M416,208L304,208L304,96" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
+    <path android:pathData="M314.23,197.8L432,80" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
+    <path android:pathData="M96,304L208,304L208,416" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
+    <path android:pathData="M197.77,314.2L80,432" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
+</vector>

@@ -1,5 +1,6 @@
 package com.xvox.music.features.home
 
+import com.xvox.music.core.design.kit.XvoxTextInput
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.ui.Modifier
@@ -71,7 +72,7 @@ fun showPlaylistActions(
                 val focus = androidx.compose.runtime.remember { androidx.compose.ui.focus.FocusRequester() }
                 androidx.compose.runtime.LaunchedEffect(Unit) { focus.requestFocus() }
                 androidx.compose.foundation.layout.Column(Modifier.fillMaxWidth()) {
-                    androidx.compose.foundation.text.BasicTextField(
+                    XvoxTextInput(
                         value = name,
                         onValueChange = { name = it },
                         singleLine = true,

@@ -1,6 +1,7 @@
 // EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/features/playlist/XvoxPlaylistActionsBox.kt
 package com.xvox.music.features.playlist
 
+import com.xvox.music.core.design.kit.XvoxTextInput
 import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -18,7 +19,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -35,7 +35,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.res.painterResource
+import com.xvox.music.core.ui.icons.painterResource
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -183,7 +183,7 @@ private fun PlaylistActionsMain(
                 contentAlignment = Alignment.CenterStart
             ) {
                 if (editing) {
-                    BasicTextField(
+                    XvoxTextInput(
                         value = name,
                         onValueChange = { name = it },
                         singleLine = true,

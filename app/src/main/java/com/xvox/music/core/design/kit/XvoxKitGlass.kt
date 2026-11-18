@@ -13,6 +13,7 @@ import io.github.neoruaa.glasmio.core.LocalGlassAppearance
 import io.github.neoruaa.glasmio.core.LocalGlassColors
 import io.github.neoruaa.glasmio.core.defaultGlassColors
 import io.github.neoruaa.glasmio.glass.GlasmioBackdropProvider
+import io.github.neoruaa.glasmio.ui.GlasmioTextSelectionHost
 import io.github.neoruaa.glasmio.glass.glassBackdropSource
 import io.github.neoruaa.glasmio.glass.render.backdrops.LayerBackdrop
 import io.github.neoruaa.glasmio.glass.render.backdrops.rememberLayerBackdrop
@@ -79,7 +80,12 @@ fun XvoxDesignEngine(content: @Composable () -> Unit) {
         LocalXvoxGlassReady provides true
     ) {
         GlasmioBackdropProvider(backdrop = backdrop) {
-            content()
+            // One host for the whole window: every Glasmio text field below gets the glass caret
+            // loupe, selection handles and the liquid Edit Menu. Popup windows (menus, sheets)
+            // are separate windows and mount their own host.
+            GlasmioTextSelectionHost {
+                content()
+            }
         }
     }
 }

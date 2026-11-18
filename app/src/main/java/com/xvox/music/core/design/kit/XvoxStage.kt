@@ -1,5 +1,6 @@
 package com.xvox.music.core.design.kit
 
+import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -10,10 +11,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -23,12 +25,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.res.painterResource
+import com.xvox.music.core.ui.icons.painterResource
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import com.xvox.music.R
@@ -42,10 +46,11 @@ import io.github.neoruaa.glasmio.icons.SfSymbol
 import io.github.neoruaa.glasmio.scaffold.GlasmioFloatingSearch
 import io.github.neoruaa.glasmio.scaffold.GlasmioNavigationBarWithTrailingItem
 import io.github.neoruaa.glasmio.scaffold.GlasmioPinnedListPage
+import io.github.neoruaa.glasmio.scaffold.glasmioNavigationScrollHint
+import io.github.neoruaa.glasmio.scaffold.rememberGlasmioNavigationScrollState
 import io.github.neoruaa.glasmio.scaffold.rememberGlasmioSearchTransition
 import io.github.neoruaa.glasmio.ui.GlasmioIconButton
 import io.github.neoruaa.glasmio.ui.GlasmioMenu
-import io.github.neoruaa.glasmio.ui.GlasmioMenuItem
 import io.github.neoruaa.glasmio.ui.GlasmioTabItem
 
 /**
@@ -84,9 +89,17 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
     var query by remember { mutableStateOf(TextFieldValue()) }
     var searchBounds by remember { mutableStateOf<Rect?>(null) }
     var menuOpen by remember { mutableStateOf(false) }
-    var showProfile by rememberSaveable { mutableStateOf(false) }
+    // Settings is opened only once the profile popover has finished collapsing into its button,
+    // so the two transitions never overlap.
+    var openSettingsAfterClose by remember { mutableStateOf(false) }
 
-    val compact = remember { mutableFloatStateOf(0f) }
+    // One list state per root page. The navigation bar follows whichever page is on screen: it
+    // shrinks to its compact capsule while scrolling away and springs back on tap or at the top.
+    val pageListStates = StageTabs.indices.map { rememberLazyListState() } + rememberLazyListState()
+    val navigationScroll = rememberGlasmioNavigationScrollState(
+        listState = pageListStates[if (selectedIndex == SettingsIndex) pageListStates.lastIndex else selectedIndex],
+        enabled = !searchActive
+    )
     // The stage owns no background: it samples the application's real backdrop layer, which the
     // root registered from the live wallpaper, gradient or theme fill.
     val engineBackdrop = LocalXvoxGlassBackdrop.current
@@ -121,14 +134,21 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
                     transition = searchTransition,
                     sourceBoundsInWindow = searchBounds
                 ) {
-                    Box(Modifier.fillMaxSize()) {
-                        when (selectedIndex) {
-                            SettingsIndex -> XvoxStageSettingsPage(
-                                prefs = prefs,
-                                backdrop = backdrop,
-                                onBack = { selectedIndex = 0 }
-                            )
-                            else -> XvoxStagePage(title = StageTabs[selectedIndex].label)
+                    Box(Modifier.fillMaxSize().nestedScroll(navigationScroll.nestedScrollConnection)) {
+                        // Root tabs cross-fade, exactly like Glasmio's own navigation.
+                        Crossfade(targetState = selectedIndex, label = "stageRoot") { index ->
+                            when (index) {
+                                SettingsIndex -> XvoxStageSettingsPage(
+                                    prefs = prefs,
+                                    backdrop = backdrop,
+                                    onBack = { selectedIndex = 0 },
+                                    listState = pageListStates.last()
+                                )
+                                else -> XvoxStagePage(
+                                    title = StageTabs[index].label,
+                                    listState = pageListStates[index]
+                                )
+                            }
                         }
 
                         // The bar retires into the search field on Glasmio's own morph clock.
@@ -151,12 +171,17 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
                                             else -> selectedIndex = key
                                         }
                                     },
-                                    onExpand = { compact.floatValue = 0f },
-                                    compactProgress = compact,
+                                    onExpand = navigationScroll::expand,
+                                    compactProgress = navigationScroll.compactProgress,
                                     modifier = Modifier
                                         .align(Alignment.Center)
                                         .widthIn(max = StageBarMaxWidth)
+                                        .glasmioNavigationScrollHint(navigationScroll.scrollHintProgress)
                                         .graphicsLayer {
+                                            // ModulateAlpha fades each draw call instead of rendering the bar
+                                            // into an offscreen layer, which would crop the glass shadow and
+                                            // rim to the bar's bounds and pop when alpha returns to 1.
+                                            compositingStrategy = CompositingStrategy.ModulateAlpha
                                             alpha = 1f - morph
                                             val scale = 1f - .06f * morph
                                             scaleX = scale
@@ -178,13 +203,27 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
                         .align(Alignment.TopEnd)
                         .statusBarsPadding()
                         .padding(top = 8.dp, end = 16.dp)
-                        .graphicsLayer { alpha = 1f - morph }
+                        .graphicsLayer {
+                            compositingStrategy = CompositingStrategy.ModulateAlpha
+                            alpha = 1f - morph
+                        }
                 ) {
+                    // The profile button morphs into the panel and the panel collapses back into the
+                    // same button (Glasmio's source-preview morph), instead of a separate dialog.
                     GlasmioMenu(
                         expanded = menuOpen,
                         onExpandedChange = { menuOpen = it },
-                        itemCount = 2,
+                        itemCount = 1,
+                        menuWidth = XvoxProfilePanelWidth,
+                        heightOverride = XvoxProfilePanelHeight,
+                        forceBelowAnchor = true,
                         backdrop = backdrop,
+                        onClosed = {
+                            if (openSettingsAfterClose) {
+                                openSettingsAfterClose = false
+                                selectedIndex = SettingsIndex
+                            }
+                        },
                         anchor = { open ->
                             GlasmioIconButton(
                                 onClick = open,
@@ -200,33 +239,16 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
                             }
                         }
                     ) { menuBackdrop, close ->
-                        GlasmioMenuItem(
-                            title = "Edit Profile",
-                            onClick = {
+                        XvoxProfilePanel(
+                            prefs = prefs,
+                            menuBackdrop = menuBackdrop,
+                            onClose = close,
+                            onOpenSettings = {
+                                openSettingsAfterClose = true
                                 close()
-                                showProfile = true
-                            },
-                            systemName = "person",
-                            backdrop = menuBackdrop
-                        )
-                        GlasmioMenuItem(
-                            title = "Settings",
-                            onClick = {
-                                close()
-                                selectedIndex = SettingsIndex
-                            },
-                            systemName = "gear",
-                            backdrop = menuBackdrop
+                            }
                         )
                     }
-                }
-
-                if (showProfile) {
-                    XvoxEditProfileGlassBox(
-                        prefs = prefs,
-                        backdrop = backdrop,
-                        onDismiss = { showProfile = false }
-                    )
                 }
             }
         }
@@ -238,9 +260,10 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
  * top strip picks up its blurred material as soon as the page scrolls.
  */
 @Composable
-private fun XvoxStagePage(title: String) {
+private fun XvoxStagePage(title: String, listState: LazyListState) {
     GlasmioPinnedListPage(
         title = title,
+        listState = listState,
         bottomPadding = 132.dp,
         // Transparent: the page must not paint over the live app backdrop, which is exactly what
         // the bar, the lens and every glass box sample.

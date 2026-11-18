@@ -25,12 +25,13 @@ import kotlin.math.sin
  * through [painterResource] below, so one Settings choice restyles every icon at once.
  */
 object XvoxIconPrefs {
-    /** monks (bundled Icon Monks) | filled | outlined | rounded | sharp | twotone */
-    var pack: String by mutableStateOf("monks")
+    /** ios (iOS-style filled, default) | monks (bundled Icon Monks) | filled | outlined | rounded | sharp | twotone */
+    var pack: String by mutableStateOf("ios")
     /** thin | normal | fill | bold */
     var style: String by mutableStateOf("normal")
 
     val packs = listOf(
+        "ios" to "iOS Fill",
         "monks" to "Icon Monks",
         "rounded" to "Rounded",
         "outlined" to "Outlined",
@@ -60,6 +61,17 @@ private val MaterialNames = mapOf(
     "skip_next" to "SkipNext", "skip_previous" to "SkipPrevious", "sparkle" to "AutoAwesome",
     "split" to "CallSplit", "star" to "Star", "timer" to "Timer", "undo" to "Undo", "user" to "Person",
     "volume_high" to "VolumeUp", "volume_low" to "VolumeDown", "waveform" to "GraphicEq"
+)
+
+/**
+ * iOS pack: keys that already have a hand-made iOS-filled drawable in the app. Every other key
+ * resolves to the generated Ionicons-based `ic_ixf_<key>` drawable (MIT, see THIRD_PARTY/IONICONS.md).
+ */
+private val IosAliases = mapOf(
+    "play" to "ic_xvox_ios_play", "pause" to "ic_xvox_ios_pause",
+    "skip_next" to "ic_xvox_ios_forward", "skip_previous" to "ic_xvox_ios_rewind",
+    "queue" to "ic_xvox_ios_list", "lyrics" to "ic_xvox_ios_lyrics",
+    "more" to "ic_xvox_ios_ellipsis"
 )
 
 private val cache = ConcurrentHashMap<String, Any>()
@@ -126,6 +138,22 @@ fun painterResource(id: Int): Painter {
     val pack = XvoxIconPrefs.pack
     val style = XvoxIconPrefs.style
     val key = entry.removePrefix("ic_xvox_")
+
+    if (pack == "ios") {
+        // Already-iOS drawables (ic_xvox_ios_*) are used as-is; everything else maps by key.
+        val iosName = if (key.startsWith("ios_")) null else IosAliases[key] ?: "ic_ixf_$key"
+        val iosId = remember(iosName) {
+            if (iosName == null) 0 else context.resources.getIdentifier(iosName, "drawable", context.packageName)
+        }
+        val iosPainter = if (iosId != 0) basePainterResource(iosId) else base
+        return remember(iosPainter, style) {
+            when (style) {
+                "bold" -> BoldPainter(iosPainter, .018f)
+                "thin" -> FadedPainter(iosPainter, .94f)
+                else -> iosPainter
+            }
+        }
+    }
 
     // Thin / Fill steer Material packs to their outline / filled families.
     val family = if (pack == "monks") null else when (style) {

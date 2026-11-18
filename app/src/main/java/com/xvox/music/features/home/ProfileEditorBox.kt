@@ -1,6 +1,7 @@
 // EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/features/home/ProfileEditorBox.kt
 package com.xvox.music.features.home
 
+import com.xvox.music.core.design.kit.XvoxTextInput
 import kotlinx.coroutines.flow.first
 import android.content.Intent
 import android.net.Uri
@@ -24,7 +25,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -231,7 +231,7 @@ fun ProfileEditorBox(
         ) {
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("Username", color = colors.secondaryText, fontSize = 11.sp)
-            BasicTextField(
+            XvoxTextInput(
                 value = draft.username,
                 onValueChange = { value ->
                     if (value.length <= 16) onDraftChange(draft.copy(username = value))

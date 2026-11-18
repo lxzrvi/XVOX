@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Icons are resolved by name at runtime (XvoxIconPacks), so R8 resource shrinking must keep them. -->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@drawable/ic_ixf_*,@drawable/ic_xvox_*" />

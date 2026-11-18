@@ -1,6 +1,7 @@
 // EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/features/settings/components/XvoxColorField.kt
 package com.xvox.music.features.settings.components
 
+import com.xvox.music.core.design.kit.XvoxTextInput
 import com.xvox.music.core.ui.blur.xvoxLiveBlur
 import android.graphics.Bitmap
 import androidx.compose.foundation.Canvas
@@ -23,7 +24,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -423,7 +423,7 @@ private fun ColorPickerEditor(
                     )
                     .padding(horizontal = 10.dp, vertical = 8.dp)
             ) {
-                BasicTextField(
+                XvoxTextInput(
                     value = hexInput,
                     onValueChange = onHexInputChange,
                     textStyle = TextStyle(color = colors.primaryText, fontSize = 13.sp),

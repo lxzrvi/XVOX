@@ -27,7 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.res.painterResource
+import com.xvox.music.core.ui.icons.painterResource
 import androidx.compose.ui.unit.dp
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.ui.blur.LocalXvoxShellContentSky

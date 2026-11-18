@@ -1,27 +1,22 @@
 package com.xvox.music.core.design.kit
 
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -32,10 +27,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
@@ -43,154 +37,131 @@ import com.xvox.music.data.preferences.UserPreferencesRepository
 import com.xvox.music.features.setup.PfpIcon
 import com.xvox.music.features.setup.PfpType
 import io.github.neoruaa.glasmio.core.LocalGlassColors
-import io.github.neoruaa.glasmio.glass.GlassSurface
+import io.github.neoruaa.glasmio.glass.GlassEmphasis
 import io.github.neoruaa.glasmio.glass.render.backdrops.LayerBackdrop
-import io.github.neoruaa.glasmio.ui.GlasmioTextField
+import io.github.neoruaa.glasmio.ui.GlasmioAlertFieldGroup
+import io.github.neoruaa.glasmio.ui.GlasmioAlertTextField
+import io.github.neoruaa.glasmio.ui.GlasmioButton
+import io.github.neoruaa.glasmio.ui.GlasmioButtonSize
+import io.github.neoruaa.glasmio.ui.GlasmioMenuItem
+import io.github.neoruaa.glasmio.ui.GlasmioTextSelectionHost
 import kotlinx.coroutines.launch
 
+/** Width and height of the profile popover; the menu needs both up front to size its morph. */
+val XvoxProfilePanelWidth: Dp = 300.dp
+val XvoxProfilePanelHeight: Dp = 300.dp
+
 /**
- * Edit Profile as a small centred box of clear Glasmio glass: it refracts and samples the live
- * page behind it, keeps text-only actions (Cancel / Save) and animates in with the sheet spring.
+ * Content of the profile popover: Edit Profile (name + avatar) with a Settings shortcut.
+ *
+ * It lives inside a `GlasmioMenu` anchored on the profile button, so the button itself morphs into
+ * this panel and the panel collapses back into the very same button - there is no separate dialog
+ * to open or dismiss, which is what used to flash over the closing button.
+ *
+ * A popup is its own window, so it mounts its own text host: the name field gets Glasmio's glass
+ * caret loupe, selection handles and liquid Edit Menu.
  */
 @Composable
-fun XvoxEditProfileGlassBox(
+fun XvoxProfilePanel(
     prefs: UserPreferencesRepository,
-    backdrop: LayerBackdrop,
-    onDismiss: () -> Unit
+    menuBackdrop: LayerBackdrop,
+    onClose: () -> Unit,
+    onOpenSettings: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
     val colors = XvoxTheme.colors
     val glass = LocalGlassColors.current
     val saved by prefs.preferences.collectAsState(initial = null)
 
-    var name by remember { mutableStateOf(TextFieldValue(saved?.username.orEmpty())) }
-    var avatar by remember { mutableStateOf(saved?.selectedPfp ?: PfpType.DEFAULT.name) }
-    var entered by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { entered = true }
+    var name by remember(saved?.username) { mutableStateOf(TextFieldValue(saved?.username.orEmpty())) }
+    var avatar by remember(saved?.selectedPfp) { mutableStateOf(saved?.selectedPfp ?: PfpType.DEFAULT.name) }
 
-    val reveal by animateFloatAsState(
-        targetValue = if (entered) 1f else 0f,
-        animationSpec = spring(dampingRatio = .82f, stiffness = Spring.StiffnessMediumLow),
-        label = "profileBoxReveal"
-    )
-
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black.copy(alpha = .16f * reveal))
-            .pointerInput(Unit) { detectTapGestures { onDismiss() } },
-        contentAlignment = Alignment.Center
-    ) {
-        GlassSurface(
-            backdrop = backdrop,
+    GlasmioTextSelectionHost {
+        Column(
             modifier = Modifier
-                .fillMaxWidth(.82f)
-                .widthIn(max = 320.dp)
-                .graphicsLayer {
-                    alpha = reveal
-                    val s = .92f + .08f * reveal
-                    scaleX = s
-                    scaleY = s
-                }
-                // The box itself must not swallow the outside-tap dismissal.
-                .pointerInput(Unit) { detectTapGestures { } }
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 8.dp)
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 18.dp, vertical = 16.dp)
+            Text(
+                text = "Edit Profile",
+                color = glass.content,
+                fontSize = 17.sp,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(top = 4.dp, bottom = 10.dp)
+            )
+
+            GlasmioAlertFieldGroup {
+                GlasmioAlertTextField(
+                    value = name,
+                    onValueChange = { if (it.text.length <= 16) name = it },
+                    placeholder = "Your name"
+                )
+            }
+
+            Text("Avatar", color = glass.secondaryContent, fontSize = 12.sp)
+            Spacer(Modifier.height(8.dp))
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "Edit Profile",
-                    color = glass.content,
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
-                Spacer(Modifier.height(12.dp))
-
-                GlasmioTextField(
-                    value = name.text,
-                    onValueChange = { name = TextFieldValue(it) },
-                    placeholder = "Your name",
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Spacer(Modifier.height(14.dp))
-                Text("Avatar", color = glass.secondaryContent, fontSize = 12.sp)
-                Spacer(Modifier.height(8.dp))
-
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    PfpType.entries.filter { it != PfpType.CUSTOM }.forEach { type ->
-                        val selected = avatar == type.name
-                        Box(
-                            modifier = Modifier
-                                .size(38.dp)
-                                .clip(CircleShape)
-                                .background(
-                                    if (selected) colors.primaryAccent.copy(alpha = .22f)
-                                    else Color.Transparent
-                                )
-                                .clickable(
-                                    interactionSource = remember { MutableInteractionSource() },
-                                    indication = null
-                                ) { avatar = type.name },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            PfpIcon(
-                                type = type,
-                                color = if (selected) colors.primaryAccent else glass.tertiaryContent,
-                                modifier = Modifier.size(24.dp)
+                PfpType.entries.filter { it != PfpType.CUSTOM }.forEach { type ->
+                    val selected = avatar == type.name
+                    Box(
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(CircleShape)
+                            .background(
+                                if (selected) colors.primaryAccent.copy(alpha = .22f) else Color.Transparent
                             )
-                        }
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null
+                            ) { avatar = type.name },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        PfpIcon(
+                            type = type,
+                            color = if (selected) colors.primaryAccent else glass.tertiaryContent,
+                            modifier = Modifier.size(24.dp)
+                        )
                     }
                 }
-
-                Spacer(Modifier.height(14.dp))
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .height(.5.dp)
-                        .background(glass.separator)
-                )
-
-                Row(modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        text = "Cancel",
-                        color = glass.secondaryContent,
-                        fontSize = 15.sp,
-                        modifier = Modifier
-                            .weight(1f)
-                            .clickable { onDismiss() }
-                            .padding(vertical = 12.dp),
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                    )
-                    Box(
-                        Modifier
-                            .widthIn(min = .5.dp)
-                            .height(44.dp)
-                            .background(glass.separator)
-                    )
-                    Text(
-                        text = "Save",
-                        color = if (name.text.isBlank()) glass.tertiaryContent else colors.primaryAccent,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier
-                            .weight(1f)
-                            .clickable(enabled = name.text.isNotBlank()) {
-                                scope.launch {
-                                    prefs.saveProfile(name.text, avatar, null)
-                                    onDismiss()
-                                }
-                            }
-                            .padding(vertical = 12.dp),
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                    )
-                }
             }
+
+            Spacer(Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                GlasmioButton(
+                    onClick = onClose,
+                    backdrop = menuBackdrop,
+                    size = GlasmioButtonSize.Medium,
+                    modifier = Modifier.weight(1f)
+                ) { Text("Cancel", color = glass.content, fontSize = 15.sp) }
+                GlasmioButton(
+                    onClick = {
+                        scope.launch {
+                            prefs.saveProfile(name.text.trim(), avatar, null)
+                            onClose()
+                        }
+                    },
+                    backdrop = menuBackdrop,
+                    enabled = name.text.isNotBlank(),
+                    emphasis = GlassEmphasis.Prominent,
+                    size = GlasmioButtonSize.Medium,
+                    modifier = Modifier.weight(1f)
+                ) { Text("Save", color = glass.content, fontSize = 15.sp, fontWeight = FontWeight.SemiBold) }
+            }
+
+            Spacer(Modifier.height(8.dp))
+            GlasmioMenuItem(
+                title = "Settings",
+                onClick = onOpenSettings,
+                systemName = "gear",
+                backdrop = menuBackdrop
+            )
         }
     }
 }

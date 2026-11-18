@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generated from Ionicons (MIT, (c) 2015-present Ionic, http://ionic.io/). See THIRD_PARTY/IONICONS.md -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp"
+    android:viewportWidth="512" android:viewportHeight="512" android:autoMirrored="false">
+    <path android:pathData="M192,448L320,448" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
+    <path android:pathData="M384,208v32c0,70.4-57.6,128-128,128h0c-70.4,0-128-57.6-128-128V208" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
+    <path android:pathData="M256,368L256,448" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
+    <path android:pathData="M256,64a63.68,63.68,0,0,0-64,64V239c0,35.2,29,65,64,65s64-29,64-65V128C320,92,292,64,256,64Z" android:strokeColor="#FFFFFFFF" android:strokeWidth="32" android:strokeLineCap="round" android:strokeLineJoin="round"/>
+</vector>

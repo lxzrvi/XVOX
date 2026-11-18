@@ -1,5 +1,6 @@
 package com.xvox.music.features.setup
 
+import com.xvox.music.core.design.kit.XvoxTextInput
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -9,7 +10,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
@@ -104,7 +104,7 @@ fun SetupNameField(
                 },
             contentAlignment = Alignment.Center
         ) {
-            BasicTextField(
+            XvoxTextInput(
                 value = value,
                 onValueChange = { newValue ->
                     if (newValue.length <= 12) {

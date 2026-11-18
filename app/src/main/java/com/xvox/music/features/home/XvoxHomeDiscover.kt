@@ -29,7 +29,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.res.painterResource
+import com.xvox.music.core.ui.icons.painterResource
 import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxLogoFont
 import androidx.compose.runtime.Composable

@@ -13,11 +13,13 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
+import io.github.neoruaa.glasmio.ui.GlasmioGroupedList
+import io.github.neoruaa.glasmio.ui.GlasmioTextField
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.res.painterResource
+import com.xvox.music.core.ui.icons.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -101,11 +103,20 @@ private fun CustomThresholdBox(initial: Int, size: Boolean, onCancel: () -> Unit
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text(if (size) "Files below this size are ignored." else "Audio below this duration is ignored.", color = colors.secondaryText, fontSize = 13.sp)
-        OutlinedTextField(value = input, onValueChange = { if (it.length <= 12) input = it },
-            singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-            label = { Text("Minimum $unit") }, isError = !valid,
-            supportingText = { Text(if (valid) "0 disables this filter" else if (size) "Enter 0–10 GB" else "Enter 0–24 hours") },
-            modifier = Modifier.fillMaxWidth())
+        // Glasmio's field: glass caret loupe, selection handles and liquid Edit Menu.
+        GlasmioGroupedList {
+            GlasmioTextField(
+                value = input,
+                onValueChange = { if (it.length <= 12) input = it },
+                placeholder = "Minimum $unit",
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+            )
+        }
+        Text(
+            if (valid) "0 disables this filter" else if (size) "Enter 0–10 GB" else "Enter 0–24 hours",
+            color = if (valid) colors.secondaryText else com.xvox.music.core.design.theme.XvoxRed,
+            fontSize = 12.sp
+        )
         val units = if (size) listOf("KB", "MB") else listOf("Seconds", "Minutes")
         SettingsFlexChoiceRow(units.map { it to it }, unit) { next ->
             if (valid) input = (number / (if (next == "MB") 1024 else if (next == "Minutes") 60 else 1)).toString()

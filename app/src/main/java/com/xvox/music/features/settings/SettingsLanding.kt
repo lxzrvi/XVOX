@@ -1,6 +1,7 @@
 // NAYI FILE BANAO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/features/settings/SettingsLanding.kt
 package com.xvox.music.features.settings
 
+import com.xvox.music.core.design.kit.XvoxTextInput
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -14,7 +15,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
@@ -31,7 +31,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.res.painterResource
+import com.xvox.music.core.ui.icons.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -73,7 +73,7 @@ fun SettingsSearchBar(query: String, onQueryChange: (String) -> Unit) {
         Spacer(Modifier.width(10.dp))
         Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
             if (query.isEmpty()) Text("Search settings", color = colors.mutedText, fontSize = 15.sp)
-            BasicTextField(
+            XvoxTextInput(
                 value = query, onValueChange = onQueryChange, singleLine = true,
                 textStyle = TextStyle(color = colors.primaryText, fontSize = 15.sp),
                 cursorBrush = SolidColor(colors.primaryText),

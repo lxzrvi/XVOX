@@ -1,6 +1,7 @@
 // EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/features/home/SongFileEditBox.kt
 package com.xvox.music.features.home
 
+import com.xvox.music.core.design.kit.XvoxTextInput
 import android.app.Activity
 import android.content.Intent
 import android.net.Uri
@@ -25,7 +26,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -40,7 +40,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.res.painterResource
+import com.xvox.music.core.ui.icons.painterResource
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -209,7 +209,7 @@ fun SongFileEditBox(
                 fontSize = 11.sp,
                 fontWeight = FontWeight.SemiBold
             )
-            BasicTextField(
+            XvoxTextInput(
                 value = title,
                 onValueChange = { title = it; error = null },
                 singleLine = true,
