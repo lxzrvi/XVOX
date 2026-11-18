@@ -1,0 +1,1608 @@
+From efb5e91e2e7a65a590505490f4e157f3da5a212a Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Wed, 18 Nov 2026 07:18:52 +0000
+Subject: [PATCH] Stage: profile morph panel, inline settings, working
+ background, Glasmio text editing
+
+- Profile: the button now morphs into an Edit Profile panel (GlasmioMenu with custom content) and
+  collapses back into the same button. Settings opens only after the collapse finishes. The old
+  separate dialog, which had no exit animation, is gone.
+- Navbar and profile button fade with CompositingStrategy.ModulateAlpha so the glass shadow/rim is
+  no longer cropped by an offscreen layer and nothing pops when alpha returns to 1.
+- Settings: theme, accent swatches, text size, card transparency, UI style and the background
+  controls are live inside their rows; no more tap-through sub pages.
+- Background: choosing a photo / gradient / plain now writes bgStyle together with the photo.
+  The app root only paints a photo while bgStyle is Custom, so picking one used to change nothing.
+- Text input: GlasmioTextSelectionHost at the root and a new XvoxTextInput (GlasmioEditableText)
+  replace BasicTextField in 10 places; the library-filter Material field uses GlasmioTextField.
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01KievH9end6o7BBBHs4s3kc
+---
+ .../music/core/design/kit/XvoxKitGlass.kt     |   8 +-
+ .../xvox/music/core/design/kit/XvoxStage.kt   |  59 +-
+ .../core/design/kit/XvoxStageEditProfile.kt   | 237 +++----
+ .../core/design/kit/XvoxStageSettings.kt      | 591 ++++++++----------
+ .../music/core/design/kit/XvoxTextInput.kt    |  71 +++
+ .../features/home/HomePlaylistOverlays.kt     |   3 +-
+ .../music/features/home/ProfileEditorBox.kt   |   4 +-
+ .../music/features/home/SongFileEditBox.kt    |   4 +-
+ .../features/playlist/CreatePlaylistBox.kt    |   4 +-
+ .../playlist/XvoxPlaylistActionsBox.kt        |   4 +-
+ .../music/features/search/SearchScreen.kt     |   4 +-
+ .../features/settings/SettingsLanding.kt      |   4 +-
+ .../settings/components/XvoxColorField.kt     |   4 +-
+ .../sections/LibraryFilterSettingsSection.kt  |  21 +-
+ .../music/features/setup/SetupNameField.kt    |   4 +-
+ .../java/com/xvox/music/shell/XvoxTimerBox.kt |   4 +-
+ 16 files changed, 519 insertions(+), 507 deletions(-)
+ create mode 100644 app/src/main/java/com/xvox/music/core/design/kit/XvoxTextInput.kt
+
+diff --git a/app/src/main/java/com/xvox/music/core/design/kit/XvoxKitGlass.kt b/app/src/main/java/com/xvox/music/core/design/kit/XvoxKitGlass.kt
+index 510bfe4..70e4351 100644
+--- a/app/src/main/java/com/xvox/music/core/design/kit/XvoxKitGlass.kt
++++ b/app/src/main/java/com/xvox/music/core/design/kit/XvoxKitGlass.kt
+@@ -13,6 +13,7 @@ import io.github.neoruaa.glasmio.core.LocalGlassAppearance
+ import io.github.neoruaa.glasmio.core.LocalGlassColors
+ import io.github.neoruaa.glasmio.core.defaultGlassColors
+ import io.github.neoruaa.glasmio.glass.GlasmioBackdropProvider
++import io.github.neoruaa.glasmio.ui.GlasmioTextSelectionHost
+ import io.github.neoruaa.glasmio.glass.glassBackdropSource
+ import io.github.neoruaa.glasmio.glass.render.backdrops.LayerBackdrop
+ import io.github.neoruaa.glasmio.glass.render.backdrops.rememberLayerBackdrop
+@@ -79,7 +80,12 @@ fun XvoxDesignEngine(content: @Composable () -> Unit) {
+         LocalXvoxGlassReady provides true
+     ) {
+         GlasmioBackdropProvider(backdrop = backdrop) {
+-            content()
++            // One host for the whole window: every Glasmio text field below gets the glass caret
++            // loupe, selection handles and the liquid Edit Menu. Popup windows (menus, sheets)
++            // are separate windows and mount their own host.
++            GlasmioTextSelectionHost {
++                content()
++            }
+         }
+     }
+ }
+diff --git a/app/src/main/java/com/xvox/music/core/design/kit/XvoxStage.kt b/app/src/main/java/com/xvox/music/core/design/kit/XvoxStage.kt
+index 9873234..300f1d3 100644
+--- a/app/src/main/java/com/xvox/music/core/design/kit/XvoxStage.kt
++++ b/app/src/main/java/com/xvox/music/core/design/kit/XvoxStage.kt
+@@ -25,6 +25,7 @@ import androidx.compose.ui.Alignment
+ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.geometry.Rect
+ import androidx.compose.ui.graphics.Color
++import androidx.compose.ui.graphics.CompositingStrategy
+ import androidx.compose.ui.graphics.TransformOrigin
+ import androidx.compose.ui.graphics.graphicsLayer
+ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+@@ -50,7 +51,6 @@ import io.github.neoruaa.glasmio.scaffold.rememberGlasmioNavigationScrollState
+ import io.github.neoruaa.glasmio.scaffold.rememberGlasmioSearchTransition
+ import io.github.neoruaa.glasmio.ui.GlasmioIconButton
+ import io.github.neoruaa.glasmio.ui.GlasmioMenu
+-import io.github.neoruaa.glasmio.ui.GlasmioMenuItem
+ import io.github.neoruaa.glasmio.ui.GlasmioTabItem
+ 
+ /**
+@@ -89,7 +89,9 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
+     var query by remember { mutableStateOf(TextFieldValue()) }
+     var searchBounds by remember { mutableStateOf<Rect?>(null) }
+     var menuOpen by remember { mutableStateOf(false) }
+-    var showProfile by rememberSaveable { mutableStateOf(false) }
++    // Settings is opened only once the profile popover has finished collapsing into its button,
++    // so the two transitions never overlap.
++    var openSettingsAfterClose by remember { mutableStateOf(false) }
+ 
+     // One list state per root page. The navigation bar follows whichever page is on screen: it
+     // shrinks to its compact capsule while scrolling away and springs back on tap or at the top.
+@@ -176,6 +178,10 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
+                                         .widthIn(max = StageBarMaxWidth)
+                                         .glasmioNavigationScrollHint(navigationScroll.scrollHintProgress)
+                                         .graphicsLayer {
++                                            // ModulateAlpha fades each draw call instead of rendering the bar
++                                            // into an offscreen layer, which would crop the glass shadow and
++                                            // rim to the bar's bounds and pop when alpha returns to 1.
++                                            compositingStrategy = CompositingStrategy.ModulateAlpha
+                                             alpha = 1f - morph
+                                             val scale = 1f - .06f * morph
+                                             scaleX = scale
+@@ -197,13 +203,27 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
+                         .align(Alignment.TopEnd)
+                         .statusBarsPadding()
+                         .padding(top = 8.dp, end = 16.dp)
+-                        .graphicsLayer { alpha = 1f - morph }
++                        .graphicsLayer {
++                            compositingStrategy = CompositingStrategy.ModulateAlpha
++                            alpha = 1f - morph
++                        }
+                 ) {
++                    // The profile button morphs into the panel and the panel collapses back into the
++                    // same button (Glasmio's source-preview morph), instead of a separate dialog.
+                     GlasmioMenu(
+                         expanded = menuOpen,
+                         onExpandedChange = { menuOpen = it },
+-                        itemCount = 2,
++                        itemCount = 1,
++                        menuWidth = XvoxProfilePanelWidth,
++                        heightOverride = XvoxProfilePanelHeight,
++                        forceBelowAnchor = true,
+                         backdrop = backdrop,
++                        onClosed = {
++                            if (openSettingsAfterClose) {
++                                openSettingsAfterClose = false
++                                selectedIndex = SettingsIndex
++                            }
++                        },
+                         anchor = { open ->
+                             GlasmioIconButton(
+                                 onClick = open,
+@@ -219,34 +239,17 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
+                             }
+                         }
+                     ) { menuBackdrop, close ->
+-                        GlasmioMenuItem(
+-                            title = "Edit Profile",
+-                            onClick = {
+-                                close()
+-                                showProfile = true
+-                            },
+-                            systemName = "person",
+-                            backdrop = menuBackdrop
+-                        )
+-                        GlasmioMenuItem(
+-                            title = "Settings",
+-                            onClick = {
++                        XvoxProfilePanel(
++                            prefs = prefs,
++                            menuBackdrop = menuBackdrop,
++                            onClose = close,
++                            onOpenSettings = {
++                                openSettingsAfterClose = true
+                                 close()
+-                                selectedIndex = SettingsIndex
+-                            },
+-                            systemName = "gear",
+-                            backdrop = menuBackdrop
++                            }
+                         )
+                     }
+                 }
+-
+-                if (showProfile) {
+-                    XvoxEditProfileGlassBox(
+-                        prefs = prefs,
+-                        backdrop = backdrop,
+-                        onDismiss = { showProfile = false }
+-                    )
+-                }
+             }
+         }
+     }
+diff --git a/app/src/main/java/com/xvox/music/core/design/kit/XvoxStageEditProfile.kt b/app/src/main/java/com/xvox/music/core/design/kit/XvoxStageEditProfile.kt
+index 0a8f751..9b1f870 100644
+--- a/app/src/main/java/com/xvox/music/core/design/kit/XvoxStageEditProfile.kt
++++ b/app/src/main/java/com/xvox/music/core/design/kit/XvoxStageEditProfile.kt
+@@ -1,27 +1,22 @@
+ package com.xvox.music.core.design.kit
+ 
+-import androidx.compose.animation.core.Spring
+-import androidx.compose.animation.core.animateFloatAsState
+-import androidx.compose.animation.core.spring
+ import androidx.compose.foundation.background
+ import androidx.compose.foundation.clickable
+-import androidx.compose.foundation.gestures.detectTapGestures
+ import androidx.compose.foundation.interaction.MutableInteractionSource
+ import androidx.compose.foundation.layout.Arrangement
+ import androidx.compose.foundation.layout.Box
+ import androidx.compose.foundation.layout.Column
+ import androidx.compose.foundation.layout.Row
+ import androidx.compose.foundation.layout.Spacer
+-import androidx.compose.foundation.layout.fillMaxSize
+ import androidx.compose.foundation.layout.fillMaxWidth
+ import androidx.compose.foundation.layout.height
+ import androidx.compose.foundation.layout.padding
+ import androidx.compose.foundation.layout.size
+-import androidx.compose.foundation.layout.widthIn
++import androidx.compose.foundation.rememberScrollState
+ import androidx.compose.foundation.shape.CircleShape
++import androidx.compose.foundation.verticalScroll
+ import androidx.compose.material3.Text
+ import androidx.compose.runtime.Composable
+-import androidx.compose.runtime.LaunchedEffect
+ import androidx.compose.runtime.collectAsState
+ import androidx.compose.runtime.getValue
+ import androidx.compose.runtime.mutableStateOf
+@@ -32,10 +27,9 @@ import androidx.compose.ui.Alignment
+ import androidx.compose.ui.Modifier
+ import androidx.compose.ui.draw.clip
+ import androidx.compose.ui.graphics.Color
+-import androidx.compose.ui.graphics.graphicsLayer
+-import androidx.compose.ui.input.pointer.pointerInput
+ import androidx.compose.ui.text.font.FontWeight
+ import androidx.compose.ui.text.input.TextFieldValue
++import androidx.compose.ui.unit.Dp
+ import androidx.compose.ui.unit.dp
+ import androidx.compose.ui.unit.sp
+ import com.xvox.music.core.design.theme.XvoxTheme
+@@ -43,154 +37,131 @@ import com.xvox.music.data.preferences.UserPreferencesRepository
+ import com.xvox.music.features.setup.PfpIcon
+ import com.xvox.music.features.setup.PfpType
+ import io.github.neoruaa.glasmio.core.LocalGlassColors
+-import io.github.neoruaa.glasmio.glass.GlassSurface
++import io.github.neoruaa.glasmio.glass.GlassEmphasis
+ import io.github.neoruaa.glasmio.glass.render.backdrops.LayerBackdrop
+-import io.github.neoruaa.glasmio.ui.GlasmioTextField
++import io.github.neoruaa.glasmio.ui.GlasmioAlertFieldGroup
++import io.github.neoruaa.glasmio.ui.GlasmioAlertTextField
++import io.github.neoruaa.glasmio.ui.GlasmioButton
++import io.github.neoruaa.glasmio.ui.GlasmioButtonSize
++import io.github.neoruaa.glasmio.ui.GlasmioMenuItem
++import io.github.neoruaa.glasmio.ui.GlasmioTextSelectionHost
+ import kotlinx.coroutines.launch
+ 
++/** Width and height of the profile popover; the menu needs both up front to size its morph. */
++val XvoxProfilePanelWidth: Dp = 300.dp
++val XvoxProfilePanelHeight: Dp = 300.dp
++
+ /**
+- * Edit Profile as a small centred box of clear Glasmio glass: it refracts and samples the live
+- * page behind it, keeps text-only actions (Cancel / Save) and animates in with the sheet spring.
++ * Content of the profile popover: Edit Profile (name + avatar) with a Settings shortcut.
++ *
++ * It lives inside a `GlasmioMenu` anchored on the profile button, so the button itself morphs into
++ * this panel and the panel collapses back into the very same button - there is no separate dialog
++ * to open or dismiss, which is what used to flash over the closing button.
++ *
++ * A popup is its own window, so it mounts its own text host: the name field gets Glasmio's glass
++ * caret loupe, selection handles and liquid Edit Menu.
+  */
+ @Composable
+-fun XvoxEditProfileGlassBox(
++fun XvoxProfilePanel(
+     prefs: UserPreferencesRepository,
+-    backdrop: LayerBackdrop,
+-    onDismiss: () -> Unit
++    menuBackdrop: LayerBackdrop,
++    onClose: () -> Unit,
++    onOpenSettings: () -> Unit
+ ) {
+     val scope = rememberCoroutineScope()
+     val colors = XvoxTheme.colors
+     val glass = LocalGlassColors.current
+     val saved by prefs.preferences.collectAsState(initial = null)
+ 
+-    var name by remember { mutableStateOf(TextFieldValue(saved?.username.orEmpty())) }
+-    var avatar by remember { mutableStateOf(saved?.selectedPfp ?: PfpType.DEFAULT.name) }
+-    var entered by remember { mutableStateOf(false) }
+-    LaunchedEffect(Unit) { entered = true }
+-
+-    val reveal by animateFloatAsState(
+-        targetValue = if (entered) 1f else 0f,
+-        animationSpec = spring(dampingRatio = .82f, stiffness = Spring.StiffnessMediumLow),
+-        label = "profileBoxReveal"
+-    )
++    var name by remember(saved?.username) { mutableStateOf(TextFieldValue(saved?.username.orEmpty())) }
++    var avatar by remember(saved?.selectedPfp) { mutableStateOf(saved?.selectedPfp ?: PfpType.DEFAULT.name) }
+ 
+-    Box(
+-        modifier = Modifier
+-            .fillMaxSize()
+-            .background(Color.Black.copy(alpha = .16f * reveal))
+-            .pointerInput(Unit) { detectTapGestures { onDismiss() } },
+-        contentAlignment = Alignment.Center
+-    ) {
+-        GlassSurface(
+-            backdrop = backdrop,
++    GlasmioTextSelectionHost {
++        Column(
+             modifier = Modifier
+-                .fillMaxWidth(.82f)
+-                .widthIn(max = 320.dp)
+-                .graphicsLayer {
+-                    alpha = reveal
+-                    val s = .92f + .08f * reveal
+-                    scaleX = s
+-                    scaleY = s
+-                }
+-                // The box itself must not swallow the outside-tap dismissal.
+-                .pointerInput(Unit) { detectTapGestures { } }
++                .fillMaxWidth()
++                .verticalScroll(rememberScrollState())
++                .padding(horizontal = 8.dp)
+         ) {
+-            Column(
+-                modifier = Modifier
+-                    .fillMaxWidth()
+-                    .padding(horizontal = 18.dp, vertical = 16.dp)
+-            ) {
+-                Text(
+-                    text = "Edit Profile",
+-                    color = glass.content,
+-                    fontSize = 17.sp,
+-                    fontWeight = FontWeight.SemiBold
+-                )
+-                Spacer(Modifier.height(12.dp))
++            Text(
++                text = "Edit Profile",
++                color = glass.content,
++                fontSize = 17.sp,
++                fontWeight = FontWeight.SemiBold,
++                modifier = Modifier.padding(top = 4.dp, bottom = 10.dp)
++            )
+ 
+-                GlasmioTextField(
+-                    value = name.text,
+-                    onValueChange = { name = TextFieldValue(it) },
+-                    placeholder = "Your name",
+-                    modifier = Modifier.fillMaxWidth()
++            GlasmioAlertFieldGroup {
++                GlasmioAlertTextField(
++                    value = name,
++                    onValueChange = { if (it.text.length <= 16) name = it },
++                    placeholder = "Your name"
+                 )
++            }
+ 
+-                Spacer(Modifier.height(14.dp))
+-                Text("Avatar", color = glass.secondaryContent, fontSize = 12.sp)
+-                Spacer(Modifier.height(8.dp))
+-
+-                Row(
+-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+-                    verticalAlignment = Alignment.CenterVertically
+-                ) {
+-                    PfpType.entries.filter { it != PfpType.CUSTOM }.forEach { type ->
+-                        val selected = avatar == type.name
+-                        Box(
+-                            modifier = Modifier
+-                                .size(38.dp)
+-                                .clip(CircleShape)
+-                                .background(
+-                                    if (selected) colors.primaryAccent.copy(alpha = .22f)
+-                                    else Color.Transparent
+-                                )
+-                                .clickable(
+-                                    interactionSource = remember { MutableInteractionSource() },
+-                                    indication = null
+-                                ) { avatar = type.name },
+-                            contentAlignment = Alignment.Center
+-                        ) {
+-                            PfpIcon(
+-                                type = type,
+-                                color = if (selected) colors.primaryAccent else glass.tertiaryContent,
+-                                modifier = Modifier.size(24.dp)
++            Text("Avatar", color = glass.secondaryContent, fontSize = 12.sp)
++            Spacer(Modifier.height(8.dp))
++            Row(
++                horizontalArrangement = Arrangement.spacedBy(8.dp),
++                verticalAlignment = Alignment.CenterVertically
++            ) {
++                PfpType.entries.filter { it != PfpType.CUSTOM }.forEach { type ->
++                    val selected = avatar == type.name
++                    Box(
++                        modifier = Modifier
++                            .size(38.dp)
++                            .clip(CircleShape)
++                            .background(
++                                if (selected) colors.primaryAccent.copy(alpha = .22f) else Color.Transparent
+                             )
+-                        }
++                            .clickable(
++                                interactionSource = remember { MutableInteractionSource() },
++                                indication = null
++                            ) { avatar = type.name },
++                        contentAlignment = Alignment.Center
++                    ) {
++                        PfpIcon(
++                            type = type,
++                            color = if (selected) colors.primaryAccent else glass.tertiaryContent,
++                            modifier = Modifier.size(24.dp)
++                        )
+                     }
+                 }
++            }
+ 
+-                Spacer(Modifier.height(14.dp))
+-                Box(
+-                    Modifier
+-                        .fillMaxWidth()
+-                        .height(.5.dp)
+-                        .background(glass.separator)
+-                )
+-
+-                Row(modifier = Modifier.fillMaxWidth()) {
+-                    Text(
+-                        text = "Cancel",
+-                        color = glass.secondaryContent,
+-                        fontSize = 15.sp,
+-                        modifier = Modifier
+-                            .weight(1f)
+-                            .clickable { onDismiss() }
+-                            .padding(vertical = 12.dp),
+-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+-                    )
+-                    Box(
+-                        Modifier
+-                            .widthIn(min = .5.dp)
+-                            .height(44.dp)
+-                            .background(glass.separator)
+-                    )
+-                    Text(
+-                        text = "Save",
+-                        color = if (name.text.isBlank()) glass.tertiaryContent else colors.primaryAccent,
+-                        fontSize = 15.sp,
+-                        fontWeight = FontWeight.SemiBold,
+-                        modifier = Modifier
+-                            .weight(1f)
+-                            .clickable(enabled = name.text.isNotBlank()) {
+-                                scope.launch {
+-                                    prefs.saveProfile(name.text, avatar, null)
+-                                    onDismiss()
+-                                }
+-                            }
+-                            .padding(vertical = 12.dp),
+-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+-                    )
+-                }
++            Spacer(Modifier.height(12.dp))
++            Row(
++                modifier = Modifier.fillMaxWidth(),
++                horizontalArrangement = Arrangement.spacedBy(10.dp)
++            ) {
++                GlasmioButton(
++                    onClick = onClose,
++                    backdrop = menuBackdrop,
++                    size = GlasmioButtonSize.Medium,
++                    modifier = Modifier.weight(1f)
++                ) { Text("Cancel", color = glass.content, fontSize = 15.sp) }
++                GlasmioButton(
++                    onClick = {
++                        scope.launch {
++                            prefs.saveProfile(name.text.trim(), avatar, null)
++                            onClose()
++                        }
++                    },
++                    backdrop = menuBackdrop,
++                    enabled = name.text.isNotBlank(),
++                    emphasis = GlassEmphasis.Prominent,
++                    size = GlasmioButtonSize.Medium,
++                    modifier = Modifier.weight(1f)
++                ) { Text("Save", color = glass.content, fontSize = 15.sp, fontWeight = FontWeight.SemiBold) }
+             }
++
++            Spacer(Modifier.height(8.dp))
++            GlasmioMenuItem(
++                title = "Settings",
++                onClick = onOpenSettings,
++                systemName = "gear",
++                backdrop = menuBackdrop
++            )
+         }
+     }
+ }
+diff --git a/app/src/main/java/com/xvox/music/core/design/kit/XvoxStageSettings.kt b/app/src/main/java/com/xvox/music/core/design/kit/XvoxStageSettings.kt
+index 3a0357a..7ec4a3a 100644
+--- a/app/src/main/java/com/xvox/music/core/design/kit/XvoxStageSettings.kt
++++ b/app/src/main/java/com/xvox/music/core/design/kit/XvoxStageSettings.kt
+@@ -4,14 +4,22 @@ import android.net.Uri
+ import androidx.activity.compose.rememberLauncherForActivityResult
+ import androidx.activity.result.PickVisualMediaRequest
+ import androidx.activity.result.contract.ActivityResultContracts
+-import androidx.compose.animation.Crossfade
++import androidx.compose.foundation.background
++import androidx.compose.foundation.border
++import androidx.compose.foundation.clickable
++import androidx.compose.foundation.interaction.MutableInteractionSource
++import androidx.compose.foundation.layout.Box
+ import androidx.compose.foundation.layout.Column
++import androidx.compose.foundation.layout.Row
++import androidx.compose.foundation.layout.Spacer
+ import androidx.compose.foundation.layout.fillMaxSize
+ import androidx.compose.foundation.layout.fillMaxWidth
++import androidx.compose.foundation.layout.height
+ import androidx.compose.foundation.layout.padding
+-import androidx.compose.foundation.lazy.LazyListScope
++import androidx.compose.foundation.layout.size
+ import androidx.compose.foundation.lazy.LazyListState
+ import androidx.compose.foundation.lazy.rememberLazyListState
++import androidx.compose.foundation.shape.CircleShape
+ import androidx.compose.material3.Text
+ import androidx.compose.runtime.Composable
+ import androidx.compose.runtime.collectAsState
+@@ -21,12 +29,18 @@ import androidx.compose.runtime.mutableStateOf
+ import androidx.compose.runtime.remember
+ import androidx.compose.runtime.rememberCoroutineScope
+ import androidx.compose.runtime.setValue
++import androidx.compose.ui.Alignment
+ import androidx.compose.ui.Modifier
++import androidx.compose.ui.draw.clip
++import androidx.compose.ui.graphics.Brush
+ import androidx.compose.ui.graphics.Color
+ import androidx.compose.ui.graphics.toArgb
+ import androidx.compose.ui.unit.dp
+ import androidx.compose.ui.unit.sp
++import com.xvox.music.core.design.theme.XvoxRed
++import com.xvox.music.core.ui.chrome.XvoxBackgroundMode
+ import com.xvox.music.core.ui.chrome.XvoxChromeStyle
++import com.xvox.music.core.ui.chrome.backgroundMode
+ import com.xvox.music.data.preferences.UserPreferencesRepository
+ import io.github.neoruaa.glasmio.core.LocalGlassColors
+ import io.github.neoruaa.glasmio.glass.render.backdrops.LayerBackdrop
+@@ -38,18 +52,15 @@ import io.github.neoruaa.glasmio.ui.GlasmioGroupedList
+ import io.github.neoruaa.glasmio.ui.GlasmioListRow
+ import io.github.neoruaa.glasmio.ui.GlasmioSegmentedControl
+ import io.github.neoruaa.glasmio.ui.GlasmioSlider
++import kotlinx.coroutines.flow.first
+ import kotlinx.coroutines.launch
+ 
+-private const val RouteTheme = "theme"
+-private const val RouteAccent = "accent"
+-private const val RouteBackground = "background"
+-private const val RouteText = "text"
+-private const val RouteTransparency = "transparency"
+-private const val RouteStyle = "style"
+-
+ /**
+- * Settings tree. The root page carries labelled rows; every label opens its own Glasmio page with
+- * a back chevron, so each option keeps the native large-title + blur header behaviour.
++ * Settings page of the rebuild stage.
++ *
++ * Every day-to-day option is a live control on this one page - segmented controls, swatches and
++ * sliders sit inside their rows - so nothing needs a tap-through. Changes persist immediately and
++ * the app-wide backdrop reacts to them through the preferences flows read by the app root.
+  */
+ @Composable
+ fun XvoxStageSettingsPage(
+@@ -58,44 +69,17 @@ fun XvoxStageSettingsPage(
+     onBack: () -> Unit,
+     /** Owned by the stage so the navigation bar can follow this page's scroll. */
+     listState: LazyListState = rememberLazyListState()
+-) {
+-    var route by remember { mutableStateOf<String?>(null) }
+-
+-    Crossfade(targetState = route, label = "settingsRoute") { current ->
+-        when (current) {
+-            null -> SettingsRoot(
+-                prefs = prefs,
+-                backdrop = backdrop,
+-                onBack = onBack,
+-                onRoute = { route = it },
+-                listState = listState
+-            )
+-            RouteTheme -> SettingsThemePage(prefs, backdrop) { route = null }
+-            RouteAccent -> SettingsAccentPage(prefs, backdrop) { route = null }
+-            RouteBackground -> SettingsBackgroundPage(prefs, backdrop) { route = null }
+-            RouteText -> SettingsTextSizePage(prefs, backdrop) { route = null }
+-            RouteTransparency -> SettingsTransparencyPage(prefs, backdrop) { route = null }
+-            RouteStyle -> SettingsStylePage(prefs, backdrop) { route = null }
+-        }
+-    }
+-}
+-
+-@Composable
+-private fun SettingsRoot(
+-    prefs: UserPreferencesRepository,
+-    backdrop: LayerBackdrop,
+-    onBack: () -> Unit,
+-    onRoute: (String) -> Unit,
+-    listState: LazyListState
+ ) {
+     val scope = rememberCoroutineScope()
+     val theme by prefs.theme.collectAsState(initial = "System")
+     val accent by prefs.accentColor.collectAsState(initial = "Red")
+-    val background by prefs.themeBackground.collectAsState(initial = "Default")
+     val fontScale by prefs.fontSizeScale.collectAsState(initial = .90f)
+     val transparency by prefs.cardTransparency.collectAsState(initial = 0f)
+     val design by prefs.designLanguage.collectAsState(initial = "xvox")
+     val hapticsEnabled by prefs.hapticFeedbackEnabled.collectAsState(initial = true)
++    var accentPickerOpen by remember { mutableStateOf(false) }
++    val colors = com.xvox.music.core.design.theme.XvoxTheme.colors
++    val textSizes = remember { mapOf("XS" to .70f, "S" to .80f, "M" to .90f, "L" to 1.00f) }
+ 
+     GlasmioPinnedListPage(
+         title = "Settings",
+@@ -108,93 +92,7 @@ private fun SettingsRoot(
+         item {
+             GlasmioPreferenceGroupTitle("Appearance")
+             GlasmioGroupedList {
+-                GlasmioListRow(
+-                    title = "Theme",
+-                    detail = theme,
+-                    showTopSeparator = false,
+-                    onClick = { onRoute(RouteTheme) }
+-                )
+-                GlasmioListRow(
+-                    title = "Accent colour",
+-                    detail = accentLabel(accent),
+-                    onClick = { onRoute(RouteAccent) }
+-                )
+-                GlasmioListRow(
+-                    title = "Background",
+-                    detail = backgroundLabel(background),
+-                    onClick = { onRoute(RouteBackground) }
+-                )
+-                GlasmioListRow(
+-                    title = "Text size",
+-                    detail = scaleKey(fontScale),
+-                    onClick = { onRoute(RouteText) }
+-                )
+-                GlasmioListRow(
+-                    title = "Card transparency",
+-                    detail = "${(transparency * 100).toInt()}%",
+-                    onClick = { onRoute(RouteTransparency) }
+-                )
+-                GlasmioListRow(
+-                    title = "UI style",
+-                    detail = design,
+-                    onClick = { onRoute(RouteStyle) }
+-                )
+-            }
+-        }
+-        item {
+-            GlasmioPreferenceGroupTitle("Feedback")
+-            GlasmioGroupedList {
+-                GlasmioSwitchPreference(
+-                    title = { Text("Haptic feedback") },
+-                    description = "Tap and slider haptics across the app",
+-                    checked = hapticsEnabled,
+-                    onCheckedChange = { scope.launch { prefs.setHapticFeedbackEnabled(it) } },
+-                    showTopSeparator = false
+-                )
+-            }
+-        }
+-        item {
+-            GlasmioPreferenceGroupTitle("About")
+-            GlasmioGroupedList {
+-                GlasmioListRow(
+-                    title = "Version",
+-                    detail = "1.02.11",
+-                    showTopSeparator = false
+-                )
+-            }
+-        }
+-    }
+-}
+-
+-@Composable
+-private fun SettingsSubPage(
+-    title: String,
+-    onBack: () -> Unit,
+-    content: LazyListScope.() -> Unit
+-) {
+-    GlasmioPinnedListPage(
+-        title = title,
+-        onNavigateBack = onBack,
+-        bottomPadding = 132.dp,
+-        backgroundColor = Color.Transparent,
+-        modifier = Modifier.fillMaxSize(),
+-        content = content
+-    )
+-}
+-
+-@Composable
+-private fun SettingsThemePage(
+-    prefs: UserPreferencesRepository,
+-    backdrop: LayerBackdrop,
+-    onBack: () -> Unit
+-) {
+-    val scope = rememberCoroutineScope()
+-    val theme by prefs.theme.collectAsState(initial = "System")
+-    val glass = LocalGlassColors.current
+-    SettingsSubPage("Theme", onBack) {
+-        item {
+-            GlasmioGroupedList {
+-                Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
++                InlineSetting(title = "Theme", showTopSeparator = false) {
+                     GlasmioSegmentedControl(
+                         items = listOf("System" to "Auto", "Light" to "Light", "Dark" to "Dark"),
+                         selected = theme.takeIf { it in setOf("System", "Light", "Dark") } ?: "System",
+@@ -203,67 +101,41 @@ private fun SettingsThemePage(
+                         height = 34.dp,
+                         modifier = Modifier.fillMaxWidth()
+                     )
+-                    Text(
+-                        text = "Auto follows the system appearance.",
+-                        color = glass.secondaryContent,
+-                        fontSize = 12.sp,
+-                        modifier = Modifier.padding(top = 10.dp)
++                }
++                InlineSetting(title = "Accent colour", detail = accentLabel(accent)) {
++                    AccentSwatches(
++                        accent = accent,
++                        onPreset = { scope.launch { prefs.setAccentColor(it) } },
++                        onCustom = { accentPickerOpen = true }
+                     )
+                 }
+-            }
+-        }
+-    }
+-}
+-
+-@Composable
+-private fun SettingsTextSizePage(
+-    prefs: UserPreferencesRepository,
+-    backdrop: LayerBackdrop,
+-    onBack: () -> Unit
+-) {
+-    val scope = rememberCoroutineScope()
+-    val fontScale by prefs.fontSizeScale.collectAsState(initial = .90f)
+-    val glass = LocalGlassColors.current
+-    val values = remember { mapOf("XS" to .70f, "S" to .80f, "M" to .90f, "L" to 1.00f) }
+-    SettingsSubPage("Text size", onBack) {
+-        item {
+-            GlasmioGroupedList {
+-                Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
++                InlineSetting(title = "Text size", detail = scaleKey(fontScale)) {
+                     GlasmioSegmentedControl(
+                         items = listOf("XS", "S", "M", "L").map { it to it },
+                         selected = scaleKey(fontScale),
+                         onSelected = { key ->
+-                            values[key]?.let { v -> scope.launch { prefs.setFontSizeScale(v) } }
++                            textSizes[key]?.let { v -> scope.launch { prefs.setFontSizeScale(v) } }
+                         },
+                         backdrop = backdrop,
+                         height = 34.dp,
+                         modifier = Modifier.fillMaxWidth()
+                     )
+-                    Text(
+-                        text = "Scales every text style in the interface.",
+-                        color = glass.secondaryContent,
+-                        fontSize = 12.sp,
+-                        modifier = Modifier.padding(top = 10.dp)
++                }
++                var liveTransparency by remember(transparency) { mutableFloatStateOf(transparency) }
++                InlineSetting(
++                    title = "Card transparency",
++                    detail = "${(liveTransparency / .6f * 100).toInt()}%"
++                ) {
++                    GlasmioSlider(
++                        value = liveTransparency,
++                        onValueChange = { liveTransparency = it },
++                        onValueChangeFinished = { scope.launch { prefs.setCardTransparency(liveTransparency) } },
++                        valueRange = 0f..0.6f,
++                        backdrop = backdrop,
++                        modifier = Modifier.fillMaxWidth()
+                     )
+                 }
+-            }
+-        }
+-    }
+-}
+-
+-@Composable
+-private fun SettingsStylePage(
+-    prefs: UserPreferencesRepository,
+-    backdrop: LayerBackdrop,
+-    onBack: () -> Unit
+-) {
+-    val scope = rememberCoroutineScope()
+-    val design by prefs.designLanguage.collectAsState(initial = "xvox")
+-    val glass = LocalGlassColors.current
+-    SettingsSubPage("UI style", onBack) {
+-        item {
+-            GlasmioGroupedList {
+-                Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
++                InlineSetting(title = "UI style") {
+                     GlasmioSegmentedControl(
+                         items = listOf("xvox" to "XVOX", "material" to "M3", "ios" to "iOS"),
+                         selected = design,
+@@ -272,198 +144,275 @@ private fun SettingsStylePage(
+                         height = 34.dp,
+                         modifier = Modifier.fillMaxWidth()
+                     )
+-                    Text(
+-                        text = "Chooses the component language for rebuilt surfaces.",
+-                        color = glass.secondaryContent,
+-                        fontSize = 12.sp,
+-                        modifier = Modifier.padding(top = 10.dp)
+-                    )
+                 }
+             }
+         }
+-    }
+-}
+-
+-@Composable
+-private fun SettingsTransparencyPage(
+-    prefs: UserPreferencesRepository,
+-    backdrop: LayerBackdrop,
+-    onBack: () -> Unit
+-) {
+-    val scope = rememberCoroutineScope()
+-    val transparency by prefs.cardTransparency.collectAsState(initial = 0f)
+-    val glass = LocalGlassColors.current
+-    var live by remember(transparency) { mutableFloatStateOf(transparency) }
+-    SettingsSubPage("Card transparency", onBack) {
+         item {
++            GlasmioPreferenceGroupTitle("Background")
+             GlasmioGroupedList {
+-                Column(Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
+-                    Text(
+-                        text = "${(live * 100).toInt()}%",
+-                        color = glass.content,
+-                        fontSize = 17.sp
+-                    )
+-                    GlasmioSlider(
+-                        value = live,
+-                        onValueChange = { live = it },
+-                        onValueChangeFinished = { scope.launch { prefs.setCardTransparency(live) } },
+-                        valueRange = 0f..0.6f,
+-                        backdrop = backdrop,
+-                        modifier = Modifier
+-                            .fillMaxWidth()
+-                            .padding(top = 6.dp)
+-                    )
+-                    Text(
+-                        text = "Cards blend into the background; the glass bar follows the same alpha.",
+-                        color = glass.secondaryContent,
+-                        fontSize = 12.sp
+-                    )
+-                }
++                BackgroundSettings(prefs = prefs, backdrop = backdrop)
+             }
+         }
+-    }
+-}
+-
+-@Composable
+-private fun SettingsAccentPage(
+-    prefs: UserPreferencesRepository,
+-    backdrop: LayerBackdrop,
+-    onBack: () -> Unit
+-) {
+-    val scope = rememberCoroutineScope()
+-    val accent by prefs.accentColor.collectAsState(initial = "Red")
+-    val colors = com.xvox.music.core.design.theme.XvoxTheme.colors
+-    var pickerOpen by remember { mutableStateOf(false) }
+-
+-    SettingsSubPage("Accent colour", onBack) {
+         item {
++            GlasmioPreferenceGroupTitle("Feedback")
++            GlasmioGroupedList {
++                GlasmioSwitchPreference(
++                    title = { Text("Haptic feedback") },
++                    description = "Tap and slider haptics across the app",
++                    checked = hapticsEnabled,
++                    onCheckedChange = { scope.launch { prefs.setHapticFeedbackEnabled(it) } },
++                    showTopSeparator = false
++                )
++            }
++        }
++        item {
++            GlasmioPreferenceGroupTitle("About")
+             GlasmioGroupedList {
+-                listOf("Red" to "Red", "Blue" to "Blue", "White" to "White").forEachIndexed { index, preset ->
+-                    GlasmioListRow(
+-                        title = preset.second,
+-                        showTopSeparator = index != 0,
+-                        onClick = { scope.launch { prefs.setAccentColor(preset.first) } },
+-                        trailing = {
+-                            if (accent.equals(preset.first, true)) {
+-                                Text("✓", color = colors.primaryAccent, fontSize = 16.sp)
+-                            }
+-                        }
+-                    )
+-                }
+                 GlasmioListRow(
+-                    title = "Custom colour",
+-                    detail = if (accent.startsWith("#")) accent.uppercase() else "Pick a colour",
+-                    onClick = { pickerOpen = true }
++                    title = "Version",
++                    detail = "1.02.11",
++                    showTopSeparator = false
+                 )
+             }
+         }
+     }
+ 
+     GlasmioColorPicker(
+-        visible = pickerOpen,
++        visible = accentPickerOpen,
+         selectedColor = colors.primaryAccent,
+         onColorSelected = { color ->
+             val hex = "#%06X".format(0xFFFFFF and color.toArgb())
+             scope.launch { prefs.setAccentColor(hex) }
+-            pickerOpen = false
++            accentPickerOpen = false
+         },
+-        onDismiss = { pickerOpen = false },
++        onDismiss = { accentPickerOpen = false },
+         title = "Accent colour"
+     )
+ }
+ 
++/**
++ * App background controls. The chosen mode is written to [XvoxChromeStyle.bgStyle] together with
++ * the photo, because the app root only paints a photo while the mode is Custom: choosing a photo
++ * without switching the mode (or removing one without leaving Custom) used to change nothing.
++ */
+ @Composable
+-private fun SettingsBackgroundPage(
++private fun BackgroundSettings(
+     prefs: UserPreferencesRepository,
+-    backdrop: LayerBackdrop,
+-    onBack: () -> Unit
++    backdrop: LayerBackdrop
+ ) {
+     val scope = rememberCoroutineScope()
+     val glass = LocalGlassColors.current
+     val image by prefs.themeBackgroundImage.collectAsState(initial = "")
+     val chrome by prefs.chromeStyle.collectAsState(initial = XvoxChromeStyle())
+     val brightness by prefs.backgroundBrightness.collectAsState(initial = .8f)
+-    var liveBlur by remember(chrome.bgImageBlur) { mutableFloatStateOf(chrome.bgImageBlur) }
+-    var liveBrightness by remember(brightness) { mutableFloatStateOf(brightness) }
++    val base by prefs.themeBackground.collectAsState(initial = "Default")
++    val mode = chrome.backgroundMode(image.isNotBlank())
+ 
+     val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri: Uri? ->
+         if (uri != null) {
+-            scope.launch { prefs.setThemeBackgroundImage(uri.toString()) }
++            scope.launch {
++                prefs.setThemeBackgroundImage(uri.toString())
++                prefs.updateChrome { it.copy(bgStyle = BgStyleCustom) }
++            }
+         }
+     }
++    fun pickPhoto() = picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+ 
+-    SettingsSubPage("Background", onBack) {
+-        item {
+-            GlasmioPreferenceGroupTitle("Photo")
+-            GlasmioGroupedList {
+-                GlasmioListRow(
+-                    title = if (image.isBlank()) "Choose photo" else "Change photo",
+-                    subtitle = if (image.isBlank()) "Uses any image from your library" else null,
+-                    showTopSeparator = false,
+-                    onClick = {
+-                        picker.launch(
+-                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+-                        )
+-                    }
+-                )
+-                GlasmioListRow(
+-                    title = "Remove photo",
+-                    enabled = image.isNotBlank(),
+-                    onClick = {
+-                        if (image.isNotBlank()) scope.launch { prefs.setThemeBackgroundImage(null) }
+-                    }
+-                )
++    InlineSetting(title = "Style", showTopSeparator = false) {
++        GlasmioSegmentedControl(
++            items = listOf("gradient" to "Gradient", "photo" to "Photo", "plain" to "Plain"),
++            selected = when (mode) {
++                XvoxBackgroundMode.Gradient -> "gradient"
++                XvoxBackgroundMode.Custom -> "photo"
++                XvoxBackgroundMode.Off -> "plain"
++            },
++            onSelected = { choice ->
++                when (choice) {
++                    "gradient" -> scope.launch { prefs.updateChrome { it.copy(bgStyle = BgStyleGradient) } }
++                    "plain" -> scope.launch { prefs.updateChrome { it.copy(bgStyle = BgStyleOff) } }
++                    // No photo yet: ask for one; the picker result switches the mode itself.
++                    else -> if (image.isBlank()) pickPhoto()
++                    else scope.launch { prefs.updateChrome { it.copy(bgStyle = BgStyleCustom) } }
++                }
++            },
++            backdrop = backdrop,
++            height = 34.dp,
++            modifier = Modifier.fillMaxWidth()
++        )
++    }
++    InlineSetting(title = "Base colour", detail = backgroundLabel(base)) {
++        GlasmioSegmentedControl(
++            items = listOf("Default" to "Plain", "Midnight" to "Midnight", "Warm" to "Warm"),
++            selected = if (base == "Midnight" || base == "Warm") base else "Default",
++            onSelected = { scope.launch { prefs.setThemeBackground(it) } },
++            backdrop = backdrop,
++            height = 34.dp,
++            modifier = Modifier.fillMaxWidth()
++        )
++    }
++    if (mode == XvoxBackgroundMode.Custom) {
++        GlasmioListRow(
++            title = "Change photo",
++            onClick = { pickPhoto() }
++        )
++        GlasmioListRow(
++            title = "Remove photo",
++            onClick = {
++                scope.launch {
++                    prefs.setThemeBackgroundImage(null)
++                    prefs.updateChrome { it.copy(bgStyle = BgStyleGradient) }
++                }
+             }
++        )
++        var liveBlur by remember(chrome.bgImageBlur) { mutableFloatStateOf(chrome.bgImageBlur) }
++        InlineSetting(title = "Blur", detail = "${(liveBlur * 100).toInt()}%") {
++            GlasmioSlider(
++                value = liveBlur,
++                onValueChange = { liveBlur = it },
++                onValueChangeFinished = {
++                    scope.launch { prefs.updateChrome { it.copy(bgImageBlur = liveBlur, bgBlur = liveBlur) } }
++                },
++                backdrop = backdrop,
++                modifier = Modifier.fillMaxWidth()
++            )
+         }
+-        item {
+-            GlasmioPreferenceGroupTitle("Photo treatment")
+-            GlasmioGroupedList {
+-                Column(Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
+-                    Text("Blur", color = glass.content, fontSize = 17.sp)
+-                    Text(
+-                        text = "${(liveBlur * 100).toInt()}%",
+-                        color = glass.secondaryContent,
+-                        fontSize = 12.sp
+-                    )
+-                    GlasmioSlider(
+-                        value = liveBlur,
+-                        onValueChange = { liveBlur = it },
+-                        onValueChangeFinished = {
+-                            scope.launch {
+-                                prefs.setChromeStyle(
+-                                    chrome.copy(bgImageBlur = liveBlur, bgBlur = liveBlur)
+-                                )
+-                            }
+-                        },
+-                        backdrop = backdrop,
+-                        modifier = Modifier.fillMaxWidth().padding(top = 6.dp)
+-                    )
+-                    Text(
+-                        text = "Brightness",
+-                        color = glass.content,
+-                        fontSize = 17.sp,
+-                        modifier = Modifier.padding(top = 14.dp)
+-                    )
+-                    Text(
+-                        text = "${(liveBrightness * 100).toInt()}%",
+-                        color = glass.secondaryContent,
+-                        fontSize = 12.sp
+-                    )
+-                    GlasmioSlider(
+-                        value = liveBrightness,
+-                        onValueChange = { liveBrightness = it },
+-                        onValueChangeFinished = {
+-                            scope.launch { prefs.setBackgroundBrightness(liveBrightness) }
+-                        },
+-                        backdrop = backdrop,
+-                        modifier = Modifier.fillMaxWidth().padding(top = 6.dp)
+-                    )
++        var liveBrightness by remember(brightness) { mutableFloatStateOf(brightness) }
++        InlineSetting(title = "Brightness", detail = "${(liveBrightness * 100).toInt()}%") {
++            GlasmioSlider(
++                value = liveBrightness,
++                onValueChange = { liveBrightness = it },
++                onValueChangeFinished = { scope.launch { prefs.setBackgroundBrightness(liveBrightness) } },
++                backdrop = backdrop,
++                modifier = Modifier.fillMaxWidth()
++            )
++        }
++    } else {
++        Text(
++            text = if (mode == XvoxBackgroundMode.Gradient) {
++                "Gradient follows your accent colour."
++            } else {
++                "A plain fill in the base colour."
++            },
++            color = glass.secondaryContent,
++            fontSize = 12.sp,
++            modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp)
++        )
++    }
++}
++
++/** Stored values of [XvoxChromeStyle.bgStyle] (see [XvoxBackgroundMode]). */
++private const val BgStyleOff = 1f
++private const val BgStyleCustom = 2f
++private const val BgStyleGradient = 3f
++
++/** Reads the newest stored style first, so two quick edits never overwrite each other. */
++private suspend fun UserPreferencesRepository.updateChrome(block: (XvoxChromeStyle) -> XvoxChromeStyle) {
++    setChromeStyle(block(chromeStyle.first()))
++}
++
++/**
++ * One settings row whose control lives inside it: title (and optional value) on the first line,
++ * the control underneath. Rows inside a grouped list draw their own hairline separator.
++ */
++@Composable
++private fun InlineSetting(
++    title: String,
++    detail: String? = null,
++    showTopSeparator: Boolean = true,
++    content: @Composable () -> Unit
++) {
++    val glass = LocalGlassColors.current
++    Column(Modifier.fillMaxWidth()) {
++        if (showTopSeparator) {
++            Box(
++                Modifier
++                    .fillMaxWidth()
++                    .padding(start = 16.dp)
++                    .height(.5.dp)
++                    .background(glass.separator)
++            )
++        }
++        Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
++            Row(verticalAlignment = Alignment.CenterVertically) {
++                Text(
++                    text = title,
++                    color = glass.content,
++                    fontSize = 17.sp,
++                    modifier = Modifier.weight(1f)
++                )
++                if (detail != null) {
++                    Text(text = detail, color = glass.secondaryContent, fontSize = 15.sp)
+                 }
+             }
++            Spacer(Modifier.height(10.dp))
++            content()
++        }
++    }
++}
++
++private val AccentPresets = listOf(
++    "Red" to XvoxRed,
++    "Blue" to Color(0xFF0A84FF),
++    "White" to Color.White
++)
++
++/** Preset accents plus a rainbow swatch that opens the colour picker. */
++@Composable
++private fun AccentSwatches(
++    accent: String,
++    onPreset: (String) -> Unit,
++    onCustom: () -> Unit
++) {
++    val glass = LocalGlassColors.current
++    Row(
++        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp),
++        verticalAlignment = Alignment.CenterVertically
++    ) {
++        AccentPresets.forEach { (key, color) ->
++            Swatch(
++                selected = accent.equals(key, ignoreCase = true),
++                ring = glass.content,
++                onClick = { onPreset(key) }
++            ) {
++                Box(Modifier.fillMaxSize().background(color))
++            }
++        }
++        Swatch(selected = accent.startsWith("#"), ring = glass.content, onClick = onCustom) {
++            Box(
++                Modifier.fillMaxSize().background(
++                    Brush.sweepGradient(
++                        listOf(
++                            Color(0xFFFF3B30), Color(0xFFFFCC00), Color(0xFF34C759),
++                            Color(0xFF0A84FF), Color(0xFFAF52DE), Color(0xFFFF3B30)
++                        )
++                    )
++                )
++            )
+         }
+     }
+ }
+ 
++@Composable
++private fun Swatch(
++    selected: Boolean,
++    ring: Color,
++    onClick: () -> Unit,
++    content: @Composable () -> Unit
++) {
++    Box(
++        modifier = Modifier
++            .size(40.dp)
++            .then(if (selected) Modifier.border(2.dp, ring, CircleShape) else Modifier)
++            .padding(4.dp)
++            .clip(CircleShape)
++            .clickable(
++                interactionSource = remember { MutableInteractionSource() },
++                indication = null,
++                onClick = onClick
++            )
++    ) { content() }
++}
++
+ private fun accentLabel(value: String): String = when {
+     value.startsWith("#") -> "Custom"
+     else -> value
+diff --git a/app/src/main/java/com/xvox/music/core/design/kit/XvoxTextInput.kt b/app/src/main/java/com/xvox/music/core/design/kit/XvoxTextInput.kt
+new file mode 100644
+index 0000000..d6c9ff3
+--- /dev/null
++++ b/app/src/main/java/com/xvox/music/core/design/kit/XvoxTextInput.kt
+@@ -0,0 +1,71 @@
++package com.xvox.music.core.design.kit
++
++import androidx.compose.foundation.text.KeyboardActions
++import androidx.compose.foundation.text.KeyboardOptions
++import androidx.compose.runtime.Composable
++import androidx.compose.runtime.SideEffect
++import androidx.compose.runtime.getValue
++import androidx.compose.runtime.mutableStateOf
++import androidx.compose.runtime.remember
++import androidx.compose.runtime.setValue
++import androidx.compose.ui.Modifier
++import androidx.compose.ui.graphics.Brush
++import androidx.compose.ui.graphics.SolidColor
++import androidx.compose.ui.graphics.Color
++import androidx.compose.ui.text.TextStyle
++import androidx.compose.ui.text.input.TextFieldValue
++import androidx.compose.ui.text.input.VisualTransformation
++import io.github.neoruaa.glasmio.ui.GlasmioEditableText
++
++/**
++ * The app's single bare text input: a drop-in for `BasicTextField(value: String, ...)` that is
++ * backed by Glasmio's editable text. Under a `GlasmioTextSelectionHost` (mounted at the root by
++ * [XvoxDesignEngine] and inside every popup window that hosts a field) it gets Glasmio's glass
++ * caret loupe, selection handles and liquid Edit Menu; without a host it behaves like a normal
++ * Foundation field.
++ *
++ * The caller keeps owning a plain `String`; selection and IME composition are kept here so the
++ * caret never jumps while typing, and a caller that rejects or truncates a change (length caps)
++ * simply sees its own text re-applied.
++ */
++@Composable
++fun XvoxTextInput(
++    value: String,
++    onValueChange: (String) -> Unit,
++    modifier: Modifier = Modifier,
++    enabled: Boolean = true,
++    readOnly: Boolean = false,
++    textStyle: TextStyle = TextStyle.Default,
++    keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
++    keyboardActions: KeyboardActions = KeyboardActions.Default,
++    singleLine: Boolean = false,
++    maxLines: Int = if (singleLine) 1 else Int.MAX_VALUE,
++    visualTransformation: VisualTransformation = VisualTransformation.None,
++    cursorBrush: Brush = SolidColor(Color.Black),
++    decorationBox: @Composable (innerTextField: @Composable () -> Unit) -> Unit = { it() }
++) {
++    var owned by remember { mutableStateOf(TextFieldValue(value)) }
++    // The caller's text always wins; the field only remembers selection and composition.
++    val current = owned.copy(text = value)
++    SideEffect {
++        if (owned.selection != current.selection || owned.composition != current.composition) owned = current
++    }
++    GlasmioEditableText(
++        value = current,
++        onValueChange = { next ->
++            owned = next
++            if (next.text != value) onValueChange(next.text)
++        },
++        modifier = modifier,
++        enabled = enabled,
++        readOnly = readOnly,
++        textStyle = textStyle,
++        singleLine = singleLine,
++        maxLines = maxLines,
++        visualTransformation = visualTransformation,
++        keyboardOptions = keyboardOptions,
++        keyboardActions = keyboardActions,
++        cursorBrush = cursorBrush,
++        decorationBox = decorationBox
++    )
++}
+diff --git a/app/src/main/java/com/xvox/music/features/home/HomePlaylistOverlays.kt b/app/src/main/java/com/xvox/music/features/home/HomePlaylistOverlays.kt
+index 0d53f6a..ae3b68e 100644
+--- a/app/src/main/java/com/xvox/music/features/home/HomePlaylistOverlays.kt
++++ b/app/src/main/java/com/xvox/music/features/home/HomePlaylistOverlays.kt
+@@ -1,5 +1,6 @@
+ package com.xvox.music.features.home
+ 
++import com.xvox.music.core.design.kit.XvoxTextInput
+ import androidx.compose.foundation.layout.fillMaxWidth
+ import androidx.compose.foundation.layout.height
+ import androidx.compose.ui.Modifier
+@@ -71,7 +72,7 @@ fun showPlaylistActions(
+                 val focus = androidx.compose.runtime.remember { androidx.compose.ui.focus.FocusRequester() }
+                 androidx.compose.runtime.LaunchedEffect(Unit) { focus.requestFocus() }
+                 androidx.compose.foundation.layout.Column(Modifier.fillMaxWidth()) {
+-                    androidx.compose.foundation.text.BasicTextField(
++                    XvoxTextInput(
+                         value = name,
+                         onValueChange = { name = it },
+                         singleLine = true,
+diff --git a/app/src/main/java/com/xvox/music/features/home/ProfileEditorBox.kt b/app/src/main/java/com/xvox/music/features/home/ProfileEditorBox.kt
+index dcc996a..a858d25 100644
+--- a/app/src/main/java/com/xvox/music/features/home/ProfileEditorBox.kt
++++ b/app/src/main/java/com/xvox/music/features/home/ProfileEditorBox.kt
+@@ -1,6 +1,7 @@
+ // EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/features/home/ProfileEditorBox.kt
+ package com.xvox.music.features.home
+ 
++import com.xvox.music.core.design.kit.XvoxTextInput
+ import kotlinx.coroutines.flow.first
+ import android.content.Intent
+ import android.net.Uri
+@@ -24,7 +25,6 @@ import androidx.compose.foundation.layout.padding
+ import androidx.compose.foundation.layout.size
+ import androidx.compose.foundation.rememberScrollState
+ import androidx.compose.foundation.shape.RoundedCornerShape
+-import androidx.compose.foundation.text.BasicTextField
+ import androidx.compose.foundation.verticalScroll
+ import androidx.compose.material3.Switch
+ import androidx.compose.material3.SwitchDefaults
+@@ -231,7 +231,7 @@ fun ProfileEditorBox(
+         ) {
+         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+             Text("Username", color = colors.secondaryText, fontSize = 11.sp)
+-            BasicTextField(
++            XvoxTextInput(
+                 value = draft.username,
+                 onValueChange = { value ->
+                     if (value.length <= 16) onDraftChange(draft.copy(username = value))
+diff --git a/app/src/main/java/com/xvox/music/features/home/SongFileEditBox.kt b/app/src/main/java/com/xvox/music/features/home/SongFileEditBox.kt
+index 3b723b2..b96e7a1 100644
+--- a/app/src/main/java/com/xvox/music/features/home/SongFileEditBox.kt
++++ b/app/src/main/java/com/xvox/music/features/home/SongFileEditBox.kt
+@@ -1,6 +1,7 @@
+ // EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/features/home/SongFileEditBox.kt
+ package com.xvox.music.features.home
+ 
++import com.xvox.music.core.design.kit.XvoxTextInput
+ import android.app.Activity
+ import android.content.Intent
+ import android.net.Uri
+@@ -25,7 +26,6 @@ import androidx.compose.foundation.layout.width
+ import androidx.compose.foundation.rememberScrollState
+ import androidx.compose.foundation.shape.CircleShape
+ import androidx.compose.foundation.shape.RoundedCornerShape
+-import androidx.compose.foundation.text.BasicTextField
+ import androidx.compose.foundation.verticalScroll
+ import androidx.compose.material3.CircularProgressIndicator
+ import androidx.compose.material3.Icon
+@@ -209,7 +209,7 @@ fun SongFileEditBox(
+                 fontSize = 11.sp,
+                 fontWeight = FontWeight.SemiBold
+             )
+-            BasicTextField(
++            XvoxTextInput(
+                 value = title,
+                 onValueChange = { title = it; error = null },
+                 singleLine = true,
+diff --git a/app/src/main/java/com/xvox/music/features/playlist/CreatePlaylistBox.kt b/app/src/main/java/com/xvox/music/features/playlist/CreatePlaylistBox.kt
+index 1ba16b3..75d9efb 100644
+--- a/app/src/main/java/com/xvox/music/features/playlist/CreatePlaylistBox.kt
++++ b/app/src/main/java/com/xvox/music/features/playlist/CreatePlaylistBox.kt
+@@ -1,6 +1,7 @@
+ // EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/features/playlist/CreatePlaylistBox.kt
+ package com.xvox.music.features.playlist
+ 
++import com.xvox.music.core.design.kit.XvoxTextInput
+ import androidx.compose.foundation.background
+ import androidx.compose.foundation.clickable
+ import androidx.compose.foundation.layout.Arrangement
+@@ -21,7 +22,6 @@ import androidx.compose.foundation.lazy.items
+ import androidx.compose.foundation.lazy.rememberLazyListState
+ import androidx.compose.foundation.shape.CircleShape
+ import androidx.compose.foundation.shape.RoundedCornerShape
+-import androidx.compose.foundation.text.BasicTextField
+ import androidx.compose.material3.Icon
+ import androidx.compose.material3.Text
+ import androidx.compose.runtime.Composable
+@@ -137,7 +137,7 @@ fun CreatePlaylistBox(
+                 Spacer(Modifier.width(10.dp))
+             }
+ 
+-            BasicTextField(
++            XvoxTextInput(
+                 value = name,
+                 onValueChange = { name = it },
+                 singleLine = true,
+diff --git a/app/src/main/java/com/xvox/music/features/playlist/XvoxPlaylistActionsBox.kt b/app/src/main/java/com/xvox/music/features/playlist/XvoxPlaylistActionsBox.kt
+index b5b8cd3..c5ce549 100644
+--- a/app/src/main/java/com/xvox/music/features/playlist/XvoxPlaylistActionsBox.kt
++++ b/app/src/main/java/com/xvox/music/features/playlist/XvoxPlaylistActionsBox.kt
+@@ -1,6 +1,7 @@
+ // EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/features/playlist/XvoxPlaylistActionsBox.kt
+ package com.xvox.music.features.playlist
+ 
++import com.xvox.music.core.design.kit.XvoxTextInput
+ import android.net.Uri
+ import androidx.compose.foundation.background
+ import androidx.compose.foundation.clickable
+@@ -18,7 +19,6 @@ import androidx.compose.foundation.layout.padding
+ import androidx.compose.foundation.layout.size
+ import androidx.compose.foundation.shape.CircleShape
+ import androidx.compose.foundation.shape.RoundedCornerShape
+-import androidx.compose.foundation.text.BasicTextField
+ import androidx.compose.material3.Icon
+ import androidx.compose.material3.Text
+ import androidx.compose.runtime.Composable
+@@ -183,7 +183,7 @@ private fun PlaylistActionsMain(
+                 contentAlignment = Alignment.CenterStart
+             ) {
+                 if (editing) {
+-                    BasicTextField(
++                    XvoxTextInput(
+                         value = name,
+                         onValueChange = { name = it },
+                         singleLine = true,
+diff --git a/app/src/main/java/com/xvox/music/features/search/SearchScreen.kt b/app/src/main/java/com/xvox/music/features/search/SearchScreen.kt
+index a3d0b7a..5b735d5 100644
+--- a/app/src/main/java/com/xvox/music/features/search/SearchScreen.kt
++++ b/app/src/main/java/com/xvox/music/features/search/SearchScreen.kt
+@@ -1,6 +1,7 @@
+ // EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/features/search/SearchScreen.kt
+ package com.xvox.music.features.search
+ 
++import com.xvox.music.core.design.kit.XvoxTextInput
+ import android.app.Activity
+ import android.net.Uri
+ import androidx.activity.compose.rememberLauncherForActivityResult
+@@ -35,7 +36,6 @@ import androidx.compose.foundation.lazy.items
+ import androidx.compose.foundation.lazy.rememberLazyListState
+ import androidx.compose.foundation.shape.CircleShape
+ import androidx.compose.foundation.shape.RoundedCornerShape
+-import androidx.compose.foundation.text.BasicTextField
+ import androidx.compose.foundation.text.KeyboardActions
+ import androidx.compose.foundation.text.KeyboardOptions
+ import androidx.compose.material3.Icon
+@@ -736,7 +736,7 @@ private fun SearchBarComponent(
+ 
+         Spacer(Modifier.width(10.dp))
+ 
+-        BasicTextField(
++        XvoxTextInput(
+             value = query,
+             onValueChange = onQueryChange,
+             modifier = Modifier
+diff --git a/app/src/main/java/com/xvox/music/features/settings/SettingsLanding.kt b/app/src/main/java/com/xvox/music/features/settings/SettingsLanding.kt
+index 05d92cf..458be75 100644
+--- a/app/src/main/java/com/xvox/music/features/settings/SettingsLanding.kt
++++ b/app/src/main/java/com/xvox/music/features/settings/SettingsLanding.kt
+@@ -1,6 +1,7 @@
+ // NAYI FILE BANAO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/features/settings/SettingsLanding.kt
+ package com.xvox.music.features.settings
+ 
++import com.xvox.music.core.design.kit.XvoxTextInput
+ import androidx.compose.foundation.background
+ import androidx.compose.foundation.clickable
+ import androidx.compose.foundation.interaction.MutableInteractionSource
+@@ -14,7 +15,6 @@ import androidx.compose.foundation.layout.heightIn
+ import androidx.compose.foundation.layout.padding
+ import androidx.compose.foundation.layout.size
+ import androidx.compose.foundation.layout.width
+-import androidx.compose.foundation.text.BasicTextField
+ import androidx.compose.ui.graphics.Color
+ import androidx.compose.ui.graphics.SolidColor
+ import androidx.compose.ui.text.TextStyle
+@@ -73,7 +73,7 @@ fun SettingsSearchBar(query: String, onQueryChange: (String) -> Unit) {
+         Spacer(Modifier.width(10.dp))
+         Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+             if (query.isEmpty()) Text("Search settings", color = colors.mutedText, fontSize = 15.sp)
+-            BasicTextField(
++            XvoxTextInput(
+                 value = query, onValueChange = onQueryChange, singleLine = true,
+                 textStyle = TextStyle(color = colors.primaryText, fontSize = 15.sp),
+                 cursorBrush = SolidColor(colors.primaryText),
+diff --git a/app/src/main/java/com/xvox/music/features/settings/components/XvoxColorField.kt b/app/src/main/java/com/xvox/music/features/settings/components/XvoxColorField.kt
+index b2df3d7..1b83cb1 100644
+--- a/app/src/main/java/com/xvox/music/features/settings/components/XvoxColorField.kt
++++ b/app/src/main/java/com/xvox/music/features/settings/components/XvoxColorField.kt
+@@ -1,6 +1,7 @@
+ // EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/features/settings/components/XvoxColorField.kt
+ package com.xvox.music.features.settings.components
+ 
++import com.xvox.music.core.design.kit.XvoxTextInput
+ import com.xvox.music.core.ui.blur.xvoxLiveBlur
+ import android.graphics.Bitmap
+ import androidx.compose.foundation.Canvas
+@@ -23,7 +24,6 @@ import androidx.compose.foundation.layout.width
+ import androidx.compose.foundation.rememberScrollState
+ import androidx.compose.foundation.shape.CircleShape
+ import androidx.compose.foundation.shape.RoundedCornerShape
+-import androidx.compose.foundation.text.BasicTextField
+ import androidx.compose.material3.Text
+ import androidx.compose.runtime.Composable
+ import androidx.compose.runtime.LaunchedEffect
+@@ -423,7 +423,7 @@ private fun ColorPickerEditor(
+                     )
+                     .padding(horizontal = 10.dp, vertical = 8.dp)
+             ) {
+-                BasicTextField(
++                XvoxTextInput(
+                     value = hexInput,
+                     onValueChange = onHexInputChange,
+                     textStyle = TextStyle(color = colors.primaryText, fontSize = 13.sp),
+diff --git a/app/src/main/java/com/xvox/music/features/settings/sections/LibraryFilterSettingsSection.kt b/app/src/main/java/com/xvox/music/features/settings/sections/LibraryFilterSettingsSection.kt
+index 176e6c7..db77d97 100644
+--- a/app/src/main/java/com/xvox/music/features/settings/sections/LibraryFilterSettingsSection.kt
++++ b/app/src/main/java/com/xvox/music/features/settings/sections/LibraryFilterSettingsSection.kt
+@@ -13,6 +13,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
+ import androidx.compose.foundation.shape.RoundedCornerShape
+ import androidx.compose.foundation.text.KeyboardOptions
+ import androidx.compose.material3.*
++import io.github.neoruaa.glasmio.ui.GlasmioGroupedList
++import io.github.neoruaa.glasmio.ui.GlasmioTextField
+ import androidx.compose.runtime.*
+ import androidx.compose.ui.Alignment
+ import androidx.compose.ui.Modifier
+@@ -101,11 +103,20 @@ private fun CustomThresholdBox(initial: Int, size: Boolean, onCancel: () -> Unit
+         verticalArrangement = Arrangement.spacedBy(12.dp)
+     ) {
+         Text(if (size) "Files below this size are ignored." else "Audio below this duration is ignored.", color = colors.secondaryText, fontSize = 13.sp)
+-        OutlinedTextField(value = input, onValueChange = { if (it.length <= 12) input = it },
+-            singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+-            label = { Text("Minimum $unit") }, isError = !valid,
+-            supportingText = { Text(if (valid) "0 disables this filter" else if (size) "Enter 0–10 GB" else "Enter 0–24 hours") },
+-            modifier = Modifier.fillMaxWidth())
++        // Glasmio's field: glass caret loupe, selection handles and liquid Edit Menu.
++        GlasmioGroupedList {
++            GlasmioTextField(
++                value = input,
++                onValueChange = { if (it.length <= 12) input = it },
++                placeholder = "Minimum $unit",
++                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
++            )
++        }
++        Text(
++            if (valid) "0 disables this filter" else if (size) "Enter 0–10 GB" else "Enter 0–24 hours",
++            color = if (valid) colors.secondaryText else com.xvox.music.core.design.theme.XvoxRed,
++            fontSize = 12.sp
++        )
+         val units = if (size) listOf("KB", "MB") else listOf("Seconds", "Minutes")
+         SettingsFlexChoiceRow(units.map { it to it }, unit) { next ->
+             if (valid) input = (number / (if (next == "MB") 1024 else if (next == "Minutes") 60 else 1)).toString()
+diff --git a/app/src/main/java/com/xvox/music/features/setup/SetupNameField.kt b/app/src/main/java/com/xvox/music/features/setup/SetupNameField.kt
+index fde21c0..31ef796 100644
+--- a/app/src/main/java/com/xvox/music/features/setup/SetupNameField.kt
++++ b/app/src/main/java/com/xvox/music/features/setup/SetupNameField.kt
+@@ -1,5 +1,6 @@
+ package com.xvox.music.features.setup
+ 
++import com.xvox.music.core.design.kit.XvoxTextInput
+ import androidx.compose.animation.AnimatedVisibility
+ import androidx.compose.animation.fadeIn
+ import androidx.compose.animation.fadeOut
+@@ -9,7 +10,6 @@ import androidx.compose.foundation.layout.Box
+ import androidx.compose.foundation.layout.Column
+ import androidx.compose.foundation.layout.height
+ import androidx.compose.foundation.layout.width
+-import androidx.compose.foundation.text.BasicTextField
+ import androidx.compose.foundation.text.KeyboardActions
+ import androidx.compose.foundation.text.KeyboardOptions
+ import androidx.compose.material3.Text
+@@ -104,7 +104,7 @@ fun SetupNameField(
+                 },
+             contentAlignment = Alignment.Center
+         ) {
+-            BasicTextField(
++            XvoxTextInput(
+                 value = value,
+                 onValueChange = { newValue ->
+                     if (newValue.length <= 12) {
+diff --git a/app/src/main/java/com/xvox/music/shell/XvoxTimerBox.kt b/app/src/main/java/com/xvox/music/shell/XvoxTimerBox.kt
+index 8bb7f9b..0444f35 100644
+--- a/app/src/main/java/com/xvox/music/shell/XvoxTimerBox.kt
++++ b/app/src/main/java/com/xvox/music/shell/XvoxTimerBox.kt
+@@ -1,6 +1,7 @@
+ // EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/shell/XvoxTimerBox.kt
+ package com.xvox.music.shell
+ 
++import com.xvox.music.core.design.kit.XvoxTextInput
+ import androidx.compose.foundation.background
+ import androidx.compose.foundation.border
+ import androidx.compose.foundation.clickable
+@@ -15,7 +16,6 @@ import androidx.compose.foundation.layout.padding
+ import androidx.compose.foundation.layout.size
+ import androidx.compose.foundation.rememberScrollState
+ import androidx.compose.foundation.shape.RoundedCornerShape
+-import androidx.compose.foundation.text.BasicTextField
+ import androidx.compose.foundation.verticalScroll
+ import androidx.compose.material3.Icon
+ import androidx.compose.material3.RadioButton
+@@ -253,7 +253,7 @@ private fun TimerNumberField(
+     onValueChange: (String) -> Unit
+ ) {
+     val colors = XvoxTheme.colors
+-    BasicTextField(
++    XvoxTextInput(
+         value = value,
+         onValueChange = { if (it.length <= maxLength && it.all(Char::isDigit)) onValueChange(it) },
+         keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Number),
+-- 
+2.43.0
+
