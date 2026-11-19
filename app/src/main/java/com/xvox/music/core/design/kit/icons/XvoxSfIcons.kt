@@ -2,6 +2,8 @@ package com.xvox.music.core.design.kit.icons
 
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.unit.dp
@@ -354,9 +356,108 @@ object XvoxSfIcons {
         }.build()
     }
 
+    private fun chevron(name: String, vararg pts: Float): ImageVector =
+        ImageVector.Builder(
+            name = name,
+            defaultWidth = 24.dp,
+            defaultHeight = 24.dp,
+            viewportWidth = 24f,
+            viewportHeight = 24f,
+        ).apply {
+            path(
+                stroke = SolidColor(Color.Black),
+                strokeLineWidth = 3.1f,
+                strokeLineCap = StrokeCap.Round,
+                strokeLineJoin = StrokeJoin.Round,
+            ) {
+                moveTo(pts[0], pts[1])
+                lineTo(pts[2], pts[3])
+                lineTo(pts[4], pts[5])
+            }
+        }.build()
+
+    /** SF Symbol: chevron.left / chevron.backward - the Settings back button. */
+    val ChevronLeft: ImageVector by lazy { chevron("ChevronLeft", 15f, 4.8f, 7.8f, 12f, 15f, 19.2f) }
+    val ChevronRight: ImageVector by lazy { chevron("ChevronRight", 9f, 4.8f, 16.2f, 12f, 9f, 19.2f) }
+    val ChevronDown: ImageVector by lazy { chevron("ChevronDown", 4.8f, 9f, 12f, 16.2f, 19.2f, 9f) }
+    val ChevronUp: ImageVector by lazy { chevron("ChevronUp", 4.8f, 15f, 12f, 7.8f, 19.2f, 15f) }
+
+    /** sun.max.fill - disc with eight round rays. */
+    val SunFill: ImageVector by lazy {
+        ImageVector.Builder(
+            name = "SunFill", defaultWidth = 24.dp, defaultHeight = 24.dp,
+            viewportWidth = 24f, viewportHeight = 24f,
+        ).apply {
+            path(fill = SolidColor(Color.Black)) {
+                moveTo(12f, 7f)
+                arcTo(5f, 5f, 0f, true, true, 12f, 17f)
+                arcTo(5f, 5f, 0f, true, true, 12f, 7f)
+                close()
+            }
+            path(
+                stroke = SolidColor(Color.Black),
+                strokeLineWidth = 2f,
+                strokeLineCap = StrokeCap.Round,
+            ) {
+                for (i in 0 until 8) {
+                    val a = Math.toRadians(i * 45.0)
+                    val c = Math.cos(a).toFloat()
+                    val s = Math.sin(a).toFloat()
+                    moveTo(12f + c * 8.4f, 12f + s * 8.4f)
+                    lineTo(12f + c * 10.6f, 12f + s * 10.6f)
+                }
+            }
+        }.build()
+    }
+
+    /** moon.fill - a crescent: the big disc minus an offset disc. */
+    val MoonFill: ImageVector by lazy {
+        ImageVector.Builder(
+            name = "MoonFill", defaultWidth = 24.dp, defaultHeight = 24.dp,
+            viewportWidth = 24f, viewportHeight = 24f,
+        ).apply {
+            path(fill = SolidColor(Color.Black)) {
+                moveTo(20.86f, 13.61f)
+                arcTo(9f, 9f, 0f, true, true, 10.4f, 3.15f)
+                arcTo(7.5f, 7.5f, 0f, false, false, 20.86f, 13.61f)
+                close()
+            }
+        }.build()
+    }
+
+    /** circle.lefthalf.filled - the "follow the system" theme glyph. */
+    val CircleHalfFill: ImageVector by lazy {
+        ImageVector.Builder(
+            name = "CircleHalfFill", defaultWidth = 24.dp, defaultHeight = 24.dp,
+            viewportWidth = 24f, viewportHeight = 24f,
+        ).apply {
+            path(fill = SolidColor(Color.Black)) {
+                moveTo(12f, 3f)
+                arcTo(9f, 9f, 0f, false, false, 12f, 21f)
+                close()
+            }
+            path(
+                stroke = SolidColor(Color.Black),
+                strokeLineWidth = 1.8f,
+            ) {
+                moveTo(12f, 3.2f)
+                arcTo(8.8f, 8.8f, 0f, true, true, 12f, 20.8f)
+                arcTo(8.8f, 8.8f, 0f, true, true, 12f, 3.2f)
+                close()
+            }
+        }.build()
+    }
+
     /** Maps the SF symbol names Glasmio asks for onto the real vector geometry above. */
     val Resolver: GlasmioIconResolver = GlasmioIconResolver { systemName ->
         when {
+            systemName.startsWith("chevron.left") || systemName.startsWith("chevron.backward") -> ChevronLeft
+            systemName.startsWith("chevron.right") || systemName.startsWith("chevron.forward") -> ChevronRight
+            systemName.startsWith("chevron.down") -> ChevronDown
+            systemName.startsWith("chevron.up") -> ChevronUp
+            systemName.startsWith("sun") -> SunFill
+            systemName.startsWith("moon") -> MoonFill
+            systemName.startsWith("circle.lefthalf") -> CircleHalfFill
             systemName.startsWith("house") -> HouseFill
             systemName.startsWith("magnifyingglass") -> Magnifyingglass
             systemName == "mic" || systemName.startsWith("microphone") -> MicrophoneFill

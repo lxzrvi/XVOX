@@ -1,7 +1,35 @@
 package com.xvox.music.core.design.kit
 
-import androidx.compose.animation.Crossfade
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Column
+import androidx.compose.material3.Text
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.util.lerp
+import io.github.neoruaa.glasmio.core.LocalGlassColors
+import io.github.neoruaa.glasmio.glass.GlassSurface
+import io.github.neoruaa.glasmio.glass.GlassSurfaceStyle
+import io.github.neoruaa.glasmio.glass.render.backdrops.layerBackdrop
+import io.github.neoruaa.glasmio.glass.render.backdrops.rememberCombinedBackdrop
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.runtime.State
+import io.github.neoruaa.glasmio.glass.render.Backdrop
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -9,7 +37,6 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -65,8 +92,13 @@ object XvoxStage {
 private const val SearchKey = 9
 private const val SettingsIndex = 2
 
-/** Bar width: wider again, still centred and narrower than the screen. */
+/** Expanded bar width: centred and narrower than the screen. */
 private val StageBarMaxWidth = 320.dp
+
+/** Glasmio's navigation surface height; the compact circles and the mini player match it. */
+private val StageControlHeight = 62.dp
+private val StageSideMargin = 16.dp
+private val StageControlGap = 8.dp
 
 private val StageTabs = listOf(XvoxNavTab.HOME, XvoxNavTab.ALBUM)
 
@@ -105,6 +137,14 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
     val engineBackdrop = LocalXvoxGlassBackdrop.current
     val ownBackdrop = rememberLayerBackdrop()
     val backdrop = engineBackdrop ?: ownBackdrop
+    // Floating glass (bar, search, profile, mini player) samples the app backdrop AND the page
+    // content that scrolls beneath it, not just the wallpaper.
+    val pageBackdrop = rememberLayerBackdrop()
+    val floatingBackdrop = rememberCombinedBackdrop(backdrop, pageBackdrop)
+    // Preferences are read here, once, so Settings opens with every control already in place.
+    val settings = rememberXvoxStageSettings(prefs)
+    var playing by remember { mutableStateOf(false) }
+    val onExpand = remember(navigationScroll) { { navigationScroll.expand() } }
     val searchTransition = rememberGlasmioSearchTransition(searchActive)
     val morph by searchTransition.progressState
 
@@ -130,69 +170,110 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
                     cancelLabel = "Cancel",
                     // Tapping search never raises the keyboard.
                     autoFocus = false,
-                    backdrop = backdrop,
+                    backdrop = floatingBackdrop,
                     transition = searchTransition,
                     sourceBoundsInWindow = searchBounds
                 ) {
                     Box(Modifier.fillMaxSize().nestedScroll(navigationScroll.nestedScrollConnection)) {
-                        // Root tabs cross-fade, exactly like Glasmio's own navigation.
-                        Crossfade(targetState = selectedIndex, label = "stageRoot") { index ->
-                            when (index) {
-                                SettingsIndex -> XvoxStageSettingsPage(
-                                    prefs = prefs,
-                                    backdrop = backdrop,
-                                    onBack = { selectedIndex = 0 },
-                                    listState = pageListStates.last()
-                                )
-                                else -> XvoxStagePage(
-                                    title = StageTabs[index].label,
-                                    listState = pageListStates[index]
-                                )
+                        // The page is its own recorded layer: every floating glass element samples
+                        // it together with the wallpaper. The bar below is a sibling, never inside.
+                        Box(Modifier.fillMaxSize().layerBackdrop(pageBackdrop)) {
+                            AnimatedContent(
+                                targetState = selectedIndex,
+                                transitionSpec = {
+                                    (fadeIn(tween(280)) + scaleIn(tween(320), initialScale = .94f)) togetherWith
+                                        (fadeOut(tween(200)) + scaleOut(tween(260), targetScale = .97f))
+                                },
+                                label = "stageRoot"
+                            ) { index ->
+                                when (index) {
+                                    SettingsIndex -> XvoxStageSettingsPage(
+                                        prefs = prefs,
+                                        values = settings,
+                                        // Controls live inside the recorded page, so they sample
+                                        // the wallpaper only (never the layer they are drawn in).
+                                        backdrop = backdrop,
+                                        onBack = { selectedIndex = 0 },
+                                        listState = pageListStates.last()
+                                    )
+                                    else -> XvoxStagePage(
+                                        title = StageTabs[index].label,
+                                        listState = pageListStates[index]
+                                    )
+                                }
                             }
                         }
 
-                        // The bar retires into the search field on Glasmio's own morph clock.
+                        // The bar and the mini player retire into the search field together: one
+                        // smooth fade across the first part of Glasmio's morph clock, with no
+                        // scaling, so bar and search capsule overlap and read as one blending shape.
                         if (morph < .999f) {
+                            val fade = (morph * 1.25f).coerceIn(0f, 1f)
+                            val barAlpha = 1f - fade * fade * (3f - 2f * fade)
                             Box(
                                 Modifier
                                     .align(Alignment.BottomCenter)
                                     .fillMaxWidth()
                                     .navigationBarsPadding()
                                     .padding(bottom = 16.dp)
-                            ) {
-                                GlasmioNavigationBarWithTrailingItem(
-                                    items = items,
-                                    trailingItem = searchItem,
-                                    selectedKey = selectedIndex,
-                                    onSelected = { key ->
-                                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                        when (key) {
-                                            SearchKey -> searchActive = true
-                                            else -> selectedIndex = key
-                                        }
-                                    },
-                                    onExpand = navigationScroll::expand,
-                                    compactProgress = navigationScroll.compactProgress,
-                                    modifier = Modifier
-                                        .align(Alignment.Center)
-                                        .widthIn(max = StageBarMaxWidth)
-                                        .glasmioNavigationScrollHint(navigationScroll.scrollHintProgress)
-                                        .graphicsLayer {
-                                            // ModulateAlpha fades each draw call instead of rendering the bar
-                                            // into an offscreen layer, which would crop the glass shadow and
-                                            // rim to the bar's bounds and pop when alpha returns to 1.
-                                            compositingStrategy = CompositingStrategy.ModulateAlpha
-                                            alpha = 1f - morph
-                                            val scale = 1f - .06f * morph
-                                            scaleX = scale
-                                            scaleY = scale
-                                            transformOrigin = TransformOrigin(1f, 1f)
-                                        },
-                                    backdrop = backdrop,
-                                    onItemBoundsChanged = { key, bounds ->
-                                        if (key == SearchKey) searchBounds = bounds
+                                    .graphicsLayer {
+                                        // ModulateAlpha fades each draw call instead of rendering into
+                                        // an offscreen layer, which would crop the glass shadow and rim.
+                                        compositingStrategy = CompositingStrategy.ModulateAlpha
+                                        alpha = barAlpha
                                     }
+                            ) {
+                                StageMiniPlayer(
+                                    compactProgress = navigationScroll.compactProgress,
+                                    playing = playing,
+                                    onToggle = { playing = !playing },
+                                    backdrop = floatingBackdrop
                                 )
+                                // Width follows the scroll: 320 dp while expanded, the full row once
+                                // compact, so the two remaining circles sit far apart (left and right)
+                                // and Glasmio's own drop-separation animation plays between them.
+                                Box(
+                                    Modifier
+                                        .align(Alignment.BottomCenter)
+                                        .fillMaxWidth()
+                                        .layout { measurable, c ->
+                                            val margin = StageSideMargin.roundToPx() * 2
+                                            val full = (c.maxWidth - margin).coerceAtLeast(0)
+                                            val expanded = StageBarMaxWidth.roundToPx().coerceAtMost(full)
+                                            val w = lerp(
+                                                expanded,
+                                                full,
+                                                navigationScroll.compactProgress.value.coerceIn(0f, 1f)
+                                            )
+                                            val placeable = measurable.measure(Constraints(w, w, 0, c.maxHeight))
+                                            layout(c.maxWidth, placeable.height) {
+                                                placeable.place((c.maxWidth - placeable.width) / 2, 0)
+                                            }
+                                        }
+                                ) {
+                                    GlasmioNavigationBarWithTrailingItem(
+                                        items = items,
+                                        trailingItem = searchItem,
+                                        selectedKey = selectedIndex,
+                                        onSelected = { key ->
+                                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                            when (key) {
+                                                SearchKey -> searchActive = true
+                                                else -> selectedIndex = key
+                                            }
+                                        },
+                                        onExpand = onExpand,
+                                        compactProgress = navigationScroll.compactProgress,
+                                        compactSize = StageControlHeight,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .glasmioNavigationScrollHint(navigationScroll.scrollHintProgress),
+                                        backdrop = floatingBackdrop,
+                                        onItemBoundsChanged = { key, bounds ->
+                                            if (key == SearchKey) searchBounds = bounds
+                                        }
+                                    )
+                                }
                             }
                         }
                     }
@@ -217,7 +298,7 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
                         menuWidth = XvoxProfilePanelWidth,
                         heightOverride = XvoxProfilePanelHeight,
                         forceBelowAnchor = true,
-                        backdrop = backdrop,
+                        backdrop = floatingBackdrop,
                         onClosed = {
                             if (openSettingsAfterClose) {
                                 openSettingsAfterClose = false
@@ -227,7 +308,7 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
                         anchor = { open ->
                             GlasmioIconButton(
                                 onClick = open,
-                                backdrop = backdrop,
+                                backdrop = floatingBackdrop,
                                 size = 44.dp
                             ) {
                                 Icon(
@@ -251,6 +332,85 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
                     }
                 }
             }
+        }
+    }
+}
+
+/**
+ * Dummy mini player. Expanded it floats above the navigation bar; as the bar compacts it slides
+ * down and narrows into the gap between the two remaining circles, growing to the same height.
+ */
+@Composable
+private fun BoxScope.StageMiniPlayer(
+    compactProgress: State<Float>,
+    playing: Boolean,
+    onToggle: () -> Unit,
+    backdrop: Backdrop
+) {
+    val glass = LocalGlassColors.current
+    val colors = XvoxTheme.colors
+    GlassSurface(
+        modifier = Modifier
+            .align(Alignment.BottomCenter)
+            .layout { measurable, c ->
+                val p = compactProgress.value.coerceIn(0f, 1f)
+                val margin = StageSideMargin.roundToPx() * 2
+                val full = (c.maxWidth - margin).coerceAtLeast(0)
+                val expandedWidth = StageBarMaxWidth.roundToPx().coerceAtMost(full)
+                // Compact: the row minus the two circles and the gap on each side.
+                val compactWidth = (full - 2 * (StageControlHeight + StageControlGap).roundToPx()).coerceAtLeast(0)
+                val w = lerp(expandedWidth, compactWidth, p)
+                val h = lerp(54.dp.roundToPx(), StageControlHeight.roundToPx(), p)
+                val rise = ((StageControlHeight + 10.dp).roundToPx() * (1f - p)).toInt()
+                val placeable = measurable.measure(Constraints.fixed(w, h))
+                layout(c.maxWidth, StageControlHeight.roundToPx() + rise) {
+                    placeable.place(
+                        (c.maxWidth - w) / 2,
+                        StageControlHeight.roundToPx() + rise - h - rise
+                    )
+                }
+            },
+        backdrop = backdrop,
+        shape = RoundedCornerShape(50),
+        style = GlassSurfaceStyle.Navigation,
+        onClick = onToggle
+    ) {
+        Row(
+            modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(
+                        Brush.linearGradient(
+                            listOf(colors.primaryAccent, colors.primaryAccent.copy(alpha = .35f))
+                        )
+                    )
+            )
+            Column(Modifier.weight(1f).padding(horizontal = 10.dp)) {
+                Text(
+                    "Midnight Drive",
+                    color = glass.content,
+                    fontSize = 14.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    "Dummy artist",
+                    color = glass.secondaryContent,
+                    fontSize = 12.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Icon(
+                painter = painterResource(if (playing) R.drawable.ic_xvox_pause else R.drawable.ic_xvox_play),
+                contentDescription = if (playing) "Pause" else "Play",
+                tint = glass.content,
+                modifier = Modifier.size(24.dp)
+            )
         }
     }
 }

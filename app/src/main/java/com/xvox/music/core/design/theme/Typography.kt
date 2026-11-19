@@ -23,12 +23,24 @@ val XvoxPersonalFont = FontFamily(
     )
 )
 
-/** The original XVOX UI family remains the default (and keeps M-sized installs familiar). */
-val XvoxUiFont = FontFamily(
+/** Previous default UI family, kept so it can be restored with one line in [XvoxUiFont]. */
+val XvoxInterFont = FontFamily(
     Font(resId = R.font.xvox_inter_regular, weight = FontWeight.Normal),
     Font(resId = R.font.xvox_inter_medium, weight = FontWeight.Medium),
     Font(resId = R.font.xvox_inter_semibold, weight = FontWeight.SemiBold),
     Font(resId = R.font.xvox_inter_bold, weight = FontWeight.Bold)
+)
+
+/**
+ * San Francisco Pro Text (from sahibjotsaggu/San-Francisco-Pro-Fonts). This single definition is
+ * the whole font wiring: point it at [XvoxInterFont] or any other family to swap it back.
+ * Note: Apple's SF licence restricts use to Apple-platform mock-ups; check it before releasing.
+ */
+val XvoxUiFont = FontFamily(
+    Font(resId = R.font.xvox_sf_pro_regular, weight = FontWeight.Normal),
+    Font(resId = R.font.xvox_sf_pro_medium, weight = FontWeight.Medium),
+    Font(resId = R.font.xvox_sf_pro_semibold, weight = FontWeight.SemiBold),
+    Font(resId = R.font.xvox_sf_pro_bold, weight = FontWeight.Bold)
 )
 
 /**
@@ -48,7 +60,9 @@ private fun xvoxSingleFont(resourceId: Int) = FontFamily(Font(resourceId, FontWe
 val XvoxFontOptions: List<XvoxFontOption> = listOf(
     // FontFamily.Default delegates to Android's selected system typeface instead of a bundled font.
     XvoxFontOption("system", "System", FontFamily.Default),
-    XvoxFontOption("inter", "Inter", XvoxUiFont),
+    // Key "inter" is the stored default, so it now carries SF Pro; Inter stays selectable.
+    XvoxFontOption("inter", "SF Pro", XvoxUiFont),
+    XvoxFontOption("inter_classic", "Inter", XvoxInterFont),
     XvoxFontOption("abeezee", "ABeeZee", xvoxSingleFont(R.font.xvox_font_abeezee)),
     XvoxFontOption("caveat", "Caveat", xvoxSingleFont(R.font.xvox_font_caveat)),
     XvoxFontOption("comfortaa", "Comfortaa", xvoxSingleFont(R.font.xvox_font_comfortaa)),

@@ -719,7 +719,7 @@ class UserPreferencesRepository(
     suspend fun setTheme(v: String) { context.xvoxDataStore.edit { it[Keys.theme] = v } }
     suspend fun setAccentColor(v: String) { context.xvoxDataStore.edit { it[Keys.accentColor] = v } }
     suspend fun setThemeBackground(v: String) {
-        context.xvoxDataStore.edit { it[Keys.themeBackground] = if (v == "Midnight" || v == "Warm") v else "Default" }
+        context.xvoxDataStore.edit { it[Keys.themeBackground] = if (v == "Midnight" || v == "Warm" || Regex("#[0-9A-Fa-f]{6,8}").matches(v)) v else "Default" }
     }
     suspend fun setThemeBackgroundImage(uri: String?) {
         val previous = context.xvoxDataStore.data.map { it[Keys.themeBackgroundImage] }.first()

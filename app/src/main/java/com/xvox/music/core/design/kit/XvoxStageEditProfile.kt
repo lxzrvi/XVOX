@@ -12,9 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -49,7 +47,7 @@ import kotlinx.coroutines.launch
 
 /** Width and height of the profile popover; the menu needs both up front to size its morph. */
 val XvoxProfilePanelWidth: Dp = 300.dp
-val XvoxProfilePanelHeight: Dp = 300.dp
+val XvoxProfilePanelHeight: Dp = 340.dp
 
 /**
  * Content of the profile popover: Edit Profile (name + avatar) with a Settings shortcut.
@@ -76,11 +74,17 @@ fun XvoxProfilePanel(
     var name by remember(saved?.username) { mutableStateOf(TextFieldValue(saved?.username.orEmpty())) }
     var avatar by remember(saved?.selectedPfp) { mutableStateOf(saved?.selectedPfp ?: PfpType.DEFAULT.name) }
 
-    GlasmioTextSelectionHost {
+    // The menu hands its content unbounded height. A scroll container (or the host's own
+    // fillMaxSize) measured against that throws and closed the app, so the host gets an explicit,
+    // bounded size and the column inside is a plain, non-scrolling Column that fits it.
+    GlasmioTextSelectionHost(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(XvoxProfilePanelHeight - 28.dp)
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 8.dp)
         ) {
             Text(
