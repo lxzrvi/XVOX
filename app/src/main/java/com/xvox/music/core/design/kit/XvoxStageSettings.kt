@@ -218,29 +218,22 @@ fun XvoxStageSettingsPage(
         }
     }
 
-    // Plain, opaque back button: no glass sampling, so it can never show a half-grey disc.
+    // Liquid-glass back button, sampling the wallpaper layer only (this page is drawn inside the
+    // recorded page layer, so sampling that one would make the glass read itself).
     Box(
         Modifier
             .align(Alignment.TopStart)
             .statusBarsPadding()
             .padding(top = 11.dp, start = 16.dp)
-            .size(44.dp)
-            .clip(CircleShape)
-            .background(colors.card)
-            .border(1.dp, colors.cardBorder, CircleShape)
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onBack
-            ),
-        contentAlignment = Alignment.Center
     ) {
-        Icon(
-            imageVector = XvoxSfIcons.ChevronLeft,
-            contentDescription = "Back",
-            tint = colors.primaryText,
-            modifier = Modifier.size(20.dp)
-        )
+        io.github.neoruaa.glasmio.ui.GlasmioIconButton(onClick = onBack, backdrop = backdrop, size = 44.dp) {
+            Icon(
+                imageVector = XvoxSfIcons.ChevronLeft,
+                contentDescription = "Back",
+                tint = glass.content,
+                modifier = Modifier.size(20.dp)
+            )
+        }
     }
     }
 

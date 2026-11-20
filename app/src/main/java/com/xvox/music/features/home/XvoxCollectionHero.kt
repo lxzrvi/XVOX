@@ -18,6 +18,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.BlendMode
@@ -48,17 +50,23 @@ fun XvoxCollectionHero(
     onPlay: () -> Unit,
     onShuffle: () -> Unit,
     onAdd: (() -> Unit)? = null,
+    onWashChange: (Color?) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val colors = XvoxTheme.colors
-    val page = colors.background
-    Box(modifier.fillMaxWidth().height(400.dp)) {
+    // The cover's own bottom-edge colour (BitChord's ArtworkPalette.wash). The whole page is
+    // painted in it behind the list (see HomeScreen), so the cover dissolves into the page.
+    val wash = rememberXvoxArtworkWash(cover) ?: colors.background
+    val onWash = androidx.compose.runtime.rememberUpdatedState(onWashChange)
+    androidx.compose.runtime.SideEffect { onWash.value(wash) }
+    Box(modifier.fillMaxWidth().height(400.dp).clipToBounds()) {
         XvoxSongArtwork(
             artwork = cover,
             requestSize = 768,
             modifier = Modifier.fillMaxSize()
         )
-        // Lower half: a blurred copy of the same cover, faded in from transparent.
+        // The same cover, blurred and faded in over the lower half, so the picture loses its
+        // detail before it loses its colour: a merge rather than a fade to a flat tint.
         Box(
             Modifier
                 .fillMaxSize()
@@ -66,27 +74,34 @@ fun XvoxCollectionHero(
                 .drawWithContent {
                     drawContent()
                     drawRect(
-                        Brush.verticalGradient(
-                            0f to Color.Transparent,
-                            .38f to Color.Transparent,
-                            .72f to Color.Black,
-                            1f to Color.Black
-                        ),
+                        Brush.verticalGradient(0.55f to Color.Transparent, 0.85f to Color.Black),
                         blendMode = BlendMode.DstIn
                     )
                 }
         ) {
-            XvoxSongArtwork(artwork = cover, requestSize = 96, modifier = Modifier.fillMaxSize().blur(34.dp))
+            XvoxSongArtwork(
+                artwork = cover,
+                requestSize = 96,
+                modifier = Modifier.fillMaxSize().blur(48.dp, BlurredEdgeTreatment.Rectangle)
+            )
         }
-        // Melt into the page and keep the text readable.
+        // Ends on the wash at full strength, eased through several stops so no slope change
+        // shows as a line.
         Box(
             Modifier.fillMaxSize().background(
                 Brush.verticalGradient(
-                    0f to Color.Black.copy(alpha = .28f),
-                    .22f to Color.Transparent,
-                    .55f to page.copy(alpha = .10f),
-                    1f to page
+                    0.45f to Color.Transparent,
+                    0.65f to wash.copy(alpha = 0.30f),
+                    0.82f to wash.copy(alpha = 0.72f),
+                    0.94f to wash.copy(alpha = 0.95f),
+                    1.00f to wash
                 )
+            )
+        )
+        // Status-bar legibility over bright covers.
+        Box(
+            Modifier.fillMaxWidth().height(110.dp).background(
+                Brush.verticalGradient(0f to Color.Black.copy(alpha = .28f), 1f to Color.Transparent)
             )
         )
         Column(

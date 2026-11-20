@@ -35,7 +35,9 @@ import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
 import com.xvox.music.core.ui.blur.xvoxGlassRim
+import com.xvox.music.core.ui.effects.xvoxThumbBorder
 import com.xvox.music.core.ui.effects.xvoxSongPress
+import com.xvox.music.core.ui.effects.hiddenWhileHeld
 import com.xvox.music.core.ui.icons.painterResource
 
 /**
@@ -86,14 +88,14 @@ fun XvoxMoodPage(
                 ) {
                     XvoxSongArtwork(
                         artwork = song.artworkUri,
-                        modifier = Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)).xvoxGlassRim(RoundedCornerShape(8.dp)),
+                        modifier = Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)).xvoxThumbBorder(RoundedCornerShape(8.dp)),
                         requestSize = 128
                     )
                     Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                         Text(song.title, color = if (song.id == currentSongId) colors.primaryAccent else colors.primaryText, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text(song.artist.ifBlank { "Unknown artist" }, color = colors.secondaryText, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
-                    Box(Modifier.size(36.dp).xvoxSongPress(onClick = { onMore(song) }, pressedScale = .8f), contentAlignment = Alignment.Center) {
+                    Box(Modifier.size(36.dp).hiddenWhileHeld().xvoxSongPress(onClick = { onMore(song) }, pressedScale = .8f), contentAlignment = Alignment.Center) {
                         Icon(painterResource(R.drawable.ic_xvox_more), "More", tint = colors.secondaryText, modifier = Modifier.size(20.dp))
                     }
                 }

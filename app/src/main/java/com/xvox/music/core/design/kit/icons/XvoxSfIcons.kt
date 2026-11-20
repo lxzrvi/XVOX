@@ -493,9 +493,44 @@ object XvoxSfIcons {
         }.build()
     }
 
+    /** square.and.arrow.up (SF Symbols' Share glyph): open-topped box with an arrow rising from it. */
+    val Share: ImageVector by lazy {
+        ImageVector.Builder(
+            name = "Share", defaultWidth = 24.dp, defaultHeight = 24.dp,
+            viewportWidth = 24f, viewportHeight = 24f,
+        ).apply {
+            path(
+                stroke = SolidColor(Color.Black),
+                strokeLineWidth = 2f,
+                strokeLineCap = StrokeCap.Round,
+                strokeLineJoin = StrokeJoin.Round,
+            ) {
+                // The box, open at the top between the arrow's shoulders.
+                moveTo(8.4f, 9.6f)
+                lineTo(7.4f, 9.6f)
+                quadTo(4.6f, 9.6f, 4.6f, 12.4f)
+                lineTo(4.6f, 17.6f)
+                quadTo(4.6f, 20.4f, 7.4f, 20.4f)
+                lineTo(16.6f, 20.4f)
+                quadTo(19.4f, 20.4f, 19.4f, 17.6f)
+                lineTo(19.4f, 12.4f)
+                quadTo(19.4f, 9.6f, 16.6f, 9.6f)
+                lineTo(15.6f, 9.6f)
+                // The shaft.
+                moveTo(12f, 14.2f)
+                lineTo(12f, 3.4f)
+                // The head.
+                moveTo(8.2f, 7.0f)
+                lineTo(12f, 3.2f)
+                lineTo(15.8f, 7.0f)
+            }
+        }.build()
+    }
+
     /** Maps the SF symbol names Glasmio asks for onto the real vector geometry above. */
     val Resolver: GlasmioIconResolver = GlasmioIconResolver { systemName ->
         when {
+            systemName.startsWith("square.and.arrow.up") -> Share
             systemName.startsWith("chevron.left") || systemName.startsWith("chevron.backward") -> ChevronLeft
             systemName.startsWith("chevron.right") || systemName.startsWith("chevron.forward") -> ChevronRight
             systemName.startsWith("chevron.down") -> ChevronDown

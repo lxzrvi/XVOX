@@ -2,6 +2,11 @@
 package com.xvox.music.features.home
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.runtime.getValue
+import com.xvox.music.core.design.kit.icons.XvoxSfIcons
+import com.xvox.music.core.ui.overlay.LocalXvoxHeldLifted
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.runtime.remember
@@ -35,7 +40,9 @@ private data class SongOptionAction(
     val label: String,
     val icon: Int,
     val onClick: () -> Unit,
-    val destructive: Boolean = false
+    val destructive: Boolean = false,
+    /** Rows of one group sit together; a hairline separates groups, as in BitChord's menu. */
+    val group: Int = 0
 )
 
 /**
@@ -75,101 +82,165 @@ fun SongOptionsBox(
     val contextLabel = song.source.ifBlank { song.folderName.ifBlank { "XVOX library" } }
 
     val actions = mutableListOf(
-        SongOptionAction("Play next", R.drawable.ic_xvox_play, onPlayNext),
-        SongOptionAction("Add to queue", R.drawable.ic_xvox_queue, onAddQueue)
+        SongOptionAction("Play next", R.drawable.ic_xvox_play, onPlayNext, group = 1),
+        SongOptionAction("Add to queue", R.drawable.ic_xvox_queue, onAddQueue, group = 1)
     )
-    onSelect?.let { actions += SongOptionAction("Select", R.drawable.ic_xvox_check, it) }
-    actions += SongOptionAction(
-        if (liked) "Unlike" else "Like",
-        if (liked) R.drawable.ic_xvox_heart else R.drawable.ic_xvox_heart_outline,
-        onLiked
-    )
-    actions += SongOptionAction("Add to playlist", R.drawable.ic_xvox_playlist, onPlaylist)
-    onEdit?.let { actions += SongOptionAction("Edit details", R.drawable.ic_xvox_edit, it) }
-    actions += SongOptionAction("Info", R.drawable.ic_xvox_info, onInfo)
-    actions += SongOptionAction("Set as ringtone", R.drawable.ic_xvox_music_note, onRingtone)
-    actions += SongOptionAction("Share", R.drawable.ic_xvox_share, onShare)
-    onAddToEach?.let { actions += SongOptionAction("Add to each", R.drawable.ic_xvox_add, it) }
+    onSelect?.let { actions += SongOptionAction("Select", R.drawable.ic_xvox_check, it, group = 1) }
+    actions += SongOptionAction("Add to playlist", R.drawable.ic_xvox_playlist, onPlaylist, group = 2)
+    onAddToEach?.let { actions += SongOptionAction("Add to each", R.drawable.ic_xvox_add, it, group = 2) }
     onRemovePlaylist?.let { remove ->
-        actions += SongOptionAction("Remove from ${playlistName ?: "playlist"}", R.drawable.ic_xvox_close, remove)
+        actions += SongOptionAction("Remove from ${playlistName ?: "playlist"}", R.drawable.ic_xvox_close, remove, group = 2)
     }
-    onRemoveRecent?.let { actions += SongOptionAction("Remove from recent", R.drawable.ic_xvox_close, it) }
-    onSectionSettings?.let { actions += SongOptionAction(sectionSettingsLabel ?: "Section settings", R.drawable.ic_xvox_settings, it) }
-    actions += SongOptionAction("Delete", R.drawable.ic_xvox_delete, onDelete, destructive = true)
+    onRemoveRecent?.let { actions += SongOptionAction("Remove from recent", R.drawable.ic_xvox_close, it, group = 2) }
+    onEdit?.let { actions += SongOptionAction("Edit details", R.drawable.ic_xvox_edit, it, group = 3) }
+    actions += SongOptionAction("Info", R.drawable.ic_xvox_info, onInfo, group = 3)
+    actions += SongOptionAction("Set as ringtone", R.drawable.ic_xvox_music_note, onRingtone, group = 3)
+    onSectionSettings?.let { actions += SongOptionAction(sectionSettingsLabel ?: "Section settings", R.drawable.ic_xvox_settings, it, group = 3) }
+    actions += SongOptionAction("Delete", R.drawable.ic_xvox_delete, onDelete, destructive = true, group = 4)
+
+    val lifted = LocalXvoxHeldLifted.current
+    // BitChord's iOS menu colours: labels are the page's ink, pressed rows get a soft fill.
+    val label = if (dark) Color.White.copy(alpha = .92f) else Color(0xFF1A1A1A)
+    val separator = if (dark) Color.White.copy(alpha = .10f) else Color.Black.copy(alpha = .09f)
+    val pressedFill = if (dark) Color.White.copy(alpha = .10f) else Color.Black.copy(alpha = .07f)
+    val menuShape = RoundedCornerShape(30.dp)
 
     Column(
-        modifier = Modifier.width(300.dp).padding(vertical = 12.dp),
+        modifier = if (lifted) Modifier.fillMaxWidth() else Modifier.width(300.dp).padding(vertical = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // The lifted item: tap plays it.
-        Column(
-            modifier = Modifier
-                .shadow(22.dp, coverShape, clip = false)
-                .clip(coverShape)
-                .background(plate)
-                .xvoxGlassRim(coverShape, hairlineColor = hairline)
-                .xvoxPressScale(onClick = onPlay)
-                .padding(8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            XvoxSongArtwork(
-                artwork = song.artworkUri,
-                fallbackSeed = song.id.hashCode(),
-                requestSize = 384,
-                modifier = Modifier.size(196.dp).clip(RoundedCornerShape(15.dp))
-            )
-            Spacer(Modifier.height(8.dp))
-            Text(
-                song.title, color = colors.primaryText, fontSize = 15.sp, lineHeight = 18.sp,
-                fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Center, modifier = Modifier.width(196.dp)
-            )
-            Text(
-                song.artist.ifBlank { "Unknown artist" }, color = colors.secondaryText, fontSize = 12.sp,
-                maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center, modifier = Modifier.width(196.dp)
-            )
-            Text(
-                contextLabel, color = colors.mutedText, fontSize = 10.5.sp, maxLines = 1,
-                overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center, modifier = Modifier.width(196.dp)
-            )
-            Spacer(Modifier.height(2.dp))
+        if (!lifted) {
+            // Opened from the three-dot button: there is no held card to lift, so show a cover card.
+            Column(
+                modifier = Modifier
+                    .shadow(22.dp, coverShape, clip = false)
+                    .clip(coverShape)
+                    .background(plate)
+                    .xvoxGlassRim(coverShape, hairlineColor = hairline)
+                    .xvoxPressScale(onClick = onPlay)
+                    .padding(8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                XvoxSongArtwork(
+                    artwork = song.artworkUri,
+                    fallbackSeed = song.id.hashCode(),
+                    requestSize = 384,
+                    modifier = Modifier.size(196.dp).clip(RoundedCornerShape(15.dp))
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    song.title, color = colors.primaryText, fontSize = 15.sp, lineHeight = 18.sp,
+                    fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Center, modifier = Modifier.width(196.dp)
+                )
+                Text(
+                    song.artist.ifBlank { "Unknown artist" }, color = colors.secondaryText, fontSize = 12.sp,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center, modifier = Modifier.width(196.dp)
+                )
+                Text(
+                    contextLabel, color = colors.mutedText, fontSize = 10.5.sp, maxLines = 1,
+                    overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center, modifier = Modifier.width(196.dp)
+                )
+                Spacer(Modifier.height(2.dp))
+            }
+            Spacer(Modifier.height(12.dp))
         }
 
-        Spacer(Modifier.height(12.dp))
-
-        // Actions hang off it in one frosted plate, rows like an iOS menu: label left, icon right.
         val scroll = rememberScrollState()
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .shadow(18.dp, panelShape, clip = false)
-                .clip(panelShape)
+                .shadow(24.dp, menuShape, clip = false)
+                .clip(menuShape)
                 .background(plate)
-                .xvoxGlassRim(panelShape, hairlineColor = hairline)
-                .heightIn(max = 330.dp)
+                .border(.5.dp, hairline, menuShape)
+                .heightIn(max = if (lifted) 520.dp else 330.dp)
                 .verticalScroll(scroll)
                 .xvoxBoxScroll(scroll)
+                .padding(vertical = 8.dp)
         ) {
-            actions.forEachIndexed { index, action ->
-                val tint = if (action.destructive) XvoxRed else colors.primaryText
+            // The tiles reached for most, side by side: Like and Share.
+            Row(
+                modifier = Modifier.fillMaxWidth().height(66.dp).padding(horizontal = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                MenuTile(
+                    icon = painterResource(if (liked) R.drawable.ic_xvox_heart else R.drawable.ic_xvox_heart_outline),
+                    label = if (liked) "Unlike" else "Like",
+                    ink = if (liked) colors.primaryAccent else label,
+                    pressedFill = pressedFill,
+                    onClick = onLiked,
+                    modifier = Modifier.weight(1f)
+                )
+                MenuTile(
+                    icon = androidx.compose.ui.graphics.vector.rememberVectorPainter(XvoxSfIcons.Share),
+                    label = "Share",
+                    ink = label,
+                    pressedFill = pressedFill,
+                    onClick = onShare,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            var previousGroup = -1
+            actions.forEach { action ->
+                if (action.group != previousGroup) {
+                    // Hairline inset from the panel's edges, with air either side (17 dp tall).
+                    Box(Modifier.fillMaxWidth().height(17.dp).padding(horizontal = 18.dp), contentAlignment = Alignment.Center) {
+                        Box(Modifier.fillMaxWidth().height(1.dp).background(separator))
+                    }
+                    previousGroup = action.group
+                }
+                val ink = if (action.destructive) XvoxRed else label
+                val interaction = remember { MutableInteractionSource() }
+                val pressed by interaction.collectIsPressedAsState()
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .heightIn(min = 46.dp)
-                        .xvoxPressScale(pressedScale = .985f, onClick = action.onClick)
-                        .padding(horizontal = 18.dp, vertical = 8.dp),
+                        .padding(horizontal = 8.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(if (pressed) pressedFill else Color.Transparent)
+                        .clickable(interactionSource = interaction, indication = null, onClick = action.onClick)
+                        .heightIn(min = 44.dp)
+                        .padding(start = 12.dp, end = 14.dp, top = 11.dp, bottom = 11.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    Box(Modifier.width(28.dp), contentAlignment = Alignment.Center) {
+                        Icon(painterResource(action.icon), null, tint = ink, modifier = Modifier.size(21.dp))
+                    }
+                    Spacer(Modifier.width(10.dp))
                     Text(
-                        action.label, color = tint, fontSize = 15.sp, fontWeight = FontWeight.Medium,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f)
+                        action.label, color = ink, fontSize = 17.sp, lineHeight = 21.sp, letterSpacing = (-0.3).sp,
+                        maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f)
                     )
-                    Icon(painterResource(action.icon), null, tint = tint.copy(alpha = .9f), modifier = Modifier.size(19.dp))
-                }
-                if (index != actions.lastIndex) {
-                    Box(Modifier.fillMaxWidth().padding(horizontal = 18.dp).height(.5.dp).background(hairline))
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun MenuTile(
+    icon: androidx.compose.ui.graphics.painter.Painter,
+    label: String,
+    ink: Color,
+    pressedFill: Color,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    Column(
+        modifier = modifier
+            .fillMaxHeight()
+            .clip(RoundedCornerShape(16.dp))
+            .background(if (pressed) pressedFill else Color.Transparent)
+            .clickable(interactionSource = interaction, indication = null, onClick = onClick)
+            .padding(horizontal = 4.dp, vertical = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Icon(icon, null, tint = ink, modifier = Modifier.size(23.dp))
+        Spacer(Modifier.height(6.dp))
+        Text(label, color = ink, fontSize = 12.sp, lineHeight = 15.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }

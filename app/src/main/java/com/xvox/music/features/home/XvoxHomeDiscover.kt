@@ -61,7 +61,9 @@ import androidx.compose.ui.unit.sp
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
 import com.xvox.music.core.ui.blur.xvoxGlassRim
+import com.xvox.music.core.ui.effects.xvoxThumbBorder
 import com.xvox.music.core.ui.effects.xvoxSongPress
+import com.xvox.music.core.ui.effects.hiddenWhileHeld
 import kotlin.random.Random
 
 /** One seed per process: Quick picks reshuffle every time the app is opened, never on recomposition. */
@@ -233,7 +235,7 @@ private fun QuickPickRow(song: Song, current: Boolean, playing: Boolean, onClick
         XvoxSongArtwork(
             artwork = song.artworkUri,
             requestSize = 128,
-            modifier = Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)).xvoxGlassRim(RoundedCornerShape(8.dp))
+            modifier = Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)).xvoxThumbBorder(RoundedCornerShape(8.dp))
         )
         Column(Modifier.weight(1f).padding(start = 12.dp)) {
             Text(
@@ -254,7 +256,7 @@ private fun QuickPickRow(song: Song, current: Boolean, playing: Boolean, onClick
         }
         // The three dots open the same option sheet as a long press.
         Box(
-            Modifier.size(36.dp).xvoxSongPress(onClick = onLongClick, pressedScale = .8f),
+            Modifier.size(36.dp).hiddenWhileHeld().xvoxSongPress(onClick = onLongClick, pressedScale = .8f),
             contentAlignment = Alignment.Center
         ) {
             Icon(

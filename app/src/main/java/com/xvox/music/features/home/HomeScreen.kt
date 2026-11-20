@@ -5,6 +5,7 @@ import android.app.Activity
 import android.net.Uri
 import android.os.Build
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.PickVisualMediaRequest
@@ -417,6 +418,8 @@ fun HomeScreen(
     }
 
     var openMood by remember { mutableStateOf<XvoxMood?>(null) }
+    // The cover colour a detail page is painted in behind its list (BitChord's page wash).
+    var detailWash by remember { mutableStateOf<androidx.compose.ui.graphics.Color?>(null) }
     BackHandler(enabled = isSelectionMode) {
         selectedSongIds = emptySet()
         selectedArtistNames = emptySet()
@@ -709,6 +712,7 @@ fun HomeScreen(
                 onPlay = { handleSongClick(it, album.songs, album.name) },
                 onOptions = { if (isSelectionMode) handleSongLongClick(it, album.name) else openSingleSongOptions(it) },
                 avatarUri = null,
+                onWashChange = { detailWash = it },
                 onPlayAll = { album.songs.firstOrNull()?.let { handleSongClick(it, album.songs, album.name) } },
                 onShuffleAll = { album.songs.shuffled().let { list -> list.firstOrNull()?.let { handleSongClick(it, list, album.name) } } }
             )
@@ -853,6 +857,11 @@ fun HomeScreen(
                 targetPlaylist?.let { playlistContents[it.id].orEmpty() } ?: emptyList()
             }
 
+            // The page colour belongs to the cover on screen: forget it when no detail page is open.
+            val onDetailPage = targetArtist != null || targetPlaylist != null ||
+                (selectedAlbum != null && (targetKey as? XvoxHomeLibraryMode) == XvoxHomeLibraryMode.ALBUMS)
+            LaunchedEffect(onDetailPage) { if (!onDetailPage) detailWash = null }
+
             val listState = when {
                 targetArtist != null -> detailScrollState
                 targetPlaylist != null -> detailScrollState
@@ -905,6 +914,9 @@ fun HomeScreen(
                 state = listState,
                 modifier = Modifier
                     .fillMaxSize()
+                    .then(
+                        if (onDetailPage && detailWash != null) Modifier.background(detailWash!!) else Modifier
+                    )
                     .xvoxStatusBarFade(
                         enabled = !(targetArtist != null || targetPlaylist != null ||
                             (selectedAlbum != null && (targetKey as? XvoxHomeLibraryMode) == XvoxHomeLibraryMode.ALBUMS))
@@ -939,6 +951,7 @@ fun HomeScreen(
                         onPlay = { handleSongClick(it, targetArtist.songs, "Playing by " + targetArtist.name) },
                         onOptions = { if (isSelectionMode) handleSongLongClick(it, "Playing by " + targetArtist.name) else openSingleSongOptions(it) },
                         avatarUri = null,
+                        onWashChange = { detailWash = it },
                         heroCover = targetArtist.customImageUri ?: targetArtist.coverSong?.artworkUri,
                         onPlayAll = { targetArtist.songs.firstOrNull()?.let { handleSongClick(it, targetArtist.songs, "Playing by " + targetArtist.name) } },
                         onShuffleAll = { targetArtist.songs.shuffled().let { list -> list.firstOrNull()?.let { handleSongClick(it, list, "Playing by " + targetArtist.name) } } }
@@ -954,6 +967,7 @@ fun HomeScreen(
                         onPlay = { handleSongClick(it, detailTracks, targetPlaylist.name) },
                         onOptions = { if (isSelectionMode) handleSongLongClick(it, targetPlaylist.name) else openSingleSongOptions(it, targetPlaylist) },
                         onAdd = { showAddPlaylistSongs(overlays, viewModel, targetPlaylist) },
+                        onWashChange = { detailWash = it },
                         onPlayAll = { detailTracks.firstOrNull()?.let { handleSongClick(it, detailTracks, targetPlaylist.name) } },
                         onShuffleAll = { detailTracks.shuffled().let { list -> list.firstOrNull()?.let { handleSongClick(it, list, targetPlaylist.name) } } }
                     )

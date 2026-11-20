@@ -10,6 +10,17 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onPlaced
+import androidx.compose.ui.layout.positionInWindow
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalGraphicsContext
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.unit.toSize
+import kotlin.math.roundToInt
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
@@ -91,7 +102,11 @@ fun Modifier.xvoxSongPress(
             }
     } else Modifier
 
-    modifier.combinedClickable(
+    val capture = remember { XvoxHoldCapture() }
+    val graphicsContext = LocalGraphicsContext.current
+    val density = LocalDensity.current
+
+    val clickable = modifier.combinedClickable(
         hapticFeedbackEnabled = false,
         interactionSource = interaction,
         indication = null,
@@ -101,7 +116,48 @@ fun Modifier.xvoxSongPress(
         },
         onLongClick = if (onLongClick != null) ({
             haptics.heavy()
+            // Record where the card is and ask the next frame to photograph it, then open the menu.
+            capture.coordinates?.takeIf { it.isAttached }?.let { coordinates ->
+                val item = XvoxHeldItem(Rect(coordinates.positionInWindow(), coordinates.size.toSize()))
+                XvoxLongPressOrigin.record(item)
+                XvoxLongPressOrigin.capturing = true
+                capture.pending = item
+                capture.requests++
+            }
             longClick?.invoke()
         }) else null
     )
+    if (onLongClick == null) clickable else clickable
+        .onPlaced { capture.coordinates = it }
+        .drawWithContent {
+            drawContent()
+            // Reading the counter subscribes this draw to a hold.
+            val request = capture.requests
+            if (request == capture.handled) return@drawWithContent
+            capture.handled = request
+            val item = capture.pending ?: return@drawWithContent
+            capture.pending = null
+            val layer = graphicsContext.createGraphicsLayer()
+            layer.record(size = IntSize(size.width.roundToInt().coerceAtLeast(1), size.height.roundToInt().coerceAtLeast(1))) {
+                this@drawWithContent.drawContent()
+            }
+            scope.launch {
+                try {
+                    item.image = layer.toImageBitmap()
+                } finally {
+                    graphicsContext.releaseGraphicsLayer(layer)
+                    XvoxLongPressOrigin.capturing = false
+                }
+            }
+        }
 }
+
+private class XvoxHoldCapture {
+    var coordinates: LayoutCoordinates? = null
+    var pending: XvoxHeldItem? = null
+    var requests by mutableIntStateOf(0)
+    var handled = 0
+}
+
+/** Hides a card's own ⋮ while the card's picture is being taken for the lifted menu. */
+fun Modifier.hiddenWhileHeld(): Modifier = graphicsLayer { alpha = if (XvoxLongPressOrigin.capturing) 0f else 1f }

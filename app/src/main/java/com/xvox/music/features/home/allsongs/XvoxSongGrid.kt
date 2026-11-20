@@ -25,7 +25,9 @@ import com.xvox.music.R
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
 import com.xvox.music.core.ui.blur.xvoxGlassRim
+import com.xvox.music.core.ui.effects.xvoxThumbBorder
 import com.xvox.music.core.ui.effects.xvoxSongPress
+import com.xvox.music.core.ui.effects.hiddenWhileHeld
 import com.xvox.music.core.ui.icons.painterResource
 import com.xvox.music.features.home.XvoxSongArtwork
 
@@ -93,7 +95,7 @@ private fun GridSongCard(
                 .aspectRatio(1f)
                 .clip(shape)
                 .background(if (selected) colors.accentSoft else colors.card)
-                .xvoxGlassRim(shape)
+                .xvoxThumbBorder(shape)
         )
         Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
@@ -114,7 +116,7 @@ private fun GridSongCard(
                 )
             }
             Box(
-                Modifier.size(32.dp).xvoxSongPress(onClick = onMore, pressedScale = .8f),
+                Modifier.size(32.dp).hiddenWhileHeld().xvoxSongPress(onClick = onMore, pressedScale = .8f),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(

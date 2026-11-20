@@ -136,7 +136,8 @@ fun LazyListScope.librarySongItems(
     /** Detail pages: Play / Shuffle the whole list from the cover hero. */
     onPlayAll: (() -> Unit)? = null,
     onShuffleAll: (() -> Unit)? = null,
-    heroCover: Any? = null
+    heroCover: Any? = null,
+    onWashChange: (androidx.compose.ui.graphics.Color?) -> Unit = {}
 ) {
     // Top-level list pages (Liked/Recent) have no in-page header any more; only artist/playlist
     // detail pages keep theirs because it is their only title.
@@ -148,7 +149,8 @@ fun LazyListScope.librarySongItems(
                 cover = heroCover ?: avatarUri ?: songs.firstOrNull { it.artworkUri != null }?.artworkUri,
                 onPlay = onPlayAll,
                 onShuffle = onShuffleAll,
-                onAdd = onAdd
+                onAdd = onAdd,
+                onWashChange = onWashChange
             )
         }
     } else if (keyPrefix.endsWith("_detail") || onAdd != null || avatarUri != null) {
