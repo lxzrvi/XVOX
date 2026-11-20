@@ -84,7 +84,11 @@ fun XvoxMoodPage(
                         .padding(horizontal = 16.dp, vertical = 5.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    XvoxSongArtwork(song.artworkUri, 128, Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)).xvoxGlassRim(RoundedCornerShape(8.dp)))
+                    XvoxSongArtwork(
+                        artwork = song.artworkUri,
+                        modifier = Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)).xvoxGlassRim(RoundedCornerShape(8.dp)),
+                        requestSize = 128
+                    )
                     Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                         Text(song.title, color = if (song.id == currentSongId) colors.primaryAccent else colors.primaryText, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text(song.artist.ifBlank { "Unknown artist" }, color = colors.secondaryText, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
