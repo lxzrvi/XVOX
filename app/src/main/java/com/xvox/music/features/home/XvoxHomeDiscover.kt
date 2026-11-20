@@ -1,6 +1,20 @@
 // NAYI FILE BANAO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/features/home/XvoxHomeDiscover.kt
 package com.xvox.music.features.home
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.sin
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -62,38 +76,26 @@ private const val QuickPickRows = 4
  */
 @Composable
 fun XvoxHomeLogo(modifier: Modifier = Modifier) {
-    val colors = XvoxTheme.colors
-    val tile = RoundedCornerShape(11.dp)
+    val tile = RoundedCornerShape(12.dp)
+    // 44 dp like the profile button, centred on the same line: status bar + 11 dp + 22 dp.
     Box(
         modifier = modifier
             .fillMaxWidth()
             .windowInsetsPadding(WindowInsets.statusBars)
-            .padding(top = 6.dp, start = 14.dp)
-            .height(54.dp),
+            .padding(top = 11.dp, start = 16.dp)
+            .height(44.dp),
         contentAlignment = Alignment.CenterStart
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            // The real app icon: launcher background tile + white glyph.
-            Box(
-                Modifier.size(38.dp).clip(tile).background(androidx.compose.ui.res.colorResource(R.color.xvox_launcher_background)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_launcher_foreground_vector),
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(52.dp)
-                )
-            }
-            Text(
-                "XVOX",
-                color = colors.primaryText,
-                fontFamily = XvoxLogoFont,
-                fontWeight = FontWeight.Normal,
-                fontSize = 22.sp,
-                letterSpacing = 2.sp,
-                maxLines = 1,
-                modifier = Modifier.padding(start = 10.dp)
+        // The real app icon: launcher background tile + white glyph.
+        Box(
+            Modifier.size(44.dp).clip(tile).background(androidx.compose.ui.res.colorResource(R.color.xvox_launcher_background)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.ic_launcher_foreground_vector),
+                contentDescription = "XVOX",
+                tint = Color.White,
+                modifier = Modifier.size(60.dp)
             )
         }
     }
@@ -126,7 +128,7 @@ fun Modifier.xvoxStatusBarFade(enabled: Boolean = true): Modifier {
         }
 }
 
-private data class XvoxMood(val title: String, val subtitle: String, val from: Color, val to: Color, val songs: List<Song>)
+data class XvoxMood(val title: String, val subtitle: String, val from: Color, val to: Color, val songs: List<Song>)
 
 private val ChillWords = listOf("chill", "lofi", "lo-fi", "acoustic", "slow", "sleep", "calm", "relax", "unplugged", "soft", "piano")
 private val WorkoutWords = listOf("remix", "bass", "gym", "beat", "trap", "edm", "boosted", "workout", "phonk")
@@ -140,7 +142,7 @@ private fun Song.matches(words: List<String>): Boolean {
     return words.any { hay.contains(it) }
 }
 
-private fun buildMoods(all: List<Song>): List<XvoxMood> {
+fun buildMoods(all: List<Song>): List<XvoxMood> {
     fun pick(words: List<String>) = all.filter { it.matches(words) }
     val rng = Random(SessionSeed)
     val list = listOf(
@@ -167,6 +169,7 @@ fun LazyListScope.homeDiscoverItems(
     isPlaying: Boolean,
     onPlay: (Song, List<Song>, String) -> Unit,
     onLongClick: (Song) -> Unit,
+    onMoodOpen: (XvoxMood) -> Unit = {},
     quickPicksVisible: Boolean = true,
     moodsVisible: Boolean = true
 ) {
@@ -207,10 +210,7 @@ fun LazyListScope.homeDiscoverItems(
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 items(moods, key = { it.title }) { mood ->
-                    MoodCard(mood) {
-                        val shuffled = mood.songs.shuffled()
-                        onPlay(shuffled.first(), shuffled, mood.title)
-                    }
+                    MoodCard(mood) { onMoodOpen(mood) }
                 }
             }
         }
@@ -252,25 +252,76 @@ private fun QuickPickRow(song: Song, current: Boolean, playing: Boolean, onClick
                 overflow = TextOverflow.Ellipsis
             )
         }
+        // The three dots open the same option sheet as a long press.
+        Box(
+            Modifier.size(36.dp).xvoxSongPress(onClick = onLongClick, pressedScale = .8f),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.ic_xvox_more),
+                contentDescription = "More",
+                tint = colors.secondaryText,
+                modifier = Modifier.size(20.dp)
+            )
+        }
     }
 }
 
 @Composable
 private fun MoodCard(mood: XvoxMood, onClick: () -> Unit) {
-    val shape = RoundedCornerShape(16.dp)
+    val shape = RoundedCornerShape(24.dp)
     Box(
         modifier = Modifier
-            .width(168.dp)
-            .height(92.dp)
+            .width(236.dp)
+            .height(148.dp)
             .xvoxSongPress(onClick = onClick, pressedScale = .96f)
             .clip(shape)
             .background(Brush.linearGradient(listOf(mood.from, mood.to)))
             .xvoxGlassRim(shape)
-            .padding(14.dp)
     ) {
-        Column(Modifier.align(Alignment.BottomStart)) {
-            Text(mood.title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 17.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text("${mood.songs.size} songs · ${mood.subtitle}", color = Color.White.copy(alpha = .82f), fontSize = 10.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        MoodMotion(Modifier.matchParentSize())
+        Column(Modifier.align(Alignment.BottomStart).padding(18.dp)) {
+            Text(mood.title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 22.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text("${mood.songs.size} songs · ${mood.subtitle}", color = Color.White.copy(alpha = .84f), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+    }
+}
+
+/** Soft translucent discs and long wave lines drifting very slowly, in the style of iOS cards. */
+@Composable
+fun MoodMotion(modifier: Modifier = Modifier) {
+    val transition = rememberInfiniteTransition(label = "moodMotion")
+    val phase = transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(18_000, easing = LinearEasing), RepeatMode.Restart),
+        label = "moodPhase"
+    )
+    Canvas(modifier) {
+        val w = size.width
+        val h = size.height
+        val turn = (2 * PI).toFloat() * phase.value
+        drawCircle(
+            Color.White.copy(alpha = .15f),
+            radius = h * .62f,
+            center = Offset(w * (.80f + .06f * cos(turn)), h * (.18f + .09f * sin(turn)))
+        )
+        drawCircle(
+            Color.White.copy(alpha = .10f),
+            radius = h * .42f,
+            center = Offset(w * (.16f + .08f * sin(turn + 1f)), h * (.92f + .06f * cos(turn + 1f)))
+        )
+        val stroke = Stroke(width = 1.6.dp.toPx(), cap = StrokeCap.Round)
+        for (k in 0..2) {
+            val path = Path()
+            val baseY = h * (.30f + .17f * k)
+            val steps = 28
+            for (i in 0..steps) {
+                val x = w * i / steps
+                val y = baseY + h * .06f * sin(i * .42f + turn + k * 1.7f)
+                if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+            }
+            drawPath(path, Color.White.copy(alpha = .16f - .03f * k), style = stroke)
         }
     }
 }

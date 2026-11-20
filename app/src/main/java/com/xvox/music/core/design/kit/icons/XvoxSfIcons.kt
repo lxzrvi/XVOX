@@ -4,6 +4,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.PathFillType
+import androidx.compose.ui.graphics.vector.PathBuilder
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.unit.dp
@@ -382,6 +384,49 @@ object XvoxSfIcons {
     val ChevronDown: ImageVector by lazy { chevron("ChevronDown", 4.8f, 9f, 12f, 16.2f, 19.2f, 9f) }
     val ChevronUp: ImageVector by lazy { chevron("ChevronUp", 4.8f, 15f, 12f, 7.8f, 19.2f, 15f) }
 
+    private fun PathBuilder.roundRect(x1: Float, y1: Float, x2: Float, y2: Float, r: Float) {
+        moveTo(x1 + r, y1)
+        lineTo(x2 - r, y1)
+        quadTo(x2, y1, x2, y1 + r)
+        lineTo(x2, y2 - r)
+        quadTo(x2, y2, x2 - r, y2)
+        lineTo(x1 + r, y2)
+        quadTo(x1, y2, x1, y2 - r)
+        lineTo(x1, y1 + r)
+        quadTo(x1, y1, x1 + r, y1)
+        close()
+    }
+
+    /** music.note.square.stack.fill - Apple Music's Library glyph: two strips over a note tile. */
+    val LibraryFill: ImageVector by lazy {
+        ImageVector.Builder(
+            name = "LibraryFill", defaultWidth = 24.dp, defaultHeight = 24.dp,
+            viewportWidth = 24f, viewportHeight = 24f,
+        ).apply {
+            path(fill = SolidColor(Color.Black)) {
+                roundRect(6f, 2.2f, 18f, 4.4f, 1.1f)
+                roundRect(4.2f, 5.4f, 19.8f, 7.8f, 1.2f)
+            }
+            // The tile and the note share one path; even-odd turns the note into a cut-out.
+            path(fill = SolidColor(Color.Black), pathFillType = PathFillType.EvenOdd) {
+                roundRect(2.6f, 9f, 21.4f, 22f, 3.4f)
+                // note head
+                moveTo(8.4f, 18.2f)
+                arcTo(1.9f, 1.9f, 0f, true, true, 12.2f, 18.2f)
+                arcTo(1.9f, 1.9f, 0f, true, true, 8.4f, 18.2f)
+                close()
+                // stem and flag
+                moveTo(11.5f, 12.4f)
+                lineTo(15.8f, 13.3f)
+                lineTo(15.8f, 14.9f)
+                lineTo(12.9f, 14.3f)
+                lineTo(12.9f, 18.2f)
+                lineTo(11.5f, 18.2f)
+                close()
+            }
+        }.build()
+    }
+
     /** sun.max.fill - disc with eight round rays. */
     val SunFill: ImageVector by lazy {
         ImageVector.Builder(
@@ -462,6 +507,7 @@ object XvoxSfIcons {
             systemName.startsWith("magnifyingglass") -> Magnifyingglass
             systemName == "mic" || systemName.startsWith("microphone") -> MicrophoneFill
             // Albums: Glasmio's stacked-square symbol, drawn as the disc SF geometry.
+            systemName.startsWith("music.note.square.stack") -> LibraryFill
             systemName.contains("stack") -> OpticaldiscFill
             systemName.startsWith("music.note.list") -> MusicNoteList
             systemName.startsWith("music.note") -> MusicNoteList

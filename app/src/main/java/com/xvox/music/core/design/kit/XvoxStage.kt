@@ -1,6 +1,12 @@
 package com.xvox.music.core.design.kit
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.infiniteRepeatable
@@ -260,20 +266,54 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
                                     modifier = Modifier.fillMaxSize()
                                 )
                             }
-                            AnimatedContent(
-                                targetState = pageIndex,
-                                transitionSpec = {
-                                    (fadeIn(tween(280)) + scaleIn(tween(320), initialScale = .94f)) togetherWith
-                                        (fadeOut(tween(200)) + scaleOut(tween(260), targetScale = .97f))
-                                },
-                                label = "stageRoot"
-                            ) { index ->
-                                when (index) {
-                                    SettingsIndex -> XvoxStageSettingsPage(
+                            // Home / Library stay composed for the whole session. Switching tabs
+                            // used to rebuild the entire (heavy) HomeScreen, which stalled the
+                            // frame that was animating the navigation pill and left it frozen.
+                            CompositionLocalProvider(
+                                LocalXvoxTopInset provides topInset,
+                                LocalXvoxBottomInset provides bottomInset
+                            ) {
+                                Box(Modifier.fillMaxSize()) {
+                                    HomeScreen(
+                                        currentSongId = currentId,
+                                        isPlaying = isPlaying,
+                                        detailExitKey = detailExitKey,
+                                        onActiveDetailModeChange = { detailMode = it },
+                                        onQueueReady = { songs ->
+                                            if (songs.isNotEmpty()) playerVm.setQueue(songs)
+                                        },
+                                        onPlay = { song -> playerVm.play(song) },
+                                        playerViewModel = playerVm,
+                                        viewModel = homeVm,
+                                        onActiveListState = { activeList = it }
+                                    )
+                                    if (pageIndex == LibraryIndex) {
+                                        LibraryHeader(
+                                            mode = libraryMode,
+                                            detailOpen = detailMode != null,
+                                            onMode = { mode ->
+                                                libraryMode = mode
+                                                homeVm.setLibraryMode(mode)
+                                            },
+                                            onBack = { detailExitKey += 1 }
+                                        )
+                                    }
+                                }
+                            }
+                            AnimatedVisibility(
+                                visible = pageIndex == SettingsIndex,
+                                enter = fadeIn(tween(220)),
+                                exit = fadeOut(tween(180))
+                            ) {
+                                Box(
+                                    Modifier
+                                        .fillMaxSize()
+                                        .background(colors.background)
+                                        .pointerInput(Unit) { }
+                                ) {
+                                    XvoxStageSettingsPage(
                                         prefs = prefs,
                                         values = settings,
-                                        // Controls live inside the recorded page, so they sample
-                                        // the wallpaper only (never the layer they are drawn in).
                                         backdrop = backdrop,
                                         onBack = {
                                             selectedIndex = HomeIndex
@@ -281,41 +321,6 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
                                         },
                                         listState = settingsList
                                     )
-                                    else -> CompositionLocalProvider(
-                                        LocalXvoxTopInset provides topInset,
-                                        LocalXvoxBottomInset provides bottomInset
-                                    ) {
-                                        Box(Modifier.fillMaxSize()) {
-                                            // The app's own Home: Quick picks, Find your mood, All
-                                            // songs, the long-press option sheet and the library
-                                            // lists, with all of their loading and playback intact.
-                                            HomeScreen(
-                                                currentSongId = currentId,
-                                                isPlaying = isPlaying,
-                                                detailExitKey = detailExitKey,
-                                                onActiveDetailModeChange = { detailMode = it },
-                                                onQueueReady = { songs ->
-                                                    if (songs.isNotEmpty()) playerVm.setQueue(songs)
-                                                },
-                                                onPlay = { song -> playerVm.play(song) },
-                                                playerViewModel = playerVm,
-                                                viewModel = homeVm,
-                                                onActiveListState = { activeList = it }
-                                            )
-                                            if (index == LibraryIndex) {
-                                                LibraryHeader(
-                                                    mode = libraryMode,
-                                                    detailOpen = detailMode != null,
-                                                    backdrop = floatingBackdrop,
-                                                    onMode = { mode ->
-                                                        libraryMode = mode
-                                                        homeVm.setLibraryMode(mode)
-                                                    },
-                                                    onBack = { detailExitKey += 1 }
-                                                )
-                                            }
-                                        }
-                                    }
                                 }
                             }
                         }
@@ -346,6 +351,7 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
                                     playing = isPlaying,
                                     onToggle = { playerVm.togglePlay() },
                                     onNext = { playerVm.playNext() },
+                                    onPrevious = { playerVm.playPrevious() },
                                     backdrop = floatingBackdrop
                                 )
                                 // Width follows the scroll: 320 dp while expanded, the full row once
@@ -465,11 +471,10 @@ private fun StageAmbientGlow(accent: Color, modifier: Modifier = Modifier) {
 private fun BoxScope.LibraryHeader(
     mode: XvoxHomeLibraryMode,
     detailOpen: Boolean,
-    backdrop: Backdrop,
     onMode: (XvoxHomeLibraryMode) -> Unit,
     onBack: () -> Unit
 ) {
-    val glass = LocalGlassColors.current
+    val colors = XvoxTheme.colors
     Row(
         modifier = Modifier
             .align(Alignment.TopStart)
@@ -479,28 +484,38 @@ private fun BoxScope.LibraryHeader(
         verticalAlignment = Alignment.CenterVertically
     ) {
         if (detailOpen) {
-            GlasmioIconButton(onClick = onBack, backdrop = backdrop, size = 44.dp) {
+            Box(
+                Modifier.size(44.dp).clip(CircleShape).background(colors.card)
+                    .xvoxGlassRim(CircleShape)
+                    .xvoxSongPress(onClick = onBack, pressedScale = .9f),
+                contentAlignment = Alignment.Center
+            ) {
                 Icon(
                     imageVector = XvoxSfIcons.ChevronLeft,
                     contentDescription = "Back",
-                    tint = glass.content,
+                    tint = colors.primaryText,
                     modifier = Modifier.size(20.dp)
                 )
             }
         } else {
+            // Plain capsules (no Glasmio component inside the scroller), so there is nothing that
+            // needs a bounded width and nothing that can crash while measuring.
             Row(
                 modifier = Modifier.horizontalScroll(rememberScrollState()),
                 horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 LibraryModes.forEach { (value, label) ->
-                    GlasmioButton(
-                        onClick = { onMode(value) },
-                        backdrop = backdrop,
-                        emphasis = if (value == mode) GlassEmphasis.Prominent else GlassEmphasis.Regular,
-                        size = GlasmioButtonSize.Medium
+                    val on = value == mode
+                    Box(
+                        Modifier.height(40.dp).clip(CircleShape)
+                            .background(if (on) colors.primaryAccent else colors.card)
+                            .xvoxGlassRim(CircleShape)
+                            .xvoxSongPress(onClick = { onMode(value) }, pressedScale = .94f)
+                            .padding(horizontal = 16.dp),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Text(label, color = glass.content, fontSize = 14.sp)
+                        Text(label, color = if (on) Color.White else colors.primaryText, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                     }
                 }
             }
@@ -520,10 +535,13 @@ private fun BoxScope.StageMiniPlayer(
     playing: Boolean,
     onToggle: () -> Unit,
     onNext: () -> Unit,
+    onPrevious: () -> Unit,
     backdrop: Backdrop
 ) {
     val glass = LocalGlassColors.current
     val shape = RoundedCornerShape(50)
+    var drag by remember { mutableFloatStateOf(0f) }
+    val shift by animateFloatAsState(drag, tween(120), label = "miniSwipe")
     GlassSurface(
         modifier = Modifier
             .align(Alignment.BottomCenter)
@@ -534,7 +552,7 @@ private fun BoxScope.StageMiniPlayer(
                 // Compact: the row minus the two circles and the gap on each side.
                 val compactWidth = (full - 2 * (StageControlHeight + StageControlGap).roundToPx()).coerceAtLeast(0)
                 val w = lerp(full, compactWidth, p)
-                val h = lerp(54.dp.roundToPx(), StageControlHeight.roundToPx(), p)
+                val h = lerp(62.dp.roundToPx(), StageControlHeight.roundToPx(), p)
                 val rise = ((StageControlHeight + 10.dp).roundToPx() * (1f - p)).toInt()
                 val placeable = measurable.measure(Constraints.fixed(w, h))
                 layout(c.maxWidth, StageControlHeight.roundToPx() + rise) {
@@ -549,13 +567,32 @@ private fun BoxScope.StageMiniPlayer(
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val showText = maxWidth > 250.dp
             Row(
-                modifier = Modifier.fillMaxSize().padding(start = 10.dp, end = 6.dp),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .pointerInput(Unit) {
+                        var total = 0f
+                        detectHorizontalDragGestures(
+                            onDragStart = { total = 0f },
+                            onDragEnd = {
+                                if (total > 70f) onPrevious() else if (total < -70f) onNext()
+                                total = 0f
+                                drag = 0f
+                            },
+                            onDragCancel = { total = 0f; drag = 0f },
+                            onHorizontalDrag = { _, amount ->
+                                total += amount
+                                drag = (total / 4f).coerceIn(-24f, 24f)
+                            }
+                        )
+                    }
+                    .graphicsLayer { translationX = shift }
+                    .padding(start = 7.dp, end = 6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 XvoxSongArtwork(
                     artwork = song?.artworkUri,
-                    requestSize = 128,
-                    modifier = Modifier.size(40.dp).clip(CircleShape)
+                    requestSize = 160,
+                    modifier = Modifier.size(48.dp).clip(CircleShape)
                 )
                 if (showText) {
                     Column(Modifier.weight(1f).padding(horizontal = 10.dp)) {

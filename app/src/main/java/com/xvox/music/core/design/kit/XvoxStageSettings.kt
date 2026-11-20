@@ -4,6 +4,15 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.ui.draw.rotate
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -16,6 +25,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -132,9 +142,10 @@ fun XvoxStageSettingsPage(
     val glass = LocalGlassColors.current
     val textSizes = remember { listOf("XS" to .70f, "S" to .80f, "M" to .90f, "L" to 1.00f) }
 
+    Box(Modifier.fillMaxSize()) {
     GlasmioPinnedListPage(
         title = "Settings",
-        onNavigateBack = onBack,
+        onNavigateBack = null,
         listState = listState,
         bottomPadding = 132.dp,
         backgroundColor = Color.Transparent,
@@ -207,6 +218,32 @@ fun XvoxStageSettingsPage(
         }
     }
 
+    // Plain, opaque back button: no glass sampling, so it can never show a half-grey disc.
+    Box(
+        Modifier
+            .align(Alignment.TopStart)
+            .statusBarsPadding()
+            .padding(top = 11.dp, start = 16.dp)
+            .size(44.dp)
+            .clip(CircleShape)
+            .background(colors.card)
+            .border(1.dp, colors.cardBorder, CircleShape)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onBack
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = XvoxSfIcons.ChevronLeft,
+            contentDescription = "Back",
+            tint = colors.primaryText,
+            modifier = Modifier.size(20.dp)
+        )
+    }
+    }
+
     GlasmioColorPicker(
         visible = accentPickerOpen,
         selectedColor = colors.primaryAccent,
@@ -236,9 +273,11 @@ private fun BoxScope.ThemeGlyph(value: String, tint: Color) {
 }
 
 /**
- * A pick-one row: the current choice sits on the right and tapping opens Glasmio's liquid menu
- * anchored on the row, so choosing never needs a tap-through to another screen.
+ * A pick-one row that expands in place. No popup window and no morphing surface are involved, so
+ * nothing can flash a square on open or close and there is no open delay: the choices simply
+ * unfold underneath the row.
  */
+@OptIn(ExperimentalAnimationApi::class)
 @Composable
 private fun <T> PickerRow(
     title: String,
@@ -250,50 +289,51 @@ private fun <T> PickerRow(
 ) {
     var open by remember { mutableStateOf(false) }
     val glass = LocalGlassColors.current
-    GlasmioMenu(
-        expanded = open,
-        onExpandedChange = { open = it },
-        itemCount = options.size,
-        menuWidth = 220.dp,
-        backdrop = backdrop,
-        modifier = Modifier.fillMaxWidth(),
-        anchor = { toggle ->
-            GlasmioListRow(
-                title = title,
-                detail = options.firstOrNull { it.first == selected }?.second.orEmpty(),
-                onClick = toggle,
-                showDisclosure = false,
-                showTopSeparator = showTopSeparator,
-                trailing = {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_xvox_chevron_down),
-                        contentDescription = null,
-                        tint = glass.secondaryContent,
-                        modifier = Modifier.size(14.dp)
+    val turn by animateFloatAsState(if (open) 180f else 0f, tween(220), label = "pickerChevron")
+    Column(Modifier.fillMaxWidth()) {
+        GlasmioListRow(
+            title = title,
+            detail = options.firstOrNull { it.first == selected }?.second.orEmpty(),
+            onClick = { open = !open },
+            showDisclosure = false,
+            showTopSeparator = showTopSeparator,
+            trailing = {
+                Icon(
+                    painter = painterResource(R.drawable.ic_xvox_chevron_down),
+                    contentDescription = null,
+                    tint = glass.secondaryContent,
+                    modifier = Modifier.size(14.dp).rotate(turn)
+                )
+            }
+        )
+        AnimatedVisibility(
+            visible = open,
+            enter = expandVertically(tween(240)) + fadeIn(tween(200)),
+            exit = shrinkVertically(tween(220)) + fadeOut(tween(140))
+        ) {
+            Column(Modifier.fillMaxWidth()) {
+                options.forEach { (key, label) ->
+                    GlasmioListRow(
+                        title = label,
+                        onClick = {
+                            onSelected(key)
+                            open = false
+                        },
+                        showDisclosure = false,
+                        showTopSeparator = true,
+                        trailing = {
+                            if (key == selected) {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_xvox_check),
+                                    contentDescription = null,
+                                    tint = glass.content,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
                     )
                 }
-            )
-        }
-    ) { menuBackdrop, close ->
-        options.forEach { (key, label) ->
-            GlasmioMenuItem(
-                title = label,
-                onClick = {
-                    onSelected(key)
-                    close()
-                },
-                backdrop = menuBackdrop,
-                trailing = if (key == selected) {
-                    {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_xvox_check),
-                            contentDescription = null,
-                            tint = glass.content,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                } else null
-            )
+            }
         }
     }
 }

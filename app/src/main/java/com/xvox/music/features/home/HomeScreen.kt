@@ -48,6 +48,7 @@ import com.xvox.music.features.artist.XvoxArtist
 import com.xvox.music.features.artist.XvoxArtistGrid
 import com.xvox.music.features.home.allsongs.XvoxMosaicPagePlan
 import com.xvox.music.features.home.allsongs.allSongsItems
+import com.xvox.music.features.home.allsongs.allSongsGridItems
 import com.xvox.music.features.home.allsongs.buildMosaicPagePlans
 import com.xvox.music.features.home.recent.XvoxRecentlyPlayedSection
 import com.xvox.music.features.playlist.XvoxHomeLibraryMode
@@ -415,6 +416,7 @@ fun HomeScreen(
         }
     }
 
+    var openMood by remember { mutableStateOf<XvoxMood?>(null) }
     BackHandler(enabled = isSelectionMode) {
         selectedSongIds = emptySet()
         selectedArtistNames = emptySet()
@@ -982,11 +984,12 @@ fun HomeScreen(
                                         currentSongId = currentSongId,
                                         isPlaying = isPlaying,
                                         onPlay = { song, list, source -> handleSongClick(song, list, source) },
-                                        onLongClick = { song -> if (isSelectionMode) handleSongLongClick(song, "All Songs") else openSingleSongOptions(song) }
+                                        onLongClick = { song -> if (isSelectionMode) handleSongLongClick(song, "All Songs") else openSingleSongOptions(song) },
+                                        onMoodOpen = { openMood = it }
                                     )
                                     val allSongsSelected = if (selectionCategoryName == "All Songs" || selectionCategoryName == null) selectedSongIds else emptySet()
-                                    allSongsItems(
-                                        state.songs, plans, config, currentSongId, isPlaying, allSongsSelected,
+                                    allSongsGridItems(
+                                        state.songs, currentSongId, allSongsSelected,
                                         onSongClick = { handleSongClick(it, state.songs, "All Songs") },
                                         onSongLongClick = { if (isSelectionMode) handleSongLongClick(it, "All Songs") else openSingleSongOptions(it) }
                                     )
@@ -1009,6 +1012,17 @@ fun HomeScreen(
                     }
                 }
             }
+
+        openMood?.let { mood ->
+            XvoxMoodPage(
+                mood = mood,
+                currentSongId = currentSongId,
+                bottomInset = bottomInset,
+                onBack = { openMood = null },
+                onPlay = { song, list -> handleSongClick(song, list, mood.title) },
+                onMore = { song -> openSingleSongOptions(song) }
+            )
+        }
 
         if (!nowPlayingVisible) {
             when {
