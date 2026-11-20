@@ -1,84 +1,116 @@
 package com.xvox.music.core.design.kit
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Column
-import androidx.compose.material3.Text
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.layout.layout
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Constraints
-import androidx.compose.ui.unit.sp
-import androidx.compose.ui.util.lerp
-import io.github.neoruaa.glasmio.core.LocalGlassColors
-import io.github.neoruaa.glasmio.glass.GlassSurface
-import io.github.neoruaa.glasmio.glass.GlassSurfaceStyle
-import io.github.neoruaa.glasmio.glass.render.backdrops.layerBackdrop
-import io.github.neoruaa.glasmio.glass.render.backdrops.rememberCombinedBackdrop
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
-import androidx.compose.runtime.State
-import io.github.neoruaa.glasmio.glass.render.Backdrop
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
-import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
-import com.xvox.music.core.ui.icons.painterResource
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.util.lerp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.xvox.music.R
 import com.xvox.music.core.design.kit.icons.XvoxSfIcons
 import com.xvox.music.core.design.theme.XvoxTheme
-import com.xvox.music.core.ui.navigation.XvoxNavTab
+import com.xvox.music.core.model.Song
+import com.xvox.music.core.ui.blur.xvoxGlassRim
+import com.xvox.music.core.ui.effects.xvoxSongPress
+import com.xvox.music.core.ui.icons.painterResource
+import com.xvox.music.core.ui.navigation.LocalXvoxBottomInset
+import com.xvox.music.core.ui.navigation.LocalXvoxTopInset
 import com.xvox.music.data.preferences.UserPreferencesRepository
+import com.xvox.music.features.home.HomeScreen
+import com.xvox.music.features.home.HomeViewModel
+import com.xvox.music.features.home.XvoxSongArtwork
+import com.xvox.music.features.playlist.XvoxHomeLibraryMode
+import com.xvox.music.player.playback.MainPlayerViewModel
+import io.github.neoruaa.glasmio.core.LocalGlassColors
+import io.github.neoruaa.glasmio.glass.GlassEmphasis
+import io.github.neoruaa.glasmio.glass.GlassSurface
+import io.github.neoruaa.glasmio.glass.GlassSurfaceStyle
+import io.github.neoruaa.glasmio.glass.render.Backdrop
+import io.github.neoruaa.glasmio.glass.render.backdrops.layerBackdrop
+import io.github.neoruaa.glasmio.glass.render.backdrops.rememberCombinedBackdrop
 import io.github.neoruaa.glasmio.glass.render.backdrops.rememberLayerBackdrop
 import io.github.neoruaa.glasmio.icons.GlasmioIconProvider
 import io.github.neoruaa.glasmio.icons.SfSymbol
 import io.github.neoruaa.glasmio.scaffold.GlasmioFloatingSearch
 import io.github.neoruaa.glasmio.scaffold.GlasmioNavigationBarWithTrailingItem
-import io.github.neoruaa.glasmio.scaffold.GlasmioPinnedListPage
 import io.github.neoruaa.glasmio.scaffold.glasmioNavigationScrollHint
 import io.github.neoruaa.glasmio.scaffold.rememberGlasmioNavigationScrollState
 import io.github.neoruaa.glasmio.scaffold.rememberGlasmioSearchTransition
+import io.github.neoruaa.glasmio.ui.GlasmioButton
+import io.github.neoruaa.glasmio.ui.GlasmioButtonSize
 import io.github.neoruaa.glasmio.ui.GlasmioIconButton
-import io.github.neoruaa.glasmio.ui.GlasmioMenu
 import io.github.neoruaa.glasmio.ui.GlasmioTabItem
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 
 /**
  * Rebuild staging. The previous application surface stays in the source tree but is not composed.
@@ -90,9 +122,11 @@ object XvoxStage {
 }
 
 private const val SearchKey = 9
+private const val HomeIndex = 0
+private const val LibraryIndex = 1
 private const val SettingsIndex = 2
 
-/** Expanded bar width: centred and narrower than the screen. */
+/** Expanded navigation bar width: centred and narrower than the screen. */
 private val StageBarMaxWidth = 320.dp
 
 /** Glasmio's navigation surface height; the compact circles and the mini player match it. */
@@ -100,14 +134,14 @@ private val StageControlHeight = 62.dp
 private val StageSideMargin = 16.dp
 private val StageControlGap = 8.dp
 
-private val StageTabs = listOf(XvoxNavTab.HOME, XvoxNavTab.ALBUM)
-
-private fun stageIcon(tab: XvoxNavTab): SfSymbol = when (tab) {
-    XvoxNavTab.HOME -> SfSymbol.HouseFilled
-    XvoxNavTab.ALBUM -> SfSymbol.MusicNoteSquareStackFilled
-    XvoxNavTab.PLAYLIST -> SfSymbol.MusicNoteList
-    XvoxNavTab.ARTIST -> SfSymbol.Microphone
-}
+/** Library filters, in the order they appear on the Library page. */
+private val LibraryModes = listOf(
+    XvoxHomeLibraryMode.RECENT to "Recent",
+    XvoxHomeLibraryMode.ARTISTS to "Artists",
+    XvoxHomeLibraryMode.PLAYLISTS to "Playlists",
+    XvoxHomeLibraryMode.LIKED to "Liked",
+    XvoxHomeLibraryMode.ALBUMS to "Albums"
+)
 
 @Composable
 fun XvoxStageScaffold(modifier: Modifier = Modifier) {
@@ -115,25 +149,39 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val haptics = LocalHapticFeedback.current
     val prefs = remember { UserPreferencesRepository(context.applicationContext) }
+    val homeVm: HomeViewModel = viewModel()
+    val playerVm: MainPlayerViewModel = viewModel()
 
-    var selectedIndex by remember { mutableIntStateOf(0) }
+    // The bar's selection moves at once so its pill animates; the (much heavier) page switch
+    // follows once that release animation has had time to finish, so the pill never competes with
+    // composing a whole screen on the same frames.
+    var selectedIndex by remember { mutableIntStateOf(HomeIndex) }
+    var pageIndex by remember { mutableIntStateOf(HomeIndex) }
+    LaunchedEffect(selectedIndex) {
+        if (selectedIndex != pageIndex) {
+            delay(260)
+            pageIndex = selectedIndex
+        }
+    }
+    var libraryMode by rememberSaveable { mutableStateOf(XvoxHomeLibraryMode.RECENT) }
     var searchActive by rememberSaveable { mutableStateOf(false) }
     var query by remember { mutableStateOf(TextFieldValue()) }
     var searchBounds by remember { mutableStateOf<Rect?>(null) }
-    var menuOpen by remember { mutableStateOf(false) }
-    // Settings is opened only once the profile popover has finished collapsing into its button,
-    // so the two transitions never overlap.
-    var openSettingsAfterClose by remember { mutableStateOf(false) }
+    // Artist / playlist / album detail pages open inside Home's list; this exits them.
+    var detailMode by remember { mutableStateOf<XvoxHomeLibraryMode?>(null) }
+    var detailExitKey by remember { mutableLongStateOf(0L) }
 
-    // One list state per root page. The navigation bar follows whichever page is on screen: it
-    // shrinks to its compact capsule while scrolling away and springs back on tap or at the top.
-    val pageListStates = StageTabs.indices.map { rememberLazyListState() } + rememberLazyListState()
+    // The list that is on screen drives the navigation bar: Home and Library report theirs, and
+    // Settings owns its own.
+    val settingsList = rememberLazyListState()
+    val fallbackList = rememberLazyListState()
+    var activeList by remember { mutableStateOf<LazyListState?>(null) }
     val navigationScroll = rememberGlasmioNavigationScrollState(
-        listState = pageListStates[if (selectedIndex == SettingsIndex) pageListStates.lastIndex else selectedIndex],
+        listState = if (pageIndex == SettingsIndex) settingsList else activeList ?: fallbackList,
         enabled = !searchActive
     )
     // The stage owns no background: it samples the application's real backdrop layer, which the
-    // root registered from the live wallpaper, gradient or theme fill.
+    // root registered from the solid theme fill.
     val engineBackdrop = LocalXvoxGlassBackdrop.current
     val ownBackdrop = rememberLayerBackdrop()
     val backdrop = engineBackdrop ?: ownBackdrop
@@ -143,16 +191,44 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
     val floatingBackdrop = rememberCombinedBackdrop(backdrop, pageBackdrop)
     // Preferences are read here, once, so Settings opens with every control already in place.
     val settings = rememberXvoxStageSettings(prefs)
-    var playing by remember { mutableStateOf(false) }
     val onExpand = remember(navigationScroll) { { navigationScroll.expand() } }
     val searchTransition = rememberGlasmioSearchTransition(searchActive)
     val morph by searchTransition.progressState
 
+    // Only the two fields the stage needs are collected, so playback ticks never recompose it.
+    val currentId by remember(playerVm) {
+        playerVm.state.map { it.currentSongId }.distinctUntilChanged()
+    }.collectAsState(initial = null)
+    val isPlaying by remember(playerVm) {
+        playerVm.state.map { it.isPlaying }.distinctUntilChanged()
+    }.collectAsState(initial = false)
+    val currentSong: Song? = remember(currentId) {
+        currentId?.let { id ->
+            playerVm.state.value.queue.firstOrNull { it.id == id }
+                ?: homeVm.state.value.songs.firstOrNull { it.id == id }
+        }
+    }
+
+    LaunchedEffect(pageIndex, libraryMode) {
+        when (pageIndex) {
+            HomeIndex -> homeVm.setLibraryMode(XvoxHomeLibraryMode.ALL_SONGS)
+            LibraryIndex -> homeVm.setLibraryMode(libraryMode)
+        }
+    }
+
     val items = remember {
-        StageTabs.mapIndexed { index, t -> GlasmioTabItem(index, t.label, stageIcon(t)) } +
+        listOf(
+            GlasmioTabItem(HomeIndex, "Home", SfSymbol.HouseFilled),
+            GlasmioTabItem(LibraryIndex, "Library", SfSymbol.MusicNoteSquareStackFilled),
             GlasmioTabItem(SettingsIndex, "Settings", SfSymbol.Gearshape)
+        )
     }
     val searchItem = remember { GlasmioTabItem(SearchKey, "Search", SfSymbol.Search) }
+
+    val statusTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val topInset = statusTop + if (pageIndex == LibraryIndex) 60.dp else 62.dp
+    val bottomInset = navBottom + 176.dp
 
     XvoxGlassEnvironment(backdrop = backdrop) {
         GlasmioIconProvider(resolver = XvoxSfIcons.Resolver) {
@@ -178,8 +254,14 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
                         // The page is its own recorded layer: every floating glass element samples
                         // it together with the wallpaper. The bar below is a sibling, never inside.
                         Box(Modifier.fillMaxSize().layerBackdrop(pageBackdrop)) {
+                            if (pageIndex != SettingsIndex) {
+                                StageAmbientGlow(
+                                    accent = colors.primaryAccent,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
                             AnimatedContent(
-                                targetState = selectedIndex,
+                                targetState = pageIndex,
                                 transitionSpec = {
                                     (fadeIn(tween(280)) + scaleIn(tween(320), initialScale = .94f)) togetherWith
                                         (fadeOut(tween(200)) + scaleOut(tween(260), targetScale = .97f))
@@ -193,23 +275,58 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
                                         // Controls live inside the recorded page, so they sample
                                         // the wallpaper only (never the layer they are drawn in).
                                         backdrop = backdrop,
-                                        onBack = { selectedIndex = 0 },
-                                        listState = pageListStates.last()
+                                        onBack = {
+                                            selectedIndex = HomeIndex
+                                            pageIndex = HomeIndex
+                                        },
+                                        listState = settingsList
                                     )
-                                    else -> XvoxStagePage(
-                                        title = StageTabs[index].label,
-                                        listState = pageListStates[index]
-                                    )
+                                    else -> CompositionLocalProvider(
+                                        LocalXvoxTopInset provides topInset,
+                                        LocalXvoxBottomInset provides bottomInset
+                                    ) {
+                                        Box(Modifier.fillMaxSize()) {
+                                            // The app's own Home: Quick picks, Find your mood, All
+                                            // songs, the long-press option sheet and the library
+                                            // lists, with all of their loading and playback intact.
+                                            HomeScreen(
+                                                currentSongId = currentId,
+                                                isPlaying = isPlaying,
+                                                detailExitKey = detailExitKey,
+                                                onActiveDetailModeChange = { detailMode = it },
+                                                onQueueReady = { songs ->
+                                                    if (songs.isNotEmpty()) playerVm.setQueue(songs)
+                                                },
+                                                onPlay = { song -> playerVm.play(song) },
+                                                playerViewModel = playerVm,
+                                                viewModel = homeVm,
+                                                onActiveListState = { activeList = it }
+                                            )
+                                            if (index == LibraryIndex) {
+                                                LibraryHeader(
+                                                    mode = libraryMode,
+                                                    detailOpen = detailMode != null,
+                                                    backdrop = floatingBackdrop,
+                                                    onMode = { mode ->
+                                                        libraryMode = mode
+                                                        homeVm.setLibraryMode(mode)
+                                                    },
+                                                    onBack = { detailExitKey += 1 }
+                                                )
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
 
                         // The bar and the mini player retire into the search field together: one
-                        // smooth fade across the first part of Glasmio's morph clock, with no
-                        // scaling, so bar and search capsule overlap and read as one blending shape.
+                        // smooth fade spread across Glasmio's whole morph clock, with no scaling,
+                        // so bar and search capsule overlap and read as one blending shape both
+                        // when search opens and when it closes.
                         if (morph < .999f) {
-                            val fade = (morph * 1.25f).coerceIn(0f, 1f)
-                            val barAlpha = 1f - fade * fade * (3f - 2f * fade)
+                            val t = ((morph - .05f) / .85f).coerceIn(0f, 1f)
+                            val barAlpha = 1f - t * t * (3f - 2f * t)
                             Box(
                                 Modifier
                                     .align(Alignment.BottomCenter)
@@ -225,8 +342,10 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
                             ) {
                                 StageMiniPlayer(
                                     compactProgress = navigationScroll.compactProgress,
-                                    playing = playing,
-                                    onToggle = { playing = !playing },
+                                    song = currentSong,
+                                    playing = isPlaying,
+                                    onToggle = { playerVm.togglePlay() },
+                                    onNext = { playerVm.playNext() },
                                     backdrop = floatingBackdrop
                                 )
                                 // Width follows the scroll: 320 dp while expanded, the full row once
@@ -279,56 +398,109 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
                     }
                 }
 
-                Box(
+                // Profile button: its centre lines up with the XVOX wordmark on the left.
+                XvoxProfileMenu(
+                    prefs = prefs,
+                    backdrop = floatingBackdrop,
+                    onOpenSettings = { selectedIndex = SettingsIndex },
                     modifier = Modifier
                         .align(Alignment.TopEnd)
                         .statusBarsPadding()
-                        .padding(top = 8.dp, end = 16.dp)
+                        .padding(top = 11.dp, end = 16.dp)
                         .graphicsLayer {
                             compositingStrategy = CompositingStrategy.ModulateAlpha
                             alpha = 1f - morph
                         }
-                ) {
-                    // The profile button morphs into the panel and the panel collapses back into the
-                    // same button (Glasmio's source-preview morph), instead of a separate dialog.
-                    GlasmioMenu(
-                        expanded = menuOpen,
-                        onExpandedChange = { menuOpen = it },
-                        itemCount = 1,
-                        menuWidth = XvoxProfilePanelWidth,
-                        heightOverride = XvoxProfilePanelHeight,
-                        forceBelowAnchor = true,
-                        backdrop = floatingBackdrop,
-                        onClosed = {
-                            if (openSettingsAfterClose) {
-                                openSettingsAfterClose = false
-                                selectedIndex = SettingsIndex
-                            }
-                        },
-                        anchor = { open ->
-                            GlasmioIconButton(
-                                onClick = open,
-                                backdrop = floatingBackdrop,
-                                size = 44.dp
-                            ) {
-                                Icon(
-                                    painter = painterResource(R.drawable.ic_xvox_user),
-                                    contentDescription = "Profile",
-                                    tint = colors.primaryText,
-                                    modifier = Modifier.size(22.dp)
-                                )
-                            }
-                        }
-                    ) { menuBackdrop, close ->
-                        XvoxProfilePanel(
-                            prefs = prefs,
-                            menuBackdrop = menuBackdrop,
-                            onClose = close,
-                            onOpenSettings = {
-                                openSettingsAfterClose = true
-                                close()
-                            }
-                        )
+                )
+            }
+        }
+    }
+}
+
+/**
+ * A very slow, soft accent glow that drifts out of the top-left corner of Home and Library. It is
+ * part of the recorded page layer, so the bar, search and mini player blend with it too.
+ */
+@Composable
+private fun StageAmbientGlow(accent: Color, modifier: Modifier = Modifier) {
+    val transition = rememberInfiniteTransition(label = "stageGlow")
+    val a = transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(26_000, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "glowA"
+    )
+    val b = transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(37_000, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "glowB"
+    )
+    Box(
+        modifier.drawBehind {
+            val w = size.width
+            val h = size.height
+            val pa = a.value
+            val pb = b.value
+            drawRect(
+                Brush.radialGradient(
+                    colors = listOf(accent.copy(alpha = .20f), accent.copy(alpha = .07f), Color.Transparent),
+                    center = Offset(w * (.02f + .30f * pa), h * (-.02f + .12f * pb)),
+                    radius = w * (.95f + .15f * pb)
+                )
+            )
+            drawRect(
+                Brush.radialGradient(
+                    colors = listOf(accent.copy(alpha = .10f), Color.Transparent),
+                    center = Offset(w * (.34f - .26f * pb), h * (.14f + .10f * pa)),
+                    radius = w * .70f
+                )
+            )
+        }
+    )
+}
+
+/** Library filter chips (or a back button while an artist / playlist / album is open). */
+@Composable
+private fun BoxScope.LibraryHeader(
+    mode: XvoxHomeLibraryMode,
+    detailOpen: Boolean,
+    backdrop: Backdrop,
+    onMode: (XvoxHomeLibraryMode) -> Unit,
+    onBack: () -> Unit
+) {
+    val glass = LocalGlassColors.current
+    Row(
+        modifier = Modifier
+            .align(Alignment.TopStart)
+            .statusBarsPadding()
+            .padding(top = 11.dp, start = 16.dp, end = 72.dp)
+            .height(44.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (detailOpen) {
+            GlasmioIconButton(onClick = onBack, backdrop = backdrop, size = 44.dp) {
+                Icon(
+                    imageVector = XvoxSfIcons.ChevronLeft,
+                    contentDescription = "Back",
+                    tint = glass.content,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        } else {
+            Row(
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                LibraryModes.forEach { (value, label) ->
+                    GlasmioButton(
+                        onClick = { onMode(value) },
+                        backdrop = backdrop,
+                        emphasis = if (value == mode) GlassEmphasis.Prominent else GlassEmphasis.Regular,
+                        size = GlasmioButtonSize.Medium
+                    ) {
+                        Text(label, color = glass.content, fontSize = 14.sp)
                     }
                 }
             }
@@ -337,18 +509,21 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
 }
 
 /**
- * Dummy mini player. Expanded it floats above the navigation bar; as the bar compacts it slides
- * down and narrows into the gap between the two remaining circles, growing to the same height.
+ * Mini player, wired to the real player. Expanded it floats above the navigation bar at full
+ * width; as the bar compacts it slides down and narrows into the gap between the two remaining
+ * circles, growing to the same height. Play/pause and next sit on its right.
  */
 @Composable
 private fun BoxScope.StageMiniPlayer(
     compactProgress: State<Float>,
+    song: Song?,
     playing: Boolean,
     onToggle: () -> Unit,
+    onNext: () -> Unit,
     backdrop: Backdrop
 ) {
     val glass = LocalGlassColors.current
-    val colors = XvoxTheme.colors
+    val shape = RoundedCornerShape(50)
     GlassSurface(
         modifier = Modifier
             .align(Alignment.BottomCenter)
@@ -356,83 +531,89 @@ private fun BoxScope.StageMiniPlayer(
                 val p = compactProgress.value.coerceIn(0f, 1f)
                 val margin = StageSideMargin.roundToPx() * 2
                 val full = (c.maxWidth - margin).coerceAtLeast(0)
-                val expandedWidth = StageBarMaxWidth.roundToPx().coerceAtMost(full)
                 // Compact: the row minus the two circles and the gap on each side.
                 val compactWidth = (full - 2 * (StageControlHeight + StageControlGap).roundToPx()).coerceAtLeast(0)
-                val w = lerp(expandedWidth, compactWidth, p)
+                val w = lerp(full, compactWidth, p)
                 val h = lerp(54.dp.roundToPx(), StageControlHeight.roundToPx(), p)
                 val rise = ((StageControlHeight + 10.dp).roundToPx() * (1f - p)).toInt()
                 val placeable = measurable.measure(Constraints.fixed(w, h))
                 layout(c.maxWidth, StageControlHeight.roundToPx() + rise) {
-                    placeable.place(
-                        (c.maxWidth - w) / 2,
-                        StageControlHeight.roundToPx() + rise - h - rise
+                    placeable.place((c.maxWidth - w) / 2, StageControlHeight.roundToPx() - h)
+                }
+            }
+            .xvoxGlassRim(shape),
+        backdrop = backdrop,
+        shape = shape,
+        style = GlassSurfaceStyle.Navigation
+    ) {
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+            val showText = maxWidth > 250.dp
+            Row(
+                modifier = Modifier.fillMaxSize().padding(start = 10.dp, end = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                XvoxSongArtwork(
+                    artwork = song?.artworkUri,
+                    requestSize = 128,
+                    modifier = Modifier.size(40.dp).clip(CircleShape)
+                )
+                if (showText) {
+                    Column(Modifier.weight(1f).padding(horizontal = 10.dp)) {
+                        Text(
+                            song?.title ?: "Not playing",
+                            color = glass.content,
+                            fontSize = 14.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            song?.artist?.ifBlank { "Unknown artist" } ?: "Pick a song",
+                            color = glass.secondaryContent,
+                            fontSize = 12.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                } else {
+                    Spacer(Modifier.weight(1f))
+                }
+                MiniControl(onClick = onToggle) {
+                    // Play and pause swap with a quick scale-fade, like Apple Music's.
+                    AnimatedContent(
+                        targetState = playing,
+                        transitionSpec = {
+                            (fadeIn(tween(160)) + scaleIn(tween(200), initialScale = .6f)) togetherWith
+                                (fadeOut(tween(120)) + scaleOut(tween(160), targetScale = .6f))
+                        },
+                        label = "miniPlayPause"
+                    ) { isPlaying ->
+                        Icon(
+                            painter = painterResource(if (isPlaying) R.drawable.ic_xvox_pause else R.drawable.ic_xvox_play),
+                            contentDescription = if (isPlaying) "Pause" else "Play",
+                            tint = glass.content,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                }
+                MiniControl(onClick = onNext) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_xvox_skip_next),
+                        contentDescription = "Next",
+                        tint = glass.content,
+                        modifier = Modifier.size(24.dp)
                     )
                 }
-            },
-        backdrop = backdrop,
-        shape = RoundedCornerShape(50),
-        style = GlassSurfaceStyle.Navigation,
-        onClick = onToggle
-    ) {
-        Row(
-            modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(
-                        Brush.linearGradient(
-                            listOf(colors.primaryAccent, colors.primaryAccent.copy(alpha = .35f))
-                        )
-                    )
-            )
-            Column(Modifier.weight(1f).padding(horizontal = 10.dp)) {
-                Text(
-                    "Midnight Drive",
-                    color = glass.content,
-                    fontSize = 14.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    "Dummy artist",
-                    color = glass.secondaryContent,
-                    fontSize = 12.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
             }
-            Icon(
-                painter = painterResource(if (playing) R.drawable.ic_xvox_pause else R.drawable.ic_xvox_play),
-                contentDescription = if (playing) "Pause" else "Play",
-                tint = glass.content,
-                modifier = Modifier.size(24.dp)
-            )
         }
     }
 }
 
-/**
- * A page surface for the rebuild: the Glasmio header only, so the page name sits top-left and the
- * top strip picks up its blurred material as soon as the page scrolls.
- */
 @Composable
-private fun XvoxStagePage(title: String, listState: LazyListState) {
-    GlasmioPinnedListPage(
-        title = title,
-        listState = listState,
-        bottomPadding = 132.dp,
-        // Transparent: the page must not paint over the live app backdrop, which is exactly what
-        // the bar, the lens and every glass box sample.
-        backgroundColor = Color.Transparent,
-        modifier = Modifier.fillMaxSize()
-    ) {
-        // Invisible scroll runway; real content replaces these once a page is rebuilt.
-        items(14) {
-            Spacer(Modifier.fillMaxWidth().height(78.dp))
-        }
-    }
+private fun MiniControl(onClick: () -> Unit, content: @Composable () -> Unit) {
+    Box(
+        modifier = Modifier
+            .size(44.dp)
+            .xvoxSongPress(onClick = onClick, pressedScale = .82f),
+        contentAlignment = Alignment.Center
+    ) { content() }
 }

@@ -229,7 +229,7 @@ fun XvoxAppRoot(
         // covers. Neither effect is nested inside the Sky it samples.
         val surfaceSky = rememberSky()
         val overlaySky = rememberSky()
-        val photoWallpaperOn = effectiveChrome.backgroundMode(backgroundImage.isNotBlank()) ==
+        val photoWallpaperOn = com.xvox.music.core.ui.chrome.XvoxBackgroundMode.Off ==
             com.xvox.music.core.ui.chrome.XvoxBackgroundMode.Custom
         val wallpaperGlass = com.xvox.music.core.ui.blur.rememberBlurredWallpaper(
             uri = backgroundImage,
@@ -245,7 +245,7 @@ fun XvoxAppRoot(
             LocalXvoxHaptics provides haptics,
             LocalXvoxSurfaceSky provides surfaceSky,
             com.xvox.music.core.ui.blur.LocalXvoxPhotoWallpaper provides (
-                effectiveChrome.backgroundMode(backgroundImage.isNotBlank()) == com.xvox.music.core.ui.chrome.XvoxBackgroundMode.Custom
+                com.xvox.music.core.ui.chrome.XvoxBackgroundMode.Off == com.xvox.music.core.ui.chrome.XvoxBackgroundMode.Custom
             ),
             LocalXvoxOverlaySky provides overlaySky,
             LocalXvoxGlassTransparency provides effectiveCardTransparency,
@@ -293,7 +293,7 @@ fun XvoxAppRoot(
                     ) {
                         // Background blur slider: blurs ONLY the wallpaper (photo or generated art).
                         val bgBlurDp = if (com.xvox.music.core.ui.blur.XvoxGpuGuard.safeMode) 0.dp else (effectiveChrome.bgImageBlur * 36f).dp
-                        val bgMode = effectiveChrome.backgroundMode(backgroundImage.isNotBlank())
+                        val bgMode = com.xvox.music.core.ui.chrome.XvoxBackgroundMode.Off
                         if (bgMode == com.xvox.music.core.ui.chrome.XvoxBackgroundMode.Gradient) {
                             com.xvox.music.core.ui.chrome.XvoxGeneratedBackground(
                                 accent = colors.primaryAccent,

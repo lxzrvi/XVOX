@@ -74,7 +74,9 @@ fun HomeScreen(
     playerViewModel: MainPlayerViewModel = viewModel(),
     viewModel: HomeViewModel = viewModel(),
     /** Reports the active list position to the one Header owned by XvoxMainShell. */
-    onScrollProgress: (Int, Int) -> Unit = { _, _ -> }
+    onScrollProgress: (Int, Int) -> Unit = { _, _ -> },
+    /** Reports the list that is on screen, so a host can drive scroll-linked chrome from it. */
+    onActiveListState: (androidx.compose.foundation.lazy.LazyListState) -> Unit = {}
 ) {
     val state by viewModel.state.collectAsState()
     // Home only needs this one flag to hide its selection rail beneath Now Playing. Collecting the
@@ -857,6 +859,9 @@ fun HomeScreen(
                 targetKey == XvoxHomeLibraryMode.ARTISTS -> artistsScrollState
                 else -> homeScrollState
             }
+
+            val currentOnActiveListState by androidx.compose.runtime.rememberUpdatedState(onActiveListState)
+            androidx.compose.runtime.SideEffect { currentOnActiveListState(listState) }
 
             // Library pills and navbar returns always start their selected page at the top. The
             // same LazyColumn remains mounted, so the Header is never rebuilt/faded during this.

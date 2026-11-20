@@ -52,6 +52,11 @@ import com.xvox.music.core.ui.chrome.backgroundMode
 import com.xvox.music.data.preferences.UserPreferencesRepository
 import io.github.neoruaa.glasmio.core.LocalGlassColors
 import io.github.neoruaa.glasmio.glass.render.Backdrop
+import io.github.neoruaa.glasmio.glass.render.backdrops.layerBackdrop
+import io.github.neoruaa.glasmio.glass.render.backdrops.rememberCombinedBackdrop
+import io.github.neoruaa.glasmio.glass.render.backdrops.rememberLayerBackdrop
+import androidx.compose.foundation.shape.RoundedCornerShape
+import com.xvox.music.core.design.theme.XvoxTheme
 import io.github.neoruaa.glasmio.preference.GlasmioPreferenceGroupTitle
 import io.github.neoruaa.glasmio.preference.GlasmioSwitchPreference
 import io.github.neoruaa.glasmio.scaffold.GlasmioPinnedListPage
@@ -137,7 +142,7 @@ fun XvoxStageSettingsPage(
     ) {
         item {
             GlasmioPreferenceGroupTitle("Appearance")
-            GlasmioGroupedList {
+            CardGroup(backdrop) { backdrop ->
                 InlineSetting(title = "Theme", detail = themeLabel(theme), showTopSeparator = false) {
                     GlasmioSegmentedControl(
                         items = listOf("System" to "", "Light" to "", "Dark" to ""),
@@ -170,31 +175,17 @@ fun XvoxStageSettingsPage(
                     onSelected = { scope.launch { prefs.setDesignLanguage(it) } },
                     backdrop = backdrop
                 )
-                var liveTransparency by remember(transparency) { mutableFloatStateOf(transparency) }
-                InlineSetting(
-                    title = "Card transparency",
-                    detail = "${(liveTransparency / .6f * 100).toInt()}%"
-                ) {
-                    GlasmioSlider(
-                        value = liveTransparency,
-                        onValueChange = { liveTransparency = it },
-                        onValueChangeFinished = { scope.launch { prefs.setCardTransparency(liveTransparency) } },
-                        valueRange = 0f..0.6f,
-                        backdrop = backdrop,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
             }
         }
         item {
             GlasmioPreferenceGroupTitle("Background")
-            GlasmioGroupedList {
-                BackgroundSettings(prefs = prefs, values = values, backdrop = backdrop)
+            CardGroup(backdrop) { backdrop ->
+                BackgroundSettings(prefs = prefs, values = values)
             }
         }
         item {
             GlasmioPreferenceGroupTitle("Feedback")
-            GlasmioGroupedList {
+            CardGroup(backdrop) { backdrop ->
                 GlasmioSwitchPreference(
                     title = { Text("Haptic feedback") },
                     description = "Tap and slider haptics across the app",
@@ -206,7 +197,7 @@ fun XvoxStageSettingsPage(
         }
         item {
             GlasmioPreferenceGroupTitle("About")
-            GlasmioGroupedList {
+            CardGroup(backdrop) { backdrop ->
                 GlasmioListRow(
                     title = "Version",
                     detail = "1.02.11",
@@ -308,123 +299,33 @@ private fun <T> PickerRow(
 }
 
 /**
- * App background controls. The chosen mode is written to [XvoxChromeStyle.bgStyle] together with
- * the photo, because the app root only paints a photo while the mode is Custom.
- *
- * Plain mode paints one solid colour of its own (stored as a #RRGGBB background) and nothing else:
- * no accent tint, no gradient overlay.
+ * App background: one solid colour, nothing else (no photo, no gradient, no accent tint). The
+ * first swatch follows the theme; the others are fixed solids, and the rainbow swatch opens the
+ * colour wheel. Text colours adapt to whatever is picked.
  */
 @Composable
 private fun BackgroundSettings(
     prefs: UserPreferencesRepository,
-    values: XvoxStageSettingsValues,
-    backdrop: Backdrop
+    values: XvoxStageSettingsValues
 ) {
     val scope = rememberCoroutineScope()
     val glass = LocalGlassColors.current
-    val image by values.image
-    val chrome by values.chrome
-    val brightness by values.brightness
     val base by values.base
-    val mode = chrome.backgroundMode(image.isNotBlank())
     var plainPickerOpen by remember { mutableStateOf(false) }
 
-    val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri: Uri? ->
-        if (uri != null) {
-            scope.launch {
-                prefs.setThemeBackgroundImage(uri.toString())
-                prefs.updateChrome { it.copy(bgStyle = BgStyleCustom) }
-            }
-        }
+    InlineSetting(title = "Background colour", detail = plainLabel(base), showTopSeparator = false) {
+        PlainSwatches(
+            current = base,
+            onPick = { scope.launch { prefs.setThemeBackground(it) } },
+            onCustom = { plainPickerOpen = true }
+        )
     }
-    fun pickPhoto() = picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-
-    PickerRow(
-        title = "Style",
-        options = listOf("gradient" to "Gradient", "photo" to "Photo", "plain" to "Plain colour"),
-        selected = when (mode) {
-            XvoxBackgroundMode.Gradient -> "gradient"
-            XvoxBackgroundMode.Custom -> "photo"
-            XvoxBackgroundMode.Off -> "plain"
-        },
-        onSelected = { choice ->
-            when (choice) {
-                "gradient" -> scope.launch { prefs.updateChrome { it.copy(bgStyle = BgStyleGradient) } }
-                "plain" -> scope.launch { prefs.updateChrome { it.copy(bgStyle = BgStyleOff) } }
-                // No photo yet: ask for one; the picker result switches the mode itself.
-                else -> if (image.isBlank()) pickPhoto()
-                else scope.launch { prefs.updateChrome { it.copy(bgStyle = BgStyleCustom) } }
-            }
-        },
-        backdrop = backdrop,
-        showTopSeparator = false
+    Text(
+        text = "A single solid colour. Text switches to light or dark ink to stay readable.",
+        color = glass.secondaryContent,
+        fontSize = 12.sp,
+        modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp)
     )
-    when (mode) {
-        XvoxBackgroundMode.Off -> {
-            InlineSetting(title = "Plain colour", detail = plainLabel(base)) {
-                PlainSwatches(
-                    current = base,
-                    onPick = { scope.launch { prefs.setThemeBackground(it) } },
-                    onCustom = { plainPickerOpen = true }
-                )
-            }
-            Text(
-                text = "A single solid colour - no accent tint, no gradient.",
-                color = glass.secondaryContent,
-                fontSize = 12.sp,
-                modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp)
-            )
-        }
-        XvoxBackgroundMode.Gradient -> {
-            PickerRow(
-                title = "Base colour",
-                options = listOf("Default" to "Default", "Midnight" to "Midnight", "Warm" to "Warm"),
-                selected = if (base == "Midnight" || base == "Warm") base else "Default",
-                onSelected = { scope.launch { prefs.setThemeBackground(it) } },
-                backdrop = backdrop
-            )
-            Text(
-                text = "The gradient follows your accent colour.",
-                color = glass.secondaryContent,
-                fontSize = 12.sp,
-                modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp)
-            )
-        }
-        XvoxBackgroundMode.Custom -> {
-            GlasmioListRow(title = "Change photo", onClick = { pickPhoto() })
-            GlasmioListRow(
-                title = "Remove photo",
-                onClick = {
-                    scope.launch {
-                        prefs.setThemeBackgroundImage(null)
-                        prefs.updateChrome { it.copy(bgStyle = BgStyleGradient) }
-                    }
-                }
-            )
-            var liveBlur by remember(chrome.bgImageBlur) { mutableFloatStateOf(chrome.bgImageBlur) }
-            InlineSetting(title = "Blur", detail = "${(liveBlur * 100).toInt()}%") {
-                GlasmioSlider(
-                    value = liveBlur,
-                    onValueChange = { liveBlur = it },
-                    onValueChangeFinished = {
-                        scope.launch { prefs.updateChrome { it.copy(bgImageBlur = liveBlur, bgBlur = liveBlur) } }
-                    },
-                    backdrop = backdrop,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-            var liveBrightness by remember(brightness) { mutableFloatStateOf(brightness) }
-            InlineSetting(title = "Brightness", detail = "${(liveBrightness * 100).toInt()}%") {
-                GlasmioSlider(
-                    value = liveBrightness,
-                    onValueChange = { liveBrightness = it },
-                    onValueChangeFinished = { scope.launch { prefs.setBackgroundBrightness(liveBrightness) } },
-                    backdrop = backdrop,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-        }
-    }
 
     GlasmioColorPicker(
         visible = plainPickerOpen,
@@ -434,11 +335,33 @@ private fun BackgroundSettings(
             plainPickerOpen = false
         },
         onDismiss = { plainPickerOpen = false },
-        title = "Plain colour"
+        title = "Background colour"
     )
 }
 
+/** Wraps one grouped list with a card-colour layer so its controls sample the card they sit on. */
+@Composable
+private fun CardGroup(backdrop: Backdrop, content: @Composable (Backdrop) -> Unit) {
+    val layer = rememberLayerBackdrop()
+    val cardBackdrop = rememberCombinedBackdrop(backdrop, layer)
+    val card = XvoxTheme.colors.card
+    Box {
+        // A sibling of the list, never its parent: the controls sample the card colour layer
+        // together with the wallpaper, and never the layer they are drawn in.
+        Box(
+            Modifier
+                .matchParentSize()
+                .padding(1.dp)
+                .clip(RoundedCornerShape(26.dp))
+                .layerBackdrop(layer)
+                .background(card)
+        )
+        GlasmioGroupedList { content(cardBackdrop) }
+    }
+}
+
 private val PlainPresets = listOf(
+    "Default" to Color(0xFF8E8E93),
     "#000000" to Color(0xFF000000),
     "#1C1C1E" to Color(0xFF1C1C1E),
     "#0B1220" to Color(0xFF0B1220),
@@ -452,7 +375,7 @@ private fun parsePlain(value: String): Color? =
 
 private fun plainLabel(value: String): String = when {
     value.startsWith("#") -> PlainPresets.firstOrNull { it.first.equals(value, true) }?.first ?: "Custom"
-    else -> "Theme"
+    else -> "Theme default"
 }
 
 /** Solid colour swatches for Plain mode, plus a rainbow swatch that opens the colour wheel. */
@@ -470,7 +393,7 @@ private fun PlainSwatches(
     ) {
         PlainPresets.forEach { (hex, color) ->
             Swatch(
-                selected = current.equals(hex, true),
+                selected = current.equals(hex, true) || (hex == "Default" && !current.startsWith("#")),
                 ring = glass.content,
                 onClick = { onPick(hex) },
                 size = 34.dp

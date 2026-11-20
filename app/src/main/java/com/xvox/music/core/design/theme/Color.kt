@@ -1,6 +1,7 @@
 package com.xvox.music.core.design.theme
 
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 
 data class XvoxPalette(
     val background: Color,
@@ -71,8 +72,18 @@ data class XvoxPalette(
             }
         }
         val keep = (1f - transparency.coerceIn(0f, 0.6f))
+        // A colour the user picked themselves decides its own text: the page reads its real
+        // brightness and uses the opposite ink, whatever the light/dark theme says.
+        val custom = backgroundName.startsWith("#")
+        val bgLight = background.luminance() > .45f
+        val adapt = custom && bgLight != light
+        val ink = if (bgLight) Color(0xFF111111) else Color.White
         return this.copy(
             background = background,
+            primaryText = if (adapt) ink else primaryText,
+            secondaryText = if (adapt) ink.copy(alpha = .62f) else secondaryText,
+            mutedText = if (adapt) ink.copy(alpha = .42f) else mutedText,
+            isLight = if (custom) bgLight else isLight,
             card = card.copy(alpha = keep),
             cardElevated = cardElevated.copy(alpha = keep),
             surface = surface.copy(alpha = keep)
