@@ -30,6 +30,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -839,6 +840,30 @@ fun HomeScreen(
     }
 
     Box(Modifier.fillMaxSize()) {
+        // Temporary diagnostic: while the library is empty this prints the three facts needed to
+        // tell a missing permission from a failed scan from an over-eager filter.
+        if (state.songs.isEmpty() && state.startupReady) {
+            val granted = androidx.core.content.ContextCompat.checkSelfPermission(
+                context, android.Manifest.permission.READ_MEDIA_AUDIO
+            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+            androidx.compose.material3.Text(
+                text = "diag perm=" + (if (granted) "ok" else "DENIED") +
+                    " scanFailed=" + state.lastLibraryScanFailed +
+                    " verified=" + state.verifiedDeviceSongCount +
+                    " shown=" + state.songs.size,
+                color = androidx.compose.ui.graphics.Color.White,
+                fontSize = 11.sp,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 190.dp)
+                    .background(
+                        androidx.compose.ui.graphics.Color.Black.copy(alpha = .55f),
+                        androidx.compose.foundation.shape.RoundedCornerShape(6.dp)
+                    )
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
+            )
+        }
+
         val homeScrollState = rememberLazyListState()
         val likedScrollState = rememberLazyListState()
         val playlistsScrollState = rememberLazyListState()

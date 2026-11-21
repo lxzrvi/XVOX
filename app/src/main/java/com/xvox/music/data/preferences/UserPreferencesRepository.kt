@@ -9,7 +9,7 @@ import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
+import androidx.datastore.preferences.preferencesDataStoreFile
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -21,7 +21,34 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 
-internal val Context.xvoxDataStore by preferencesDataStore(name = "xvox_preferences")
+/**
+ * A preferences file that a killed process left half-written used to poison every flow: each read
+ * threw, Home stayed empty and the Settings page (which reads dozens of keys at once) took the app
+ * down. Replacing a corrupt file with empty preferences keeps the app usable instead.
+ */
+internal val Context.xvoxDataStore: androidx.datastore.core.DataStore<androidx.datastore.preferences.core.Preferences>
+    get() = XvoxDataStoreHolder.get(applicationContext)
+
+/**
+ * One process-wide preferences store with a corruption handler: a file that a killed process left
+ * half-written used to make every read throw, which emptied Home and took the Settings page down.
+ */
+private object XvoxDataStoreHolder {
+    @Volatile
+    private var store: androidx.datastore.core.DataStore<androidx.datastore.preferences.core.Preferences>? = null
+
+    fun get(context: Context): androidx.datastore.core.DataStore<androidx.datastore.preferences.core.Preferences> {
+        store?.let { return it }
+        return synchronized(this) {
+            store ?: androidx.datastore.preferences.core.PreferenceDataStoreFactory.create(
+                corruptionHandler = androidx.datastore.core.handlers.ReplaceFileCorruptionHandler {
+                    androidx.datastore.preferences.core.emptyPreferences()
+                },
+                produceFile = { context.preferencesDataStoreFile("xvox_preferences") }
+            ).also { store = it }
+        }
+    }
+}
 
 /** Persisted Recent-history capacity. Zero deliberately means truly Unlimited. */
 object XvoxRecentHistoryCapacity {
