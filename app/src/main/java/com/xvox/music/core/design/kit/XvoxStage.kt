@@ -343,7 +343,8 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
                                             selectedIndex = HomeIndex
                                             pageIndex = HomeIndex
                                         },
-                                        listState = settingsList
+                                        listState = settingsList,
+                                        chromeBackdrop = floatingBackdrop
                                     )
                                 }
                             }
@@ -435,7 +436,15 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
                                         // can never drift apart while the bar scrolls or compacts.
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .xvoxGlassRim(RoundedCornerShape(50))
+                                            // The BitChord edge fades out as the bar compacts, so
+                                            // no rim line can ever run across the mini player.
+                                            .xvoxGlassRim(
+                                                RoundedCornerShape(50),
+                                                hairlineColor = Color.White.copy(
+                                                    alpha = .10f * (1f - navigationScroll.compactProgress.value
+                                                        .coerceIn(0f, 1f))
+                                                )
+                                            )
                                             .glasmioNavigationScrollHint(navigationScroll.scrollHintProgress),
                                         backdrop = floatingBackdrop,
                                         onItemBoundsChanged = { key, bounds ->

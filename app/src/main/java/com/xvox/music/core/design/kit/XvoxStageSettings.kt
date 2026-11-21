@@ -128,7 +128,10 @@ fun XvoxStageSettingsPage(
     backdrop: Backdrop,
     onBack: () -> Unit,
     /** Owned by the stage so the navigation bar can follow this page's scroll. */
-    listState: LazyListState = rememberLazyListState()
+    listState: LazyListState = rememberLazyListState(),
+    /** Combined page + wallpaper backdrop: the chrome must sample the same layer the profile
+     *  button does, otherwise the back chip reads as a flat tile instead of clear glass. */
+    chromeBackdrop: Backdrop = backdrop
 ) {
     val scope = rememberCoroutineScope()
     val theme by values.theme
@@ -238,7 +241,7 @@ fun XvoxStageSettingsPage(
             .statusBarsPadding()
             .padding(top = 11.dp, start = 16.dp)
     ) {
-        io.github.neoruaa.glasmio.ui.GlasmioIconButton(onClick = onBack, backdrop = backdrop, size = 44.dp) {
+        io.github.neoruaa.glasmio.ui.GlasmioIconButton(onClick = onBack, backdrop = chromeBackdrop, size = 44.dp) {
             Icon(
                 imageVector = XvoxSfIcons.ChevronLeft,
                 contentDescription = "Back",
