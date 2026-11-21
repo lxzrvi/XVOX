@@ -155,6 +155,39 @@ fun SongOptionsBox(
                 .xvoxBoxScroll(scroll)
                 .padding(vertical = 8.dp)
         ) {
+            // Like, Share and Delete as icon tiles along the top of the panel.
+            Row(
+                modifier = Modifier.fillMaxWidth().height(66.dp).padding(horizontal = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                MenuTile(
+                    icon = painterResource(if (liked) R.drawable.ic_xvox_heart else R.drawable.ic_xvox_heart_outline),
+                    label = if (liked) "Unlike" else "Like",
+                    ink = if (liked) colors.primaryAccent else label,
+                    pressedFill = pressedFill,
+                    onClick = onLiked,
+                    modifier = Modifier.weight(1f)
+                )
+                MenuTile(
+                    icon = androidx.compose.ui.graphics.vector.rememberVectorPainter(XvoxSfIcons.Share),
+                    label = "Share",
+                    ink = label,
+                    pressedFill = pressedFill,
+                    onClick = onShare,
+                    modifier = Modifier.weight(1f)
+                )
+                MenuTile(
+                    icon = painterResource(R.drawable.ic_xvox_delete),
+                    label = "Delete",
+                    ink = XvoxRed,
+                    pressedFill = pressedFill,
+                    onClick = onDelete,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            Box(Modifier.fillMaxWidth().height(17.dp).padding(horizontal = 18.dp), contentAlignment = Alignment.Center) {
+                Box(Modifier.fillMaxWidth().height(1.dp).background(separator))
+            }
             var previousGroup = -1
             actions.forEach { action ->
                 if (action.group != previousGroup && previousGroup != -1) {

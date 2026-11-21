@@ -211,7 +211,7 @@ fun XvoxStageSettingsPage(
             CardGroup(backdrop) { backdrop ->
                 GlasmioListRow(
                     title = "Version",
-                    detail = "1.02.15",
+                    detail = "1.02.16",
                     showTopSeparator = false
                 )
             }
