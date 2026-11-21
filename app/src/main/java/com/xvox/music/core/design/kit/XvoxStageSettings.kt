@@ -128,7 +128,10 @@ fun XvoxStageSettingsPage(
     backdrop: Backdrop,
     onBack: () -> Unit,
     /** Owned by the stage so the navigation bar can follow this page's scroll. */
-    listState: LazyListState = rememberLazyListState()
+    listState: LazyListState = rememberLazyListState(),
+    /** Combined page + wallpaper backdrop: the chrome must sample the same layer the profile
+     *  button does, otherwise the back chip reads as a flat tile instead of clear glass. */
+    chromeBackdrop: Backdrop = backdrop
 ) {
     val scope = rememberCoroutineScope()
     val theme by values.theme
@@ -138,7 +141,8 @@ fun XvoxStageSettingsPage(
     val design by values.design
     val hapticsEnabled by values.haptics
     var accentPickerOpen by remember { mutableStateOf(false) }
-    var audioOpen by remember { mutableStateOf(false) }
+    // One route string drives every Glasmio sub-page of this Settings tree.
+    var overlay by remember { mutableStateOf<String?>(null) }
     val colors = com.xvox.music.core.design.theme.XvoxTheme.colors
     val glass = LocalGlassColors.current
     val textSizes = remember { listOf("XS" to .70f, "S" to .80f, "M" to .90f, "L" to 1.00f) }
@@ -190,9 +194,14 @@ fun XvoxStageSettingsPage(
             }
         }
         item {
-            GlasmioPreferenceGroupTitle("Home sections")
+            GlasmioPreferenceGroupTitle("Layout")
             CardGroup(backdrop) { backdrop ->
-                HomeSectionSettings(prefs = prefs, backdrop = backdrop)
+                GlasmioListRow(
+                    title = "Home layout",
+                    subtitle = "Cards, columns and scrolling",
+                    showTopSeparator = false,
+                    onClick = { overlay = "home" }
+                )
             }
         }
         item {
@@ -202,7 +211,17 @@ fun XvoxStageSettingsPage(
                     title = "Audio & playback",
                     subtitle = "Crossfade, equalizer, effects",
                     showTopSeparator = false,
-                    onClick = { audioOpen = true }
+                    onClick = { overlay = "audio" }
+                )
+                GlasmioListRow(
+                    title = "Library & scanning",
+                    subtitle = "Sort order, ignored songs, hidden rows",
+                    onClick = { overlay = "library" }
+                )
+                GlasmioListRow(
+                    title = "Interface",
+                    subtitle = "Typeface, display size, orientation",
+                    onClick = { overlay = "interface" }
                 )
             }
         }
@@ -238,7 +257,7 @@ fun XvoxStageSettingsPage(
             .statusBarsPadding()
             .padding(top = 11.dp, start = 16.dp)
     ) {
-        io.github.neoruaa.glasmio.ui.GlasmioIconButton(onClick = onBack, backdrop = backdrop, size = 44.dp) {
+        io.github.neoruaa.glasmio.ui.GlasmioIconButton(onClick = onBack, backdrop = chromeBackdrop, size = 44.dp) {
             Icon(
                 imageVector = XvoxSfIcons.ChevronLeft,
                 contentDescription = "Back",
@@ -249,9 +268,14 @@ fun XvoxStageSettingsPage(
     }
     }
 
-    if (audioOpen) {
+    if (overlay != null) {
         Box(Modifier.fillMaxSize()) {
-            XvoxStageAudioPage(prefs = prefs, backdrop = backdrop, onBack = { audioOpen = false })
+            when (overlay) {
+                "audio" -> XvoxStageAudioPage(prefs = prefs, backdrop = backdrop, onBack = { overlay = null })
+                "home" -> XvoxStageHomeLayoutPage(prefs = prefs, backdrop = backdrop, onBack = { overlay = null })
+                "library" -> XvoxStageLibraryPage(prefs = prefs, backdrop = backdrop, onBack = { overlay = null })
+                "interface" -> XvoxStageInterfacePage(prefs = prefs, backdrop = backdrop, onBack = { overlay = null })
+            }
         }
     }
 
@@ -290,7 +314,7 @@ private fun BoxScope.ThemeGlyph(value: String, tint: Color) {
  */
 @OptIn(ExperimentalAnimationApi::class)
 @Composable
-private fun <T> PickerRow(
+internal fun <T> PickerRow(
     title: String,
     options: List<Pair<T, String>>,
     selected: T,
