@@ -1,5 +1,8 @@
 package com.xvox.music.core.design.kit
 
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.Spring
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.ui.zIndex
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -590,6 +593,20 @@ private fun BoxScope.StageMiniPlayer(
     val shape = RoundedCornerShape(50)
     var drag by remember { mutableFloatStateOf(0f) }
     val shift by animateFloatAsState(drag, tween(120), label = "miniSwipe")
+    // Tap or swipe up: the bar itself lifts, grows and hands over to Now Playing.
+    var opening by remember { mutableStateOf(false) }
+    val openLift by animateFloatAsState(
+        targetValue = if (opening) 1f else 0f,
+        animationSpec = spring(dampingRatio = .78f, stiffness = Spring.StiffnessMediumLow),
+        label = "miniOpenLift"
+    )
+    LaunchedEffect(opening) {
+        if (opening) {
+            kotlinx.coroutines.delay(190)
+            onOpen()
+            opening = false
+        }
+    }
     GlassSurface(
         modifier = Modifier
             .align(Alignment.BottomCenter)
@@ -607,6 +624,13 @@ private fun BoxScope.StageMiniPlayer(
                     placeable.place((c.maxWidth - w) / 2, StageControlHeight.roundToPx() - h)
                 }
             }
+            .graphicsLayer {
+                val l = openLift
+                scaleX = 1f + .06f * l
+                scaleY = 1f + .06f * l
+                alpha = 1f - .85f * l
+                translationY = -18.dp.toPx() * l
+            }
             .xvoxGlassRim(shape),
         backdrop = backdrop,
         shape = shape,
@@ -617,25 +641,37 @@ private fun BoxScope.StageMiniPlayer(
             Row(
                 modifier = Modifier
                     .fillMaxSize()
+                    // One detector: horizontal swipes change track, an upward swipe hands over.
                     .pointerInput(Unit) {
-                        var total = 0f
-                        detectHorizontalDragGestures(
-                            onDragStart = { total = 0f },
+                        var totalX = 0f
+                        var totalY = 0f
+                        detectDragGestures(
+                            onDragStart = { totalX = 0f; totalY = 0f },
                             onDragEnd = {
-                                if (total > 70f) { direction = -1; onPrevious() }
-                                else if (total < -70f) { direction = 1; onNext() }
-                                total = 0f
-                                drag = 0f
+                                if (totalY < -46f && kotlin.math.abs(totalY) > kotlin.math.abs(totalX)) {
+                                    opening = true
+                                } else if (totalX > 70f) {
+                                    direction = -1; onPrevious()
+                                } else if (totalX < -70f) {
+                                    direction = 1; onNext()
+                                }
+                                totalX = 0f; totalY = 0f; drag = 0f
                             },
-                            onDragCancel = { total = 0f; drag = 0f },
-                            onHorizontalDrag = { _, amount ->
-                                total += amount
-                                drag = (total / 4f).coerceIn(-24f, 24f)
+                            onDragCancel = { totalX = 0f; totalY = 0f; drag = 0f },
+                            onDrag = { change, amount ->
+                                change.consume()
+                                totalX += amount.x
+                                totalY += amount.y
+                                drag = (totalX / 4f).coerceIn(-24f, 24f)
                             }
                         )
                     }
                     .graphicsLayer { translationX = shift }
-                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onOpen)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = { opening = true }
+                    )
                     .padding(start = 7.dp, end = 6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
