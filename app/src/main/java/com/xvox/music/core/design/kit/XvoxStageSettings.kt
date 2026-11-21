@@ -402,7 +402,7 @@ private fun HomeSectionSettings(
 
 /** Wraps one grouped list with a card-colour layer so its controls sample the card they sit on. */
 @Composable
-private fun CardGroup(backdrop: Backdrop, content: @Composable (Backdrop) -> Unit) {
+internal fun CardGroup(backdrop: Backdrop, content: @Composable (Backdrop) -> Unit) {
     val layer = rememberLayerBackdrop()
     val cardBackdrop = rememberCombinedBackdrop(backdrop, layer)
     val card = XvoxTheme.colors.card
