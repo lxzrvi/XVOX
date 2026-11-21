@@ -320,16 +320,13 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
                             // Settings is composed once, shortly after launch, and only moved on and off
                             // the screen afterwards. Opening it therefore builds nothing, so no heavy
                             // frame can land on the navigation pill's release animation.
-                            var settingsReady by remember { mutableStateOf(false) }
-                            LaunchedEffect(Unit) {
-                                delay(1200)
-                                settingsReady = true
-                            }
+                            // DIAGNOSTIC BUILD: Settings is built only when it is opened, so nothing of
+                            // that subtree runs during a normal launch.
                             val settingsShown = pageIndex == SettingsIndex
                             val settingsAlpha by animateFloatAsState(
                                 if (settingsShown) 1f else 0f, tween(if (settingsShown) 220 else 180), label = "settingsAlpha"
                             )
-                            if (settingsReady || settingsShown) {
+                            if (settingsShown) {
                                 Box(
                                     Modifier
                                         .fillMaxSize()
