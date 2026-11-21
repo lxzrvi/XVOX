@@ -40,17 +40,35 @@ object XvoxGraphicsGuard {
      * A SIGSEGV never reaches a Java handler, so the crash recorder cannot see it. The platform
      * exit history can: if the previous process died from a native signal, the layer stack is
      * armed off before the first frame of this launch.
+     *
+     * The call is reflective on purpose: it keeps the guard working whatever the compile SDK
+     * exposes, and a missing API simply means "no evidence of a native crash".
      */
     private fun nativeCrashDetected(context: Context): Boolean = runCatching {
-        val manager = context.getSystemService(android.app.ActivityManager::class.java) ?: return false
-        val infos = manager.getHistoricalProcessExitInfos().orElse(emptyList())
-        infos.asSequence().take(4).any { info ->
-            val native = info.reason == android.app.ApplicationExitInfo.REASON_CRASH_NATIVE ||
-                info.reason == android.app.ApplicationExitInfo.REASON_SIGNALED
-            if (!native) return@any false
-            val description = runCatching { info.description }.getOrNull().orEmpty()
+        val manager = context.getSystemService(Context.ACTIVITY_SERVICE) as? android.app.ActivityManager
+            ?: return false
+        val method = manager.javaClass.methods.firstOrNull { it.name == "getHistoricalProcessExitInfos" }
+            ?: return false
+        val raw = method.invoke(manager) ?: return false
+        val items: List<Any?> = when (raw) {
+            is List<*> -> raw
+            else -> runCatching {
+                val orElse = raw.javaClass.methods.firstOrNull { it.name == "orElse" } ?: return false
+                orElse.invoke(raw, emptyList<Any?>()) as? List<Any?>
+            }.getOrNull() ?: return false
+        }
+        items.filterNotNull().take(4).any { info ->
+            val reason = runCatching {
+                info.javaClass.getMethod("getReason").invoke(info) as? Int
+            }.getOrNull() ?: 0
+            // ApplicationExitInfo.REASON_CRASH_NATIVE = 5, REASON_SIGNALED = 12.
+            if (reason != 5 && reason != 12) return@any false
+            val description = runCatching {
+                info.javaClass.getMethod("getDescription").invoke(info) as? String
+            }.getOrNull().orEmpty()
             val trace = runCatching {
-                info.traceInputStream?.bufferedReader()?.use { it.readText() }
+                (info.javaClass.getMethod("getTraceInputStream").invoke(info) as? java.io.InputStream)
+                    ?.bufferedReader()?.use { it.readText() }
             }.getOrNull().orEmpty()
             description.contains("SIGSEGV", true) || description.contains("SIGSYS", true) ||
                 trace.contains("SIGSEGV", true) || trace.contains("libhwui", true) ||
