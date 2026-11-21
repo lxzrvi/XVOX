@@ -31,14 +31,11 @@ internal val XvoxGlassEdgeWidth: Dp = .5.dp
 @Composable
 fun Modifier.xvoxGlassRim(
     shape: Shape,
-    /**
-     * 0..1 multiplier of the directional highlight. BitChord's own navbar and mini player draw only
-     * the flat 0.5dp white-10% edge, so the sweep is off unless a caller asks for it.
-     */
-    highlight: Float = 0f,
+    /** 0..1 multiplier of the directional highlight (BitChord default = 1). */
+    highlight: Float = 1f,
     /** Draw the flat hairline under the highlight. */
     hairline: Boolean = true,
-    hairlineColor: Color = Color.White.copy(alpha = .10f)
+    hairlineColor: Color = if (XvoxTheme.colors.isLight) Color.Black.copy(alpha = .06f) else Color.White.copy(alpha = .10f)
 ): Modifier {
     val light = XvoxTheme.colors.isLight
     // On a light page the additive white would vanish, so the highlight is drawn as soft white-on-source.

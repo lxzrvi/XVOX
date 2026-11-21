@@ -1,8 +1,5 @@
 package com.xvox.music.core.design.kit
 
-import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.ui.zIndex
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -201,10 +198,7 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
     // Floating glass (bar, search, profile, mini player) samples the app backdrop AND the page
     // content that scrolls beneath it, not just the wallpaper.
     val pageBackdrop = rememberLayerBackdrop()
-    // Safe mode: no full-screen capture layer for the page. Floating glass then samples only the
-    // app backdrop, which keeps one whole layer out of the render tree.
-    val capturePage = !com.xvox.music.core.XvoxGraphicsGuard.safe.value
-    val floatingBackdrop = if (capturePage) rememberCombinedBackdrop(backdrop, pageBackdrop) else backdrop
+    val floatingBackdrop = rememberCombinedBackdrop(backdrop, pageBackdrop)
     // Preferences are read here, once, so Settings opens with every control already in place.
     val settings = rememberXvoxStageSettings(prefs)
     val onExpand = remember(navigationScroll) { { navigationScroll.expand() } }
@@ -237,7 +231,7 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
     val items = remember {
         listOf(
             GlasmioTabItem(HomeIndex, "Home", SfSymbol.HouseFilled),
-            GlasmioTabItem(LibraryIndex, "Library", SfSymbol.MusicNoteList),
+            GlasmioTabItem(LibraryIndex, "Library", SfSymbol.MusicNoteSquareStackFilled),
             GlasmioTabItem(ArtistsIndex, "Artists", SfSymbol.Microphone),
             GlasmioTabItem(SettingsIndex, "Settings", SfSymbol.Gearshape)
         )
@@ -272,11 +266,7 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
                     Box(Modifier.fillMaxSize().nestedScroll(navigationScroll.nestedScrollConnection)) {
                         // The page is its own recorded layer: every floating glass element samples
                         // it together with the wallpaper. The bar below is a sibling, never inside.
-                        Box(
-                            Modifier
-                                .fillMaxSize()
-                                .then(if (capturePage) Modifier.layerBackdrop(pageBackdrop) else Modifier)
-                        ) {
+                        Box(Modifier.fillMaxSize().layerBackdrop(pageBackdrop)) {
                             if (pageIndex != SettingsIndex) {
                                 StageAmbientGlow(
                                     accent = colors.primaryAccent,
@@ -350,8 +340,7 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
                                             selectedIndex = HomeIndex
                                             pageIndex = HomeIndex
                                         },
-                                        listState = settingsList,
-                                        chromeBackdrop = floatingBackdrop
+                                        listState = settingsList
                                     )
                                 }
                             }
@@ -601,21 +590,6 @@ private fun BoxScope.StageMiniPlayer(
     val shape = RoundedCornerShape(50)
     var drag by remember { mutableFloatStateOf(0f) }
     val shift by animateFloatAsState(drag, tween(120), label = "miniSwipe")
-    // Opening Now Playing: the mini player itself lifts, grows and hands over, instead of the
-    // full screen simply appearing. Swipe up or tap both take this path.
-    var opening by remember { mutableStateOf(false) }
-    val openLift by animateFloatAsState(
-        targetValue = if (opening) 1f else 0f,
-        animationSpec = spring(dampingRatio = .78f, stiffness = Spring.StiffnessMediumLow),
-        label = "miniOpenLift"
-    )
-    LaunchedEffect(opening) {
-        if (opening) {
-            kotlinx.coroutines.delay(190)
-            onOpen()
-            opening = false
-        }
-    }
     GlassSurface(
         modifier = Modifier
             .align(Alignment.BottomCenter)
@@ -633,13 +607,6 @@ private fun BoxScope.StageMiniPlayer(
                     placeable.place((c.maxWidth - w) / 2, StageControlHeight.roundToPx() - h)
                 }
             }
-            .graphicsLayer {
-                val l = openLift
-                scaleX = 1f + .06f * l
-                scaleY = 1f + .06f * l
-                alpha = 1f - .85f * l
-                translationY = -18.dp.toPx() * l
-            }
             .xvoxGlassRim(shape),
         backdrop = backdrop,
         shape = shape,
@@ -650,38 +617,25 @@ private fun BoxScope.StageMiniPlayer(
             Row(
                 modifier = Modifier
                     .fillMaxSize()
-                    // One detector owns the bar: horizontal swipes change track, an upward swipe
-                    // opens Now Playing. Two competing detectors could steal each other's events.
                     .pointerInput(Unit) {
-                        var totalX = 0f
-                        var totalY = 0f
-                        detectDragGestures(
-                            onDragStart = { totalX = 0f; totalY = 0f },
+                        var total = 0f
+                        detectHorizontalDragGestures(
+                            onDragStart = { total = 0f },
                             onDragEnd = {
-                                if (totalY < -46f && kotlin.math.abs(totalY) > kotlin.math.abs(totalX)) {
-                                    opening = true
-                                } else if (totalX > 70f) {
-                                    direction = -1; onPrevious()
-                                } else if (totalX < -70f) {
-                                    direction = 1; onNext()
-                                }
-                                totalX = 0f; totalY = 0f; drag = 0f
+                                if (total > 70f) { direction = -1; onPrevious() }
+                                else if (total < -70f) { direction = 1; onNext() }
+                                total = 0f
+                                drag = 0f
                             },
-                            onDragCancel = { totalX = 0f; totalY = 0f; drag = 0f },
-                            onDrag = { change, amount ->
-                                change.consume()
-                                totalX += amount.x
-                                totalY += amount.y
-                                drag = (totalX / 4f).coerceIn(-24f, 24f)
+                            onDragCancel = { total = 0f; drag = 0f },
+                            onHorizontalDrag = { _, amount ->
+                                total += amount
+                                drag = (total / 4f).coerceIn(-24f, 24f)
                             }
                         )
                     }
                     .graphicsLayer { translationX = shift }
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = { opening = true }
-                    )
+                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onOpen)
                     .padding(start = 7.dp, end = 6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {

@@ -68,28 +68,8 @@ class XvoxPlaybackService : MediaSessionService() {
         val action = intent?.action
         val actions = setOf(XvoxWidgetHelper.ACTION_PLAY_PAUSE, XvoxWidgetHelper.ACTION_PREVIOUS,
             XvoxWidgetHelper.ACTION_NEXT, XvoxWidgetHelper.ACTION_TOGGLE_LIKE)
-        // Promote to foreground FIRST, whatever the action is.
-        //
-        // Media3 only calls startForeground() once playback actually begins. Any other start -
-        // a media button with nothing queued, a widget action, a sticky restart - therefore left
-        // the process with no foreground notification inside the platform's ~5 second window, and
-        // the app died with ForegroundServiceDidNotStartInTimeException before it could draw a
-        // single frame. Doing it here makes that window impossible to miss.
-        val promoted = ensurePlaybackForeground()
-        if (action !in actions) {
-            if (!promoted) {
-                stopSelf(startId)
-                return START_NOT_STICKY
-            }
-            val result = super.onStartCommand(intent, flags, startId)
-            // Nothing is playing: release the foreground again so no placeholder notification
-            // lingers, while the bound session keeps working.
-            if (engine?.player?.playWhenReady != true) {
-                runCatching { stopForeground(STOP_FOREGROUND_DETACH) }
-            }
-            return result
-        }
-        if (!promoted) { stopSelf(startId); return START_NOT_STICKY }
+        if (action !in actions) return super.onStartCommand(intent, flags, startId)
+        if (!ensurePlaybackForeground()) { stopSelf(startId); return START_NOT_STICKY }
         commandJob?.cancel()
         commandJob = serviceScope.launch {
             try {

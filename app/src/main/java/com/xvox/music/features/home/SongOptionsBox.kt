@@ -157,14 +157,12 @@ fun SongOptionsBox(
         ) {
             // Like, Share and Delete as icon tiles along the top of the panel.
             Row(
-                // Icon-only row: Like, Share and Delete carry no captions, exactly as asked.
-                modifier = Modifier.fillMaxWidth().height(54.dp).padding(horizontal = 10.dp),
+                modifier = Modifier.fillMaxWidth().height(66.dp).padding(horizontal = 10.dp),
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 MenuTile(
                     icon = painterResource(if (liked) R.drawable.ic_xvox_heart else R.drawable.ic_xvox_heart_outline),
                     label = if (liked) "Unlike" else "Like",
-                    showLabel = false,
                     ink = if (liked) colors.primaryAccent else label,
                     pressedFill = pressedFill,
                     onClick = onLiked,
@@ -173,7 +171,6 @@ fun SongOptionsBox(
                 MenuTile(
                     icon = androidx.compose.ui.graphics.vector.rememberVectorPainter(XvoxSfIcons.Share),
                     label = "Share",
-                    showLabel = false,
                     ink = label,
                     pressedFill = pressedFill,
                     onClick = onShare,
@@ -182,7 +179,6 @@ fun SongOptionsBox(
                 MenuTile(
                     icon = painterResource(R.drawable.ic_xvox_delete),
                     label = "Delete",
-                    showLabel = false,
                     ink = XvoxRed,
                     pressedFill = pressedFill,
                     onClick = onDelete,
@@ -234,8 +230,6 @@ private fun MenuTile(
     icon: androidx.compose.ui.graphics.painter.Painter,
     label: String,
     ink: Color,
-    /** Icon-only tiles keep the label for accessibility but never draw it. */
-    showLabel: Boolean = true,
     pressedFill: Color,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -252,15 +246,8 @@ private fun MenuTile(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Icon(
-            icon,
-            contentDescription = label,
-            tint = ink,
-            modifier = Modifier.size(if (showLabel) 23.dp else 25.dp)
-        )
-        if (showLabel) {
-            Spacer(Modifier.height(6.dp))
-            Text(label, color = ink, fontSize = 12.sp, lineHeight = 15.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        }
+        Icon(icon, null, tint = ink, modifier = Modifier.size(23.dp))
+        Spacer(Modifier.height(6.dp))
+        Text(label, color = ink, fontSize = 12.sp, lineHeight = 15.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }

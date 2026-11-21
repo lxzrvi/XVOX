@@ -16,7 +16,6 @@ import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -81,7 +80,10 @@ private const val QuickPickRows = 4
 @Composable
 fun XvoxHomeLogo(modifier: Modifier = Modifier) {
     val colors = XvoxTheme.colors
-    val tile = RoundedCornerShape(12.dp)
+    // One monochrome mark built from the launcher icon artwork itself: black on a light theme,
+    // white on a dark one. No coloured tile, so the logo reads on every wallpaper.
+    val tint = if (colors.isLight) androidx.compose.ui.graphics.Color.Black
+    else androidx.compose.ui.graphics.Color.White
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -90,26 +92,19 @@ fun XvoxHomeLogo(modifier: Modifier = Modifier) {
             .height(44.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // The launcher icon exactly as it ships: its background tile with the foreground artwork.
-        Box(
-            Modifier.size(44.dp).clip(tile)
-                .background(androidx.compose.ui.res.colorResource(R.color.xvox_launcher_background)),
-            contentAlignment = Alignment.Center
-        ) {
-            Image(
-                painter = androidx.compose.ui.res.painterResource(R.mipmap.ic_launcher_foreground),
-                contentDescription = "XVOX",
-                modifier = Modifier.requiredSize(66.dp)
-            )
-        }
+        androidx.compose.material3.Icon(
+            painter = androidx.compose.ui.res.painterResource(R.drawable.ic_launcher_foreground_vector),
+            contentDescription = "XVOX",
+            tint = tint,
+            modifier = Modifier.size(34.dp)
+        )
         Text(
             "XVOX",
-            color = colors.primaryText,
-            fontFamily = com.xvox.music.core.design.theme.XvoxLogoFont,
+            color = tint,
             fontWeight = FontWeight.Bold,
-            fontSize = 24.sp,
-            letterSpacing = .5.sp,
-            modifier = Modifier.padding(start = 10.dp)
+            fontSize = 21.sp,
+            letterSpacing = 1.6.sp,
+            modifier = Modifier.padding(start = 8.dp)
         )
     }
 }
@@ -284,11 +279,11 @@ private fun QuickPickRow(song: Song, current: Boolean, playing: Boolean, onClick
 
 @Composable
 private fun MoodCard(mood: XvoxMood, onClick: () -> Unit) {
-    val shape = RoundedCornerShape(18.dp)
+    val shape = RoundedCornerShape(26.dp)
     Box(
         modifier = Modifier
-            .width(166.dp)
-            .height(244.dp)
+            .width(150.dp)
+            .height(216.dp)
             .xvoxSongPress(onClick = onClick, pressedScale = .96f)
             .clip(shape)
             .background(Brush.linearGradient(listOf(mood.from, mood.to)))
