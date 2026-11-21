@@ -103,6 +103,14 @@ fun XvoxAppRoot(
     val overlays = remember { XvoxOverlayController() }
     val context = LocalContext.current
     val prefs = remember { UserPreferencesRepository(context.applicationContext) }
+    // A silent process death leaves a trace behind; show it once instead of failing quietly.
+    val crashTrace = remember { com.xvox.music.core.XvoxCrashGuard.read(context) }
+    if (crashTrace != null) {
+        com.xvox.music.core.ui.XvoxCrashTraceDialog(
+            trace = crashTrace,
+            onDismiss = { com.xvox.music.core.XvoxCrashGuard.clear(context) }
+        )
+    }
     val rootScope = rememberCoroutineScope()
     var artworkWarmDone by remember { mutableStateOf(false) }
     val artworkPreloader = remember(context) { XvoxArtworkPreloader(context) }

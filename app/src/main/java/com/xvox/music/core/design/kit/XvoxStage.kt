@@ -1,8 +1,8 @@
 package com.xvox.music.core.design.kit
 
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.Spring
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.ui.zIndex
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -436,15 +436,7 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
                                         // can never drift apart while the bar scrolls or compacts.
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            // The BitChord edge fades out as the bar compacts, so
-                                            // no rim line can ever run across the mini player.
-                                            .xvoxGlassRim(
-                                                RoundedCornerShape(50),
-                                                hairlineColor = Color.White.copy(
-                                                    alpha = .10f * (1f - navigationScroll.compactProgress.value
-                                                        .coerceIn(0f, 1f))
-                                                )
-                                            )
+                                            .xvoxGlassRim(RoundedCornerShape(50))
                                             .glasmioNavigationScrollHint(navigationScroll.scrollHintProgress),
                                         backdrop = floatingBackdrop,
                                         onItemBoundsChanged = { key, bounds ->
@@ -651,29 +643,29 @@ private fun BoxScope.StageMiniPlayer(
             Row(
                 modifier = Modifier
                     .fillMaxSize()
+                    // One detector owns the bar: horizontal swipes change track, an upward swipe
+                    // opens Now Playing. Two competing detectors could steal each other's events.
                     .pointerInput(Unit) {
-                        detectVerticalDragGestures(
-                            onDragEnd = { drag = 0f },
-                            onVerticalDrag = { _, amount ->
-                                drag = 0f
-                                if (amount < -6f) opening = true
-                            }
-                        )
-                    }
-                    .pointerInput(Unit) {
-                        var total = 0f
-                        detectHorizontalDragGestures(
-                            onDragStart = { total = 0f },
+                        var totalX = 0f
+                        var totalY = 0f
+                        detectDragGestures(
+                            onDragStart = { totalX = 0f; totalY = 0f },
                             onDragEnd = {
-                                if (total > 70f) { direction = -1; onPrevious() }
-                                else if (total < -70f) { direction = 1; onNext() }
-                                total = 0f
-                                drag = 0f
+                                if (totalY < -46f && kotlin.math.abs(totalY) > kotlin.math.abs(totalX)) {
+                                    opening = true
+                                } else if (totalX > 70f) {
+                                    direction = -1; onPrevious()
+                                } else if (totalX < -70f) {
+                                    direction = 1; onNext()
+                                }
+                                totalX = 0f; totalY = 0f; drag = 0f
                             },
-                            onDragCancel = { total = 0f; drag = 0f },
-                            onHorizontalDrag = { _, amount ->
-                                total += amount
-                                drag = (total / 4f).coerceIn(-24f, 24f)
+                            onDragCancel = { totalX = 0f; totalY = 0f; drag = 0f },
+                            onDrag = { change, amount ->
+                                change.consume()
+                                totalX += amount.x
+                                totalY += amount.y
+                                drag = (totalX / 4f).coerceIn(-24f, 24f)
                             }
                         )
                     }
