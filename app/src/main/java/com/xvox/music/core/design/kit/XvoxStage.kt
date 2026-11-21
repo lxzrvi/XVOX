@@ -201,7 +201,10 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
     // Floating glass (bar, search, profile, mini player) samples the app backdrop AND the page
     // content that scrolls beneath it, not just the wallpaper.
     val pageBackdrop = rememberLayerBackdrop()
-    val floatingBackdrop = rememberCombinedBackdrop(backdrop, pageBackdrop)
+    // Safe mode: no full-screen capture layer for the page, so floating glass samples only the app
+    // backdrop. That keeps one whole layer out of the render tree.
+    val capturePage = !com.xvox.music.core.XvoxGraphicsGuard.safe.value
+    val floatingBackdrop = if (capturePage) rememberCombinedBackdrop(backdrop, pageBackdrop) else backdrop
     // Preferences are read here, once, so Settings opens with every control already in place.
     val settings = rememberXvoxStageSettings(prefs)
     val onExpand = remember(navigationScroll) { { navigationScroll.expand() } }
@@ -269,7 +272,11 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
                     Box(Modifier.fillMaxSize().nestedScroll(navigationScroll.nestedScrollConnection)) {
                         // The page is its own recorded layer: every floating glass element samples
                         // it together with the wallpaper. The bar below is a sibling, never inside.
-                        Box(Modifier.fillMaxSize().layerBackdrop(pageBackdrop)) {
+                        Box(
+                            Modifier
+                                .fillMaxSize()
+                                .then(if (capturePage) Modifier.layerBackdrop(pageBackdrop) else Modifier)
+                        ) {
                             if (pageIndex != SettingsIndex) {
                                 StageAmbientGlow(
                                     accent = colors.primaryAccent,

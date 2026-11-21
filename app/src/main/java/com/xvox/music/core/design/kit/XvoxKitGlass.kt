@@ -75,7 +75,9 @@ fun XvoxDesignEngine(content: @Composable () -> Unit) {
     }
     CompositionLocalProvider(
         LocalGlassColors provides glassColors,
-        LocalGlassAppearance provides GlassAppearance(),
+        LocalGlassAppearance provides GlassAppearance(
+            liquidGlassEnabled = !com.xvox.music.core.XvoxGraphicsGuard.safe.value
+        ),
         LocalXvoxGlassBackdrop provides backdrop,
         LocalXvoxGlassReady provides true
     ) {
@@ -117,7 +119,9 @@ fun XvoxGlassEnvironment(
     }
     CompositionLocalProvider(
         LocalGlassColors provides glassColors,
-        LocalGlassAppearance provides GlassAppearance(),
+        LocalGlassAppearance provides GlassAppearance(
+            liquidGlassEnabled = !com.xvox.music.core.XvoxGraphicsGuard.safe.value
+        ),
         LocalXvoxGlassBackdrop provides backdrop,
         LocalXvoxGlassReady provides true
     ) {
