@@ -1,5 +1,8 @@
 package com.xvox.music.core.design.kit
 
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.Spring
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.ui.zIndex
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -231,7 +234,7 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
     val items = remember {
         listOf(
             GlasmioTabItem(HomeIndex, "Home", SfSymbol.HouseFilled),
-            GlasmioTabItem(LibraryIndex, "Library", SfSymbol.MusicNoteSquareStackFilled),
+            GlasmioTabItem(LibraryIndex, "Library", SfSymbol.MusicNoteList),
             GlasmioTabItem(ArtistsIndex, "Artists", SfSymbol.Microphone),
             GlasmioTabItem(SettingsIndex, "Settings", SfSymbol.Gearshape)
         )
@@ -590,6 +593,21 @@ private fun BoxScope.StageMiniPlayer(
     val shape = RoundedCornerShape(50)
     var drag by remember { mutableFloatStateOf(0f) }
     val shift by animateFloatAsState(drag, tween(120), label = "miniSwipe")
+    // Opening Now Playing: the mini player itself lifts, grows and hands over, instead of the
+    // full screen simply appearing. Swipe up or tap both take this path.
+    var opening by remember { mutableStateOf(false) }
+    val openLift by animateFloatAsState(
+        targetValue = if (opening) 1f else 0f,
+        animationSpec = spring(dampingRatio = .78f, stiffness = Spring.StiffnessMediumLow),
+        label = "miniOpenLift"
+    )
+    LaunchedEffect(opening) {
+        if (opening) {
+            kotlinx.coroutines.delay(190)
+            onOpen()
+            opening = false
+        }
+    }
     GlassSurface(
         modifier = Modifier
             .align(Alignment.BottomCenter)
@@ -607,6 +625,13 @@ private fun BoxScope.StageMiniPlayer(
                     placeable.place((c.maxWidth - w) / 2, StageControlHeight.roundToPx() - h)
                 }
             }
+            .graphicsLayer {
+                val l = openLift
+                scaleX = 1f + .06f * l
+                scaleY = 1f + .06f * l
+                alpha = 1f - .85f * l
+                translationY = -18.dp.toPx() * l
+            }
             .xvoxGlassRim(shape),
         backdrop = backdrop,
         shape = shape,
@@ -617,6 +642,15 @@ private fun BoxScope.StageMiniPlayer(
             Row(
                 modifier = Modifier
                     .fillMaxSize()
+                    .pointerInput(Unit) {
+                        detectVerticalDragGestures(
+                            onDragEnd = { drag = 0f },
+                            onVerticalDrag = { _, amount ->
+                                drag = 0f
+                                if (amount < -6f) opening = true
+                            }
+                        )
+                    }
                     .pointerInput(Unit) {
                         var total = 0f
                         detectHorizontalDragGestures(
@@ -635,7 +669,11 @@ private fun BoxScope.StageMiniPlayer(
                         )
                     }
                     .graphicsLayer { translationX = shift }
-                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onOpen)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = { opening = true }
+                    )
                     .padding(start = 7.dp, end = 6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
