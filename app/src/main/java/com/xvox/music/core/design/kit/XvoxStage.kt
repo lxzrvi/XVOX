@@ -1,8 +1,8 @@
 package com.xvox.music.core.design.kit
 
-import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.Spring
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.ui.zIndex
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -201,10 +201,7 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
     // Floating glass (bar, search, profile, mini player) samples the app backdrop AND the page
     // content that scrolls beneath it, not just the wallpaper.
     val pageBackdrop = rememberLayerBackdrop()
-    // Safe mode: no full-screen capture layer for the page. Floating glass then samples only the
-    // app backdrop, which keeps one whole layer out of the render tree.
-    val capturePage = !com.xvox.music.core.XvoxGraphicsGuard.safe.value
-    val floatingBackdrop = if (capturePage) rememberCombinedBackdrop(backdrop, pageBackdrop) else backdrop
+    val floatingBackdrop = rememberCombinedBackdrop(backdrop, pageBackdrop)
     // Preferences are read here, once, so Settings opens with every control already in place.
     val settings = rememberXvoxStageSettings(prefs)
     val onExpand = remember(navigationScroll) { { navigationScroll.expand() } }
@@ -272,11 +269,7 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
                     Box(Modifier.fillMaxSize().nestedScroll(navigationScroll.nestedScrollConnection)) {
                         // The page is its own recorded layer: every floating glass element samples
                         // it together with the wallpaper. The bar below is a sibling, never inside.
-                        Box(
-                            Modifier
-                                .fillMaxSize()
-                                .then(if (capturePage) Modifier.layerBackdrop(pageBackdrop) else Modifier)
-                        ) {
+                        Box(Modifier.fillMaxSize().layerBackdrop(pageBackdrop)) {
                             if (pageIndex != SettingsIndex) {
                                 StageAmbientGlow(
                                     accent = colors.primaryAccent,
@@ -350,8 +343,7 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
                                             selectedIndex = HomeIndex
                                             pageIndex = HomeIndex
                                         },
-                                        listState = settingsList,
-                                        chromeBackdrop = floatingBackdrop
+                                        listState = settingsList
                                     )
                                 }
                             }
@@ -601,8 +593,7 @@ private fun BoxScope.StageMiniPlayer(
     val shape = RoundedCornerShape(50)
     var drag by remember { mutableFloatStateOf(0f) }
     val shift by animateFloatAsState(drag, tween(120), label = "miniSwipe")
-    // Opening Now Playing: the mini player itself lifts, grows and hands over, instead of the
-    // full screen simply appearing. Swipe up or tap both take this path.
+    // Tap or swipe up: the bar itself lifts, grows and hands over to Now Playing.
     var opening by remember { mutableStateOf(false) }
     val openLift by animateFloatAsState(
         targetValue = if (opening) 1f else 0f,
@@ -650,8 +641,7 @@ private fun BoxScope.StageMiniPlayer(
             Row(
                 modifier = Modifier
                     .fillMaxSize()
-                    // One detector owns the bar: horizontal swipes change track, an upward swipe
-                    // opens Now Playing. Two competing detectors could steal each other's events.
+                    // One detector: horizontal swipes change track, an upward swipe hands over.
                     .pointerInput(Unit) {
                         var totalX = 0f
                         var totalY = 0f
