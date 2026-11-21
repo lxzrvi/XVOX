@@ -351,7 +351,7 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
                                             pageIndex = HomeIndex
                                         },
                                         listState = settingsList,
-                                        chromeBackdrop = backdrop
+                                        chromeBackdrop = floatingBackdrop
                                     )
                                 }
                             }
