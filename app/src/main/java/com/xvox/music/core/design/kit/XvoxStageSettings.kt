@@ -129,8 +129,7 @@ fun XvoxStageSettingsPage(
     onBack: () -> Unit,
     /** Owned by the stage so the navigation bar can follow this page's scroll. */
     listState: LazyListState = rememberLazyListState(),
-    /** Combined page + wallpaper backdrop: the chrome must sample the same layer the profile
-     *  button does, otherwise the back chip reads as a flat tile instead of clear glass. */
+    /** Backdrop the chrome samples; defaults to the page backdrop. */
     chromeBackdrop: Backdrop = backdrop
 ) {
     val scope = rememberCoroutineScope()
@@ -141,8 +140,7 @@ fun XvoxStageSettingsPage(
     val design by values.design
     val hapticsEnabled by values.haptics
     var accentPickerOpen by remember { mutableStateOf(false) }
-    // One route string drives every Glasmio sub-page of this Settings tree.
-    var overlay by remember { mutableStateOf<String?>(null) }
+    var audioOpen by remember { mutableStateOf(false) }
     val colors = com.xvox.music.core.design.theme.XvoxTheme.colors
     val glass = LocalGlassColors.current
     val textSizes = remember { listOf("XS" to .70f, "S" to .80f, "M" to .90f, "L" to 1.00f) }
@@ -194,14 +192,9 @@ fun XvoxStageSettingsPage(
             }
         }
         item {
-            GlasmioPreferenceGroupTitle("Layout")
+            GlasmioPreferenceGroupTitle("Home sections")
             CardGroup(backdrop) { backdrop ->
-                GlasmioListRow(
-                    title = "Home layout",
-                    subtitle = "Cards, columns and scrolling",
-                    showTopSeparator = false,
-                    onClick = { overlay = "home" }
-                )
+                HomeSectionSettings(prefs = prefs, backdrop = backdrop)
             }
         }
         item {
@@ -211,17 +204,7 @@ fun XvoxStageSettingsPage(
                     title = "Audio & playback",
                     subtitle = "Crossfade, equalizer, effects",
                     showTopSeparator = false,
-                    onClick = { overlay = "audio" }
-                )
-                GlasmioListRow(
-                    title = "Library & scanning",
-                    subtitle = "Sort order, ignored songs, hidden rows",
-                    onClick = { overlay = "library" }
-                )
-                GlasmioListRow(
-                    title = "Interface",
-                    subtitle = "Typeface, display size, orientation",
-                    onClick = { overlay = "interface" }
+                    onClick = { audioOpen = true }
                 )
             }
         }
@@ -268,14 +251,9 @@ fun XvoxStageSettingsPage(
     }
     }
 
-    if (overlay != null) {
+    if (audioOpen) {
         Box(Modifier.fillMaxSize()) {
-            when (overlay) {
-                "audio" -> XvoxStageAudioPage(prefs = prefs, backdrop = backdrop, onBack = { overlay = null })
-                "home" -> XvoxStageHomeLayoutPage(prefs = prefs, backdrop = backdrop, onBack = { overlay = null })
-                "library" -> XvoxStageLibraryPage(prefs = prefs, backdrop = backdrop, onBack = { overlay = null })
-                "interface" -> XvoxStageInterfacePage(prefs = prefs, backdrop = backdrop, onBack = { overlay = null })
-            }
+            XvoxStageAudioPage(prefs = prefs, backdrop = backdrop, onBack = { audioOpen = false })
         }
     }
 
@@ -314,7 +292,7 @@ private fun BoxScope.ThemeGlyph(value: String, tint: Color) {
  */
 @OptIn(ExperimentalAnimationApi::class)
 @Composable
-internal fun <T> PickerRow(
+private fun <T> PickerRow(
     title: String,
     options: List<Pair<T, String>>,
     selected: T,
