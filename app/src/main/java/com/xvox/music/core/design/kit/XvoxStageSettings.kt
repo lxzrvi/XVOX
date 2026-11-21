@@ -269,7 +269,9 @@ fun XvoxStageSettingsPage(
     }
 
     if (overlay != null) {
-        Box(Modifier.fillMaxSize()) {
+        // A sub-page is its own screen: it paints the app background, so the Settings list behind it
+        // never shows through the page's glass while it scrolls.
+        Box(Modifier.fillMaxSize().background(colors.background)) {
             when (overlay) {
                 "audio" -> XvoxStageAudioPage(prefs = prefs, backdrop = backdrop, onBack = { overlay = null })
                 "home" -> XvoxStageHomeLayoutPage(prefs = prefs, backdrop = backdrop, onBack = { overlay = null })

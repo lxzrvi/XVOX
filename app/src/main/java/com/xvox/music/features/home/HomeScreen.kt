@@ -1,6 +1,9 @@
 // EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/features/home/HomeScreen.kt
 package com.xvox.music.features.home
 
+import com.xvox.music.core.design.theme.XvoxTheme
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.clickable
 import android.app.Activity
 import android.net.Uri
 import android.os.Build
@@ -102,6 +105,29 @@ fun HomeScreen(
     }
 
     val prefs = remember { UserPreferencesRepository(context) }
+    // Without the audio permission MediaStore returns nothing, so Home can only ever be empty.
+    // Ask once on arrival, then leave a card that always works.
+    val audioPermission = if (android.os.Build.VERSION.SDK_INT >= 33)
+        android.Manifest.permission.READ_MEDIA_AUDIO else android.Manifest.permission.READ_EXTERNAL_STORAGE
+    var audioGranted by remember {
+        mutableStateOf(
+            androidx.core.content.ContextCompat.checkSelfPermission(context, audioPermission) ==
+                android.content.pm.PackageManager.PERMISSION_GRANTED
+        )
+    }
+    var permissionAsked by rememberSaveable { mutableStateOf(false) }
+    val audioPermissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        audioGranted = granted
+        if (granted) viewModel.refresh()
+    }
+    LaunchedEffect(Unit) {
+        if (!audioGranted && !permissionAsked) {
+            permissionAsked = true
+            audioPermissionLauncher.launch(audioPermission)
+        }
+    }
     val config by viewModel.homePresentation.collectAsState()
     val likedArtistNames by viewModel.likedArtists.collectAsState()
     val likedPlaylistIds by viewModel.likedPlaylistIds.collectAsState()
@@ -840,28 +866,38 @@ fun HomeScreen(
     }
 
     Box(Modifier.fillMaxSize()) {
-        // Temporary diagnostic: while the library is empty this prints the three facts needed to
-        // tell a missing permission from a failed scan from an over-eager filter.
+        // Empty library: either the permission was never granted, or the scan came back empty.
         if (state.songs.isEmpty() && state.startupReady) {
-            val granted = androidx.core.content.ContextCompat.checkSelfPermission(
-                context, android.Manifest.permission.READ_MEDIA_AUDIO
-            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
-            androidx.compose.material3.Text(
-                text = "diag perm=" + (if (granted) "ok" else "DENIED") +
-                    " scanFailed=" + state.lastLibraryScanFailed +
-                    " verified=" + state.verifiedDeviceSongCount +
-                    " shown=" + state.songs.size,
-                color = androidx.compose.ui.graphics.Color.White,
-                fontSize = 11.sp,
-                modifier = Modifier
+            Box(
+                Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(bottom = 190.dp)
-                    .background(
-                        androidx.compose.ui.graphics.Color.Black.copy(alpha = .55f),
-                        androidx.compose.foundation.shape.RoundedCornerShape(6.dp)
-                    )
-                    .padding(horizontal = 8.dp, vertical = 4.dp)
-            )
+                    .padding(bottom = 168.dp, start = 24.dp, end = 24.dp)
+                    .clip(androidx.compose.foundation.shape.RoundedCornerShape(18.dp))
+                    .background(XvoxTheme.colors.card)
+                    .clickable {
+                        if (!permissionAsked) {
+                            permissionAsked = true
+                            audioPermissionLauncher.launch(audioPermission)
+                        } else {
+                            context.startActivity(
+                                android.content.Intent(
+                                    android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                    android.net.Uri.fromParts("package", context.packageName, null)
+                                )
+                            )
+                        }
+                    }
+                    .padding(horizontal = 20.dp, vertical = 14.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                androidx.compose.material3.Text(
+                    text = if (!audioGranted) "Allow access to your music"
+                    else "No songs found - tap to rescan",
+                    color = XvoxTheme.colors.primaryText,
+                    fontSize = 14.sp,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold
+                )
+            }
         }
 
         val homeScrollState = rememberLazyListState()

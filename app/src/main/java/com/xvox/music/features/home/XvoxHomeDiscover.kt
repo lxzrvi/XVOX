@@ -90,12 +90,13 @@ fun XvoxHomeLogo(modifier: Modifier = Modifier) {
             .height(44.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Just the mark, no tile behind it, sized to the wordmark's cap height so the two read as
-        // one lockup: the artwork is the launcher foreground on its own.
-        Image(
+        // Just the mark, no tile behind it, tinted with the text colour (black on light, white on
+        // dark) and drawn at the wordmark's own height so the two read as one lockup.
+        Icon(
             painter = androidx.compose.ui.res.painterResource(R.drawable.xvox),
             contentDescription = "XVOX",
-            modifier = Modifier.size(24.dp)
+            tint = colors.primaryText,
+            modifier = Modifier.size(30.dp)
         )
         Text(
             "XVOX",
