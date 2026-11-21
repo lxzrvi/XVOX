@@ -96,10 +96,12 @@ fun XvoxHomeLogo(modifier: Modifier = Modifier) {
                 .background(androidx.compose.ui.res.colorResource(R.color.xvox_launcher_background)),
             contentAlignment = Alignment.Center
         ) {
+            // The launcher tile is black with the white monogram on top; the old mipmap foreground
+            // was dark-on-dark, which is why nothing showed here.
             Image(
-                painter = androidx.compose.ui.res.painterResource(R.mipmap.ic_launcher_foreground),
+                painter = androidx.compose.ui.res.painterResource(R.drawable.xvox),
                 contentDescription = "XVOX",
-                modifier = Modifier.requiredSize(66.dp)
+                modifier = Modifier.size(28.dp)
             )
         }
         Text(

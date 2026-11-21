@@ -433,12 +433,10 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
                                         onExpand = onExpand,
                                         compactProgress = navigationScroll.compactProgress,
                                         compactSize = StageControlHeight,
-                                        // BitChord's rim is drawn on the bar's own node: the border
-                                        // and the selection pill therefore share one geometry and
-                                        // can never drift apart while the bar scrolls or compacts.
+                                        // No drawn border on the bar: the pill and the search capsule
+                                        // stand on the glass alone, nothing outlines them.
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .xvoxGlassRim(RoundedCornerShape(50))
                                             .glasmioNavigationScrollHint(navigationScroll.scrollHintProgress),
                                         backdrop = floatingBackdrop,
                                         onItemBoundsChanged = { key, bounds ->
