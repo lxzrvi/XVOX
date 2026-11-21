@@ -39,6 +39,7 @@ import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import com.xvox.music.core.ui.blur.xvoxGlassRim
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
@@ -200,11 +201,10 @@ private fun XvoxLiftedMenu(
             // 1: the held card on its plate.
             Box(
                 Modifier
-                    .shadow(20.dp, cardShape, clip = false)
                     .pointerInput(Unit) {}
                     .clip(cardShape)
                     .background(plate)
-                    .border(.5.dp, hairline, cardShape)
+                    .xvoxGlassRim(cardShape, hairlineColor = hairline)
                     .padding(platePadding)
             ) {
                 held.image?.let { image ->

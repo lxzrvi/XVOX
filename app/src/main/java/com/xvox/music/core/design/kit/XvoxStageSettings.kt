@@ -189,9 +189,9 @@ fun XvoxStageSettingsPage(
             }
         }
         item {
-            GlasmioPreferenceGroupTitle("Background")
+            GlasmioPreferenceGroupTitle("Home sections")
             CardGroup(backdrop) { backdrop ->
-                BackgroundSettings(prefs = prefs, values = values)
+                HomeSectionSettings(prefs = prefs, backdrop = backdrop)
             }
         }
         item {
@@ -211,7 +211,7 @@ fun XvoxStageSettingsPage(
             CardGroup(backdrop) { backdrop ->
                 GlasmioListRow(
                     title = "Version",
-                    detail = "1.02.11",
+                    detail = "1.02.15",
                     showTopSeparator = false
                 )
             }
@@ -332,44 +332,54 @@ private fun <T> PickerRow(
 }
 
 /**
- * App background: one solid colour, nothing else (no photo, no gradient, no accent tint). The
- * first swatch follows the theme; the others are fixed solids, and the rainbow swatch opens the
- * colour wheel. Text colours adapt to whatever is picked.
+ * Detailed Home layout controls. They used to live behind the long-press menu's "Section settings"
+ * entry; they are the same persisted values, so nothing about the layout engine changes.
  */
 @Composable
-private fun BackgroundSettings(
+private fun HomeSectionSettings(
     prefs: UserPreferencesRepository,
-    values: XvoxStageSettingsValues
+    backdrop: Backdrop
 ) {
     val scope = rememberCoroutineScope()
-    val glass = LocalGlassColors.current
-    val base by values.base
-    var plainPickerOpen by remember { mutableStateOf(false) }
-
-    InlineSetting(title = "Background colour", detail = plainLabel(base), showTopSeparator = false) {
-        PlainSwatches(
-            current = base,
-            onPick = { scope.launch { prefs.setThemeBackground(it) } },
-            onCustom = { plainPickerOpen = true }
+    val config by prefs.homePresentation.collectAsState(initial = com.xvox.music.features.home.HomePresentation())
+    PickerRow(
+        title = "All songs layout",
+        options = listOf("uniform" to "Standard list", "mosaic1" to "Mosaic"),
+        selected = config.style,
+        onSelected = { scope.launch { prefs.setHomeLayoutStyle(it) } },
+        backdrop = backdrop,
+        showTopSeparator = false
+    )
+    PickerRow(
+        title = "Scroll direction",
+        options = listOf("vertical" to "Vertical scroll", "horizontal" to "Horizontal pages"),
+        selected = config.direction,
+        onSelected = { scope.launch { prefs.setHomeScrollDirection(it) } },
+        backdrop = backdrop
+    )
+    PickerRow(
+        title = "Portrait columns",
+        options = (3..6).map { it to "$it columns" },
+        selected = config.portraitColumns,
+        onSelected = { scope.launch { prefs.setHomePortraitColumns(it) } },
+        backdrop = backdrop
+    )
+    PickerRow(
+        title = "Landscape columns",
+        options = (8..10).map { it to "$it columns" },
+        selected = config.landscapeColumns,
+        onSelected = { scope.launch { prefs.setHomeLandscapeColumns(it) } },
+        backdrop = backdrop
+    )
+    if (config.direction == "horizontal") {
+        PickerRow(
+            title = "Rows per page",
+            options = (3..10).map { it to "$it rows" },
+            selected = config.rows,
+            onSelected = { scope.launch { prefs.setHomeHorizontalRows(it) } },
+            backdrop = backdrop
         )
     }
-    Text(
-        text = "A single solid colour. Text switches to light or dark ink to stay readable.",
-        color = glass.secondaryContent,
-        fontSize = 12.sp,
-        modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp)
-    )
-
-    GlasmioColorPicker(
-        visible = plainPickerOpen,
-        selectedColor = parsePlain(base) ?: Color.Black,
-        onColorSelected = { color ->
-            scope.launch { prefs.setThemeBackground("#%06X".format(0xFFFFFF and color.toArgb())) }
-            plainPickerOpen = false
-        },
-        onDismiss = { plainPickerOpen = false },
-        title = "Background colour"
-    )
 }
 
 /** Wraps one grouped list with a card-colour layer so its controls sample the card they sit on. */

@@ -1,6 +1,12 @@
 package com.xvox.music.core.design.kit
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.ui.zIndex
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.clickable
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.SizeTransform
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.input.pointer.pointerInput
@@ -130,7 +136,8 @@ object XvoxStage {
 private const val SearchKey = 9
 private const val HomeIndex = 0
 private const val LibraryIndex = 1
-private const val SettingsIndex = 2
+private const val ArtistsIndex = 2
+private const val SettingsIndex = 3
 
 /** Expanded navigation bar width: centred and narrower than the screen. */
 private val StageBarMaxWidth = 320.dp
@@ -164,10 +171,7 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
     var selectedIndex by remember { mutableIntStateOf(HomeIndex) }
     var pageIndex by remember { mutableIntStateOf(HomeIndex) }
     LaunchedEffect(selectedIndex) {
-        if (selectedIndex != pageIndex) {
-            delay(260)
-            pageIndex = selectedIndex
-        }
+        if (selectedIndex != pageIndex) pageIndex = selectedIndex
     }
     var libraryMode by rememberSaveable { mutableStateOf(XvoxHomeLibraryMode.RECENT) }
     var searchActive by rememberSaveable { mutableStateOf(false) }
@@ -208,6 +212,7 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
     val isPlaying by remember(playerVm) {
         playerVm.state.map { it.isPlaying }.distinctUntilChanged()
     }.collectAsState(initial = false)
+    val homeSongs by remember(homeVm) { homeVm.state.map { it.songs }.distinctUntilChanged() }.collectAsState(initial = emptyList())
     val currentSong: Song? = remember(currentId) {
         currentId?.let { id ->
             playerVm.state.value.queue.firstOrNull { it.id == id }
@@ -219,6 +224,7 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
         when (pageIndex) {
             HomeIndex -> homeVm.setLibraryMode(XvoxHomeLibraryMode.ALL_SONGS)
             LibraryIndex -> homeVm.setLibraryMode(libraryMode)
+            ArtistsIndex -> homeVm.setLibraryMode(XvoxHomeLibraryMode.ARTISTS)
         }
     }
 
@@ -226,6 +232,7 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
         listOf(
             GlasmioTabItem(HomeIndex, "Home", SfSymbol.HouseFilled),
             GlasmioTabItem(LibraryIndex, "Library", SfSymbol.MusicNoteSquareStackFilled),
+            GlasmioTabItem(ArtistsIndex, "Artists", SfSymbol.Microphone),
             GlasmioTabItem(SettingsIndex, "Settings", SfSymbol.Gearshape)
         )
     }
@@ -233,7 +240,7 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
 
     val statusTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-    val topInset = statusTop + if (pageIndex == LibraryIndex) 60.dp else 62.dp
+    val topInset = statusTop + if (pageIndex == LibraryIndex || pageIndex == ArtistsIndex) 60.dp else 62.dp
     val bottomInset = navBottom + 176.dp
 
     XvoxGlassEnvironment(backdrop = backdrop) {
@@ -287,7 +294,7 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
                                         viewModel = homeVm,
                                         onActiveListState = { activeList = it }
                                     )
-                                    if (pageIndex == LibraryIndex) {
+                                    if (pageIndex == LibraryIndex || (pageIndex == ArtistsIndex && detailMode != null)) {
                                         LibraryHeader(
                                             mode = libraryMode,
                                             detailOpen = detailMode != null,
@@ -300,14 +307,28 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
                                     }
                                 }
                             }
-                            AnimatedVisibility(
-                                visible = pageIndex == SettingsIndex,
-                                enter = fadeIn(tween(220)),
-                                exit = fadeOut(tween(180))
-                            ) {
+                            // Settings is composed once, shortly after launch, and only moved on and off
+                            // the screen afterwards. Opening it therefore builds nothing, so no heavy
+                            // frame can land on the navigation pill's release animation.
+                            var settingsReady by remember { mutableStateOf(false) }
+                            LaunchedEffect(Unit) {
+                                delay(1200)
+                                settingsReady = true
+                            }
+                            val settingsShown = pageIndex == SettingsIndex
+                            val settingsAlpha by animateFloatAsState(
+                                if (settingsShown) 1f else 0f, tween(if (settingsShown) 220 else 180), label = "settingsAlpha"
+                            )
+                            if (settingsReady || settingsShown) {
                                 Box(
                                     Modifier
                                         .fillMaxSize()
+                                        .graphicsLayer {
+                                            alpha = settingsAlpha
+                                            // Off-screen when hidden: hit-testing follows the layer, so it
+                                            // can never swallow touches meant for Home.
+                                            translationY = if (settingsAlpha <= 0.001f && !settingsShown) size.height else 0f
+                                        }
                                         .background(colors.background)
                                         .pointerInput(Unit) { }
                                 ) {
@@ -323,6 +344,21 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
                                     )
                                 }
                             }
+                        }
+
+                        // Search is its own page, over Home / Library.
+                        if (searchActive) {
+                            StageSearchPage(
+                                query = query.text,
+                                songs = homeSongs,
+                                currentSongId = currentId,
+                                topPadding = statusTop + 84.dp,
+                                bottomPadding = navBottom + 24.dp,
+                                onPlay = { song, list ->
+                                    playerVm.setQueue(list)
+                                    playerVm.play(song)
+                                }
+                            )
                         }
 
                         // The bar and the mini player retire into the search field together: one
@@ -352,6 +388,7 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
                                     onToggle = { playerVm.togglePlay() },
                                     onNext = { playerVm.playNext() },
                                     onPrevious = { playerVm.playPrevious() },
+                                    onOpen = { playerVm.openNowPlaying() },
                                     backdrop = floatingBackdrop
                                 )
                                 // Width follows the scroll: 320 dp while expanded, the full row once
@@ -376,6 +413,30 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
                                             }
                                         }
                                 ) {
+                                    // BitChord's glass rim on the bar and its search circle (hidden once the
+                                    // bar compacts into two separate circles).
+                                    Box(
+                                        Modifier
+                                            .align(Alignment.CenterStart)
+                                            .fillMaxWidth()
+                                            .height(StageControlHeight)
+                                            .graphicsLayer { alpha = 1f - navigationScroll.compactProgress.value.coerceIn(0f, 1f) }
+                                    ) {
+                                        Box(
+                                            Modifier
+                                                .align(Alignment.CenterStart)
+                                                .fillMaxWidth()
+                                                .padding(end = StageControlHeight + StageControlGap)
+                                                .height(StageControlHeight)
+                                                .xvoxGlassRim(RoundedCornerShape(50))
+                                        )
+                                        Box(
+                                            Modifier
+                                                .align(Alignment.CenterEnd)
+                                                .size(StageControlHeight)
+                                                .xvoxGlassRim(CircleShape)
+                                        )
+                                    }
                                     GlasmioNavigationBarWithTrailingItem(
                                         items = items,
                                         trailingItem = searchItem,
@@ -413,11 +474,16 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
                         .align(Alignment.TopEnd)
                         .statusBarsPadding()
                         .padding(top = 11.dp, end = 16.dp)
-                        .graphicsLayer {
-                            compositingStrategy = CompositingStrategy.ModulateAlpha
-                            alpha = 1f - morph
-                        }
+                        // A graphics layer only exists while search is morphing: an always-on layer
+                        // around the profile menu made its close animation flicker.
+                        .then(
+                            if (morph > 0.001f) Modifier.graphicsLayer {
+                                compositingStrategy = CompositingStrategy.ModulateAlpha
+                                alpha = 1f - morph
+                            } else Modifier
+                        )
                 )
+                StageNowPlayingHost(playerVm = playerVm, homeVm = homeVm, modifier = Modifier.zIndex(20f))
             }
         }
     }
@@ -451,14 +517,14 @@ private fun StageAmbientGlow(accent: Color, modifier: Modifier = Modifier) {
             drawRect(
                 Brush.radialGradient(
                     colors = listOf(accent.copy(alpha = .20f), accent.copy(alpha = .07f), Color.Transparent),
-                    center = Offset(w * (.02f + .30f * pa), h * (-.02f + .12f * pb)),
+                    center = Offset(w * (.50f + .20f * (pa - .5f)), h * (-.04f + .10f * pb)),
                     radius = w * (.95f + .15f * pb)
                 )
             )
             drawRect(
                 Brush.radialGradient(
                     colors = listOf(accent.copy(alpha = .10f), Color.Transparent),
-                    center = Offset(w * (.34f - .26f * pb), h * (.14f + .10f * pa)),
+                    center = Offset(w * (.50f - .22f * (pb - .5f)), h * (.10f + .08f * pa)),
                     radius = w * .70f
                 )
             )
@@ -536,8 +602,10 @@ private fun BoxScope.StageMiniPlayer(
     onToggle: () -> Unit,
     onNext: () -> Unit,
     onPrevious: () -> Unit,
+    onOpen: () -> Unit,
     backdrop: Backdrop
 ) {
+    var direction by remember { mutableIntStateOf(1) }
     val glass = LocalGlassColors.current
     val shape = RoundedCornerShape(50)
     var drag by remember { mutableFloatStateOf(0f) }
@@ -574,7 +642,8 @@ private fun BoxScope.StageMiniPlayer(
                         detectHorizontalDragGestures(
                             onDragStart = { total = 0f },
                             onDragEnd = {
-                                if (total > 70f) onPrevious() else if (total < -70f) onNext()
+                                if (total > 70f) { direction = -1; onPrevious() }
+                                else if (total < -70f) { direction = 1; onNext() }
                                 total = 0f
                                 drag = 0f
                             },
@@ -586,33 +655,53 @@ private fun BoxScope.StageMiniPlayer(
                         )
                     }
                     .graphicsLayer { translationX = shift }
+                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onOpen)
                     .padding(start = 7.dp, end = 6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                XvoxSongArtwork(
-                    artwork = song?.artworkUri,
-                    requestSize = 160,
-                    modifier = Modifier.size(48.dp).clip(CircleShape)
-                )
-                if (showText) {
-                    Column(Modifier.weight(1f).padding(horizontal = 10.dp)) {
-                        Text(
-                            song?.title ?: "Not playing",
-                            color = glass.content,
-                            fontSize = 14.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                // Cover and text change together. Next slides the new song in from the right,
+                // Previous is the exact reverse; both fade so the swap never pops.
+                AnimatedContent(
+                    targetState = song,
+                    contentKey = { it?.id },
+                    modifier = Modifier.weight(1f),
+                    transitionSpec = {
+                        val d = direction
+                        (slideInHorizontally(tween(340, easing = FastOutSlowInEasing)) { d * (it / 2) } +
+                            fadeIn(tween(260)) + scaleIn(tween(340), initialScale = .94f)) togetherWith
+                            (slideOutHorizontally(tween(300, easing = FastOutSlowInEasing)) { -d * (it / 2) } +
+                                fadeOut(tween(180)) + scaleOut(tween(300), targetScale = .94f)) using
+                            SizeTransform(clip = true)
+                    },
+                    label = "miniSong"
+                ) { shown ->
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        XvoxSongArtwork(
+                            artwork = shown?.artworkUri,
+                            requestSize = 160,
+                            modifier = Modifier.size(48.dp).clip(CircleShape)
                         )
-                        Text(
-                            song?.artist?.ifBlank { "Unknown artist" } ?: "Pick a song",
-                            color = glass.secondaryContent,
-                            fontSize = 12.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                        if (showText) {
+                            Column(Modifier.weight(1f).padding(horizontal = 10.dp)) {
+                                Text(
+                                    shown?.title ?: "Not playing",
+                                    color = glass.content,
+                                    fontSize = 14.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    shown?.artist?.ifBlank { "Unknown artist" } ?: "Pick a song",
+                                    color = glass.secondaryContent,
+                                    fontSize = 12.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        } else {
+                            Spacer(Modifier.weight(1f))
+                        }
                     }
-                } else {
-                    Spacer(Modifier.weight(1f))
                 }
                 MiniControl(onClick = onToggle) {
                     // Play and pause swap with a quick scale-fade, like Apple Music's.
@@ -632,7 +721,7 @@ private fun BoxScope.StageMiniPlayer(
                         )
                     }
                 }
-                MiniControl(onClick = onNext) {
+                MiniControl(onClick = { direction = 1; onNext() }) {
                     Icon(
                         painter = painterResource(R.drawable.ic_xvox_skip_next),
                         contentDescription = "Next",

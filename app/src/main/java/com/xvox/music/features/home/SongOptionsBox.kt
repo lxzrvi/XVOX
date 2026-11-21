@@ -95,8 +95,6 @@ fun SongOptionsBox(
     onEdit?.let { actions += SongOptionAction("Edit details", R.drawable.ic_xvox_edit, it, group = 3) }
     actions += SongOptionAction("Info", R.drawable.ic_xvox_info, onInfo, group = 3)
     actions += SongOptionAction("Set as ringtone", R.drawable.ic_xvox_music_note, onRingtone, group = 3)
-    onSectionSettings?.let { actions += SongOptionAction(sectionSettingsLabel ?: "Section settings", R.drawable.ic_xvox_settings, it, group = 3) }
-    actions += SongOptionAction("Delete", R.drawable.ic_xvox_delete, onDelete, destructive = true, group = 4)
 
     val lifted = LocalXvoxHeldLifted.current
     // BitChord's iOS menu colours: labels are the page's ink, pressed rows get a soft fill.
@@ -113,7 +111,6 @@ fun SongOptionsBox(
             // Opened from the three-dot button: there is no held card to lift, so show a cover card.
             Column(
                 modifier = Modifier
-                    .shadow(22.dp, coverShape, clip = false)
                     .clip(coverShape)
                     .background(plate)
                     .xvoxGlassRim(coverShape, hairlineColor = hairline)
@@ -150,46 +147,23 @@ fun SongOptionsBox(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .shadow(24.dp, menuShape, clip = false)
                 .clip(menuShape)
                 .background(plate)
-                .border(.5.dp, hairline, menuShape)
+                .xvoxGlassRim(menuShape, hairlineColor = hairline)
                 .heightIn(max = if (lifted) 520.dp else 330.dp)
                 .verticalScroll(scroll)
                 .xvoxBoxScroll(scroll)
                 .padding(vertical = 8.dp)
         ) {
-            // The tiles reached for most, side by side: Like and Share.
-            Row(
-                modifier = Modifier.fillMaxWidth().height(66.dp).padding(horizontal = 10.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                MenuTile(
-                    icon = painterResource(if (liked) R.drawable.ic_xvox_heart else R.drawable.ic_xvox_heart_outline),
-                    label = if (liked) "Unlike" else "Like",
-                    ink = if (liked) colors.primaryAccent else label,
-                    pressedFill = pressedFill,
-                    onClick = onLiked,
-                    modifier = Modifier.weight(1f)
-                )
-                MenuTile(
-                    icon = androidx.compose.ui.graphics.vector.rememberVectorPainter(XvoxSfIcons.Share),
-                    label = "Share",
-                    ink = label,
-                    pressedFill = pressedFill,
-                    onClick = onShare,
-                    modifier = Modifier.weight(1f)
-                )
-            }
             var previousGroup = -1
             actions.forEach { action ->
-                if (action.group != previousGroup) {
+                if (action.group != previousGroup && previousGroup != -1) {
                     // Hairline inset from the panel's edges, with air either side (17 dp tall).
                     Box(Modifier.fillMaxWidth().height(17.dp).padding(horizontal = 18.dp), contentAlignment = Alignment.Center) {
                         Box(Modifier.fillMaxWidth().height(1.dp).background(separator))
                     }
-                    previousGroup = action.group
                 }
+                previousGroup = action.group
                 val ink = if (action.destructive) XvoxRed else label
                 val interaction = remember { MutableInteractionSource() }
                 val pressed by interaction.collectIsPressedAsState()

@@ -19,6 +19,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -78,28 +79,38 @@ private const val QuickPickRows = 4
  */
 @Composable
 fun XvoxHomeLogo(modifier: Modifier = Modifier) {
+    val colors = XvoxTheme.colors
     val tile = RoundedCornerShape(12.dp)
     // 44 dp like the profile button, centred on the same line: status bar + 11 dp + 22 dp.
-    Box(
+    Row(
         modifier = modifier
             .fillMaxWidth()
             .windowInsetsPadding(WindowInsets.statusBars)
             .padding(top = 11.dp, start = 16.dp)
             .height(44.dp),
-        contentAlignment = Alignment.CenterStart
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        // The real app icon: launcher background tile + white glyph.
+        // The launcher icon itself: its background colour tile with the foreground PNG on top.
+        // The adaptive foreground is a 108 dp canvas whose artwork lives in the middle 72 dp, so it
+        // is drawn 1.5x and cropped by the tile.
         Box(
             Modifier.size(44.dp).clip(tile).background(androidx.compose.ui.res.colorResource(R.color.xvox_launcher_background)),
             contentAlignment = Alignment.Center
         ) {
-            Icon(
-                painter = painterResource(R.drawable.ic_launcher_foreground_vector),
+            androidx.compose.foundation.Image(
+                painter = androidx.compose.ui.res.painterResource(R.mipmap.ic_launcher_foreground),
                 contentDescription = "XVOX",
-                tint = Color.White,
-                modifier = Modifier.size(60.dp)
+                modifier = Modifier.requiredSize(66.dp)
             )
         }
+        Text(
+            "XVOX",
+            color = colors.primaryText,
+            fontWeight = FontWeight.Bold,
+            fontSize = 21.sp,
+            letterSpacing = 1.6.sp,
+            modifier = Modifier.padding(start = 10.dp)
+        )
     }
 }
 
@@ -179,7 +190,7 @@ fun LazyListScope.homeDiscoverItems(
     if (quickPicksVisible) item(key = "home_quick_picks", contentType = "quick_picks") {
         val picks = remember(songs.size) { songs.shuffled(Random(SessionSeed)).take(QuickPickCount) }
         Column(Modifier.padding(bottom = 14.dp)) {
-            XvoxHomeSectionHeading("Quick picks", "Start here · ${picks.size} songs")
+            XvoxDiscoverHeading("Made for you", "Quick picks", "A fresh set from your library every time you open XVOX.")
             BoxWithConstraints {
                 val columnWidth: Dp = minOf(maxWidth * .86f, 380.dp)
                 LazyRow(
@@ -206,7 +217,7 @@ fun LazyListScope.homeDiscoverItems(
     if (moodsVisible) item(key = "home_moods", contentType = "moods") {
         val moods = remember(songs.size) { buildMoods(songs) }
         if (moods.isNotEmpty()) Column(Modifier.padding(bottom = 14.dp)) {
-            XvoxHomeSectionHeading("Find your mood", "Sorted from your library")
+            XvoxDiscoverHeading("Browse", "Find your mood", "Pick a feeling and we line up the songs that fit it.")
             LazyRow(
                 contentPadding = PaddingValues(horizontal = 12.dp),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -218,7 +229,7 @@ fun LazyListScope.homeDiscoverItems(
         }
     }
     item(key = "home_all_songs_heading") {
-        XvoxHomeSectionHeading("All songs", "${songs.size} songs")
+        XvoxDiscoverHeading("Library", "All songs", "${songs.size} songs, every one of them in a single place.")
     }
 }
 
@@ -226,16 +237,18 @@ fun LazyListScope.homeDiscoverItems(
 private fun QuickPickRow(song: Song, current: Boolean, playing: Boolean, onClick: () -> Unit, onLongClick: () -> Unit) {
     val colors = XvoxTheme.colors
     Row(
+        // Spacing sits OUTSIDE the press target, so a held row lifts as just the row: the plate's
+        // gap to the cover is then the same on the left, top and bottom.
         modifier = Modifier
             .fillMaxWidth()
-            .xvoxSongPress(onClick = onClick, onLongClick = onLongClick, pressedScale = .97f)
-            .padding(vertical = 4.dp),
+            .padding(vertical = 4.dp)
+            .xvoxSongPress(onClick = onClick, onLongClick = onLongClick, pressedScale = .97f),
         verticalAlignment = Alignment.CenterVertically
     ) {
         XvoxSongArtwork(
             artwork = song.artworkUri,
             requestSize = 128,
-            modifier = Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)).xvoxThumbBorder(RoundedCornerShape(8.dp))
+            modifier = Modifier.size(48.dp).clip(RoundedCornerShape(10.dp))
         )
         Column(Modifier.weight(1f).padding(start = 12.dp)) {
             Text(
@@ -271,59 +284,109 @@ private fun QuickPickRow(song: Song, current: Boolean, playing: Boolean, onClick
 
 @Composable
 private fun MoodCard(mood: XvoxMood, onClick: () -> Unit) {
-    val shape = RoundedCornerShape(24.dp)
+    val shape = RoundedCornerShape(26.dp)
     Box(
         modifier = Modifier
-            .width(236.dp)
-            .height(148.dp)
+            .width(150.dp)
+            .height(216.dp)
             .xvoxSongPress(onClick = onClick, pressedScale = .96f)
             .clip(shape)
             .background(Brush.linearGradient(listOf(mood.from, mood.to)))
             .xvoxGlassRim(shape)
     ) {
-        MoodMotion(Modifier.matchParentSize())
-        Column(Modifier.align(Alignment.BottomStart).padding(18.dp)) {
-            Text(mood.title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 22.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text("${mood.songs.size} songs · ${mood.subtitle}", color = Color.White.copy(alpha = .84f), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        MoodMotion(mood.motionVariant, Modifier.matchParentSize())
+        Column(Modifier.align(Alignment.BottomStart).padding(16.dp)) {
+            Text(mood.title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 21.sp, lineHeight = 24.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(mood.subtitle, color = Color.White.copy(alpha = .86f), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
+            Text("${mood.songs.size} songs", color = Color.White.copy(alpha = .7f), fontSize = 11.sp, modifier = Modifier.padding(top = 6.dp))
         }
     }
 }
 
-/** Soft translucent discs and long wave lines drifting very slowly, in the style of iOS cards. */
+/** Each mood moves differently, so a row of them never looks like one animation repeated. */
+val XvoxMood.motionVariant: Int get() = (title.hashCode() and 0x7fffffff) % 6
+
+/**
+ * Slow, looping iOS-style shapes over a mood's gradient. [variant] picks the choreography; every
+ * term is a whole number of turns per loop, so the loop closes without a visible seam.
+ */
 @Composable
-fun MoodMotion(modifier: Modifier = Modifier) {
+fun MoodMotion(variant: Int, modifier: Modifier = Modifier) {
     val transition = rememberInfiniteTransition(label = "moodMotion")
     val phase = transition.animateFloat(
         initialValue = 0f,
         targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(18_000, easing = LinearEasing), RepeatMode.Restart),
+        animationSpec = infiniteRepeatable(tween(24_000, easing = LinearEasing), RepeatMode.Restart),
         label = "moodPhase"
     )
     Canvas(modifier) {
         val w = size.width
         val h = size.height
-        val turn = (2 * PI).toFloat() * phase.value
-        drawCircle(
-            Color.White.copy(alpha = .15f),
-            radius = h * .62f,
-            center = Offset(w * (.80f + .06f * cos(turn)), h * (.18f + .09f * sin(turn)))
-        )
-        drawCircle(
-            Color.White.copy(alpha = .10f),
-            radius = h * .42f,
-            center = Offset(w * (.16f + .08f * sin(turn + 1f)), h * (.92f + .06f * cos(turn + 1f)))
-        )
-        val stroke = Stroke(width = 1.6.dp.toPx(), cap = StrokeCap.Round)
-        for (k in 0..2) {
-            val path = Path()
-            val baseY = h * (.30f + .17f * k)
-            val steps = 28
-            for (i in 0..steps) {
-                val x = w * i / steps
-                val y = baseY + h * .06f * sin(i * .42f + turn + k * 1.7f)
-                if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+        val t = (2 * PI).toFloat() * phase.value
+        val soft = Color.White.copy(alpha = .14f)
+        val line = Stroke(width = 1.6.dp.toPx(), cap = StrokeCap.Round)
+        when (variant) {
+            // Big discs orbiting slowly.
+            0 -> {
+                drawCircle(soft, h * .30f, Offset(w * (.5f + .30f * cos(t)), h * (.28f + .10f * sin(t))))
+                drawCircle(soft.copy(alpha = .10f), h * .22f, Offset(w * (.5f + .34f * sin(t)), h * (.62f + .08f * cos(t))))
+                drawCircle(soft.copy(alpha = .08f), h * .16f, Offset(w * (.5f - .28f * cos(t)), h * (.48f - .10f * sin(t))))
             }
-            drawPath(path, Color.White.copy(alpha = .16f - .03f * k), style = stroke)
+            // Long wave lines drifting sideways.
+            1 -> for (k in 0..4) {
+                val path = Path()
+                val base = h * (.14f + .12f * k)
+                for (i in 0..24) {
+                    val x = w * i / 24
+                    val y = base + h * .05f * sin(i * .55f + t * (1 + k % 2) + k)
+                    if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+                }
+                drawPath(path, Color.White.copy(alpha = .18f - .02f * k), style = line)
+            }
+            // Ripples spreading from a point.
+            2 -> for (k in 0..3) {
+                val f = (phase.value + k / 4f) % 1f
+                drawCircle(Color.White.copy(alpha = .22f * (1f - f)), h * (.08f + .55f * f), Offset(w * .72f, h * .24f), style = line)
+            }
+            // Equaliser bars breathing.
+            3 -> {
+                val n = 7
+                for (i in 0 until n) {
+                    val bh = h * (.16f + .13f * (1f + sin(t * (1 + i % 3) + i * 1.3f)))
+                    val bw = w / (n * 1.9f)
+                    val x = w * (.08f + .84f * i / (n - 1)) - bw / 2f
+                    drawRoundRect(Color.White.copy(alpha = .15f), Offset(x, h * .52f - bh), androidx.compose.ui.geometry.Size(bw, bh), androidx.compose.ui.geometry.CornerRadius(bw / 2f))
+                }
+            }
+            // Diagonal light bands sliding across.
+            4 -> for (k in 0..2) {
+                val off = ((phase.value + k / 3f) % 1f) * (w + h) - h * .5f
+                val band = Path().apply {
+                    moveTo(off, 0f); lineTo(off + w * .22f, 0f); lineTo(off + w * .22f - h * .6f, h * .6f); lineTo(off - h * .6f, h * .6f); close()
+                }
+                drawPath(band, Color.White.copy(alpha = .08f))
+            }
+            // A grid of dots pulsing in a wave.
+            else -> {
+                val cols = 6
+                val rows = 5
+                for (r in 0 until rows) for (c in 0 until cols) {
+                    val a = .5f + .5f * sin(t + (r + c) * .9f)
+                    drawCircle(Color.White.copy(alpha = .08f + .16f * a), 3.dp.toPx() + 2.dp.toPx() * a,
+                        Offset(w * (.12f + .76f * c / (cols - 1)), h * (.08f + .40f * r / (rows - 1))))
+                }
+            }
         }
+    }
+}
+
+/** A section heading: small accent eyebrow, a large title and one line of descriptive text. */
+@Composable
+fun XvoxDiscoverHeading(eyebrow: String, title: String, text: String, modifier: Modifier = Modifier) {
+    val colors = XvoxTheme.colors
+    Column(modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 12.dp)) {
+        Text(eyebrow.uppercase(), color = colors.primaryAccent, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp)
+        Text(title, color = colors.primaryText, fontSize = 26.sp, lineHeight = 30.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp, modifier = Modifier.padding(top = 2.dp))
+        Text(text, color = colors.secondaryText, fontSize = 13.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 2.dp))
     }
 }

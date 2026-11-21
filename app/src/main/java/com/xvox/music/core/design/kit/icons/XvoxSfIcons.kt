@@ -397,31 +397,19 @@ object XvoxSfIcons {
         close()
     }
 
-    /** music.note.square.stack.fill - Apple Music's Library glyph: two strips over a note tile. */
+    /** books.vertical.fill - three spines on a shelf, the right-hand one leaning. */
     val LibraryFill: ImageVector by lazy {
         ImageVector.Builder(
             name = "LibraryFill", defaultWidth = 24.dp, defaultHeight = 24.dp,
             viewportWidth = 24f, viewportHeight = 24f,
         ).apply {
             path(fill = SolidColor(Color.Black)) {
-                roundRect(6f, 2.2f, 18f, 4.4f, 1.1f)
-                roundRect(4.2f, 5.4f, 19.8f, 7.8f, 1.2f)
-            }
-            // The tile and the note share one path; even-odd turns the note into a cut-out.
-            path(fill = SolidColor(Color.Black), pathFillType = PathFillType.EvenOdd) {
-                roundRect(2.6f, 9f, 21.4f, 22f, 3.4f)
-                // note head
-                moveTo(8.4f, 18.2f)
-                arcTo(1.9f, 1.9f, 0f, true, true, 12.2f, 18.2f)
-                arcTo(1.9f, 1.9f, 0f, true, true, 8.4f, 18.2f)
-                close()
-                // stem and flag
-                moveTo(11.5f, 12.4f)
-                lineTo(15.8f, 13.3f)
-                lineTo(15.8f, 14.9f)
-                lineTo(12.9f, 14.3f)
-                lineTo(12.9f, 18.2f)
-                lineTo(11.5f, 18.2f)
+                roundRect(2.8f, 3f, 8.0f, 21f, 1.3f)
+                roundRect(9.6f, 3f, 14.8f, 21f, 1.3f)
+                moveTo(14.01f, 4.07f)
+                lineTo(18.41f, 2.73f)
+                lineTo(23.79f, 20.33f)
+                lineTo(19.39f, 21.67f)
                 close()
             }
         }.build()

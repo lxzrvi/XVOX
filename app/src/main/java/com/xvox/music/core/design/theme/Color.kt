@@ -57,33 +57,12 @@ data class XvoxPalette(
      * custom background photo), everywhere except the Now Playing artwork surface.
      */
     fun withBackdrop(backgroundName: String, light: Boolean, transparency: Float): XvoxPalette {
-        val background = when (backgroundName) {
-            "Midnight" -> if (light) Color(0xFFE9EDF7) else Color(0xFF070B16)
-            "Warm" -> if (light) Color(0xFFF6F0E6) else Color(0xFF16130E)
-            else -> {
-                // Appearance stores a direct #RRGGBB/#AARRGGBB value for the color-wheel
-                // choice. Invalid/legacy labels safely preserve the active theme background.
-                if (backgroundName.startsWith("#")) {
-                    runCatching { Color(android.graphics.Color.parseColor(backgroundName)) }
-                        .getOrElse { this.background }
-                } else {
-                    this.background
-                }
-            }
-        }
+        // The page background is solid and follows the theme only: pure black in dark, pure white
+        // in light. The old background-colour presets and custom colours are retired.
+        val background = if (light) Color(0xFFFFFFFF) else Color(0xFF000000)
         val keep = (1f - transparency.coerceIn(0f, 0.6f))
-        // A colour the user picked themselves decides its own text: the page reads its real
-        // brightness and uses the opposite ink, whatever the light/dark theme says.
-        val custom = backgroundName.startsWith("#")
-        val bgLight = background.luminance() > .45f
-        val adapt = custom && bgLight != light
-        val ink = if (bgLight) Color(0xFF111111) else Color.White
         return this.copy(
             background = background,
-            primaryText = if (adapt) ink else primaryText,
-            secondaryText = if (adapt) ink.copy(alpha = .62f) else secondaryText,
-            mutedText = if (adapt) ink.copy(alpha = .42f) else mutedText,
-            isLight = if (custom) bgLight else isLight,
             card = card.copy(alpha = keep),
             cardElevated = cardElevated.copy(alpha = keep),
             surface = surface.copy(alpha = keep)

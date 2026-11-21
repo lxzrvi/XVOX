@@ -95,37 +95,24 @@ private fun GridSongCard(
                 .aspectRatio(1f)
                 .clip(shape)
                 .background(if (selected) colors.accentSoft else colors.card)
-                .xvoxThumbBorder(shape)
         )
-        Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text(
-                    song.title,
-                    color = if (current) colors.primaryAccent else colors.primaryText,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 13.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    song.artist.ifBlank { "Unknown artist" },
-                    color = colors.secondaryText,
-                    fontSize = 11.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-            Box(
-                Modifier.size(32.dp).hiddenWhileHeld().xvoxSongPress(onClick = onMore, pressedScale = .8f),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_xvox_more),
-                    contentDescription = "More",
-                    tint = colors.secondaryText,
-                    modifier = Modifier.size(18.dp)
-                )
-            }
-        }
+        // Title and artist are exactly as wide as the cover and end in an ellipsis.
+        Text(
+            song.title,
+            color = if (current) colors.primaryAccent else colors.primaryText,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 13.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.fillMaxWidth().padding(top = 6.dp)
+        )
+        Text(
+            song.artist.ifBlank { "Unknown artist" },
+            color = colors.secondaryText,
+            fontSize = 11.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.fillMaxWidth()
+        )
     }
 }

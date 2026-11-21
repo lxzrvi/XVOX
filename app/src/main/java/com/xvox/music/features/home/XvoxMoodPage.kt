@@ -69,7 +69,7 @@ fun XvoxMoodPage(
         LazyColumn(Modifier.fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = bottomInset)) {
             item(key = "mood_head") {
                 Column(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.statusBars).padding(start = 16.dp, end = 16.dp, top = 76.dp, bottom = 18.dp)) {
-                    MoodMotion(Modifier.fillMaxWidth().height(120.dp).clip(RoundedCornerShape(24.dp)))
+                    MoodMotion(mood.motionVariant, Modifier.fillMaxWidth().height(150.dp).clip(RoundedCornerShape(26.dp)))
                     Text(mood.title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 32.sp, modifier = Modifier.padding(top = 14.dp))
                     Text("${mood.songs.size} songs · ${mood.subtitle}", color = Color.White.copy(alpha = .82f), fontSize = 13.sp)
                     Row(Modifier.padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -82,13 +82,14 @@ fun XvoxMoodPage(
             }
             items(mood.songs, key = { "mood_${it.id}" }) { song ->
                 Row(
-                    Modifier.fillMaxWidth().xvoxSongPress(onClick = { onPlay(song, mood.songs) }, onLongClick = { onMore(song) }, pressedScale = .97f)
-                        .padding(horizontal = 16.dp, vertical = 5.dp),
+                    // Padding outside the press target: the lifted plate hugs the row evenly.
+                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 5.dp)
+                        .xvoxSongPress(onClick = { onPlay(song, mood.songs) }, onLongClick = { onMore(song) }, pressedScale = .97f),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     XvoxSongArtwork(
                         artwork = song.artworkUri,
-                        modifier = Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)).xvoxThumbBorder(RoundedCornerShape(8.dp)),
+                        modifier = Modifier.size(48.dp).clip(RoundedCornerShape(10.dp)),
                         requestSize = 128
                     )
                     Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
