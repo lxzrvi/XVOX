@@ -317,19 +317,14 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
                                     }
                                 }
                             }
-                            // Settings is composed once, shortly after launch, and only moved on and off
-                            // the screen afterwards. Opening it therefore builds nothing, so no heavy
-                            // frame can land on the navigation pill's release animation.
-                            var settingsReady by remember { mutableStateOf(false) }
-                            LaunchedEffect(Unit) {
-                                delay(1200)
-                                settingsReady = true
-                            }
+                            // Settings is built when it is opened, never during launch. The old pre-warm
+                            // frame composed the whole tree 1.2s after start and that frame is what took
+                            // the renderer down, so the cost now lands on the first open instead.
                             val settingsShown = pageIndex == SettingsIndex
                             val settingsAlpha by animateFloatAsState(
                                 if (settingsShown) 1f else 0f, tween(if (settingsShown) 220 else 180), label = "settingsAlpha"
                             )
-                            if (settingsReady || settingsShown) {
+                            if (settingsShown) {
                                 Box(
                                     Modifier
                                         .fillMaxSize()
@@ -351,7 +346,7 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
                                             pageIndex = HomeIndex
                                         },
                                         listState = settingsList,
-                                        chromeBackdrop = backdrop
+                                        chromeBackdrop = floatingBackdrop
                                     )
                                 }
                             }
