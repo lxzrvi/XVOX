@@ -214,19 +214,152 @@ private fun LayoutCard(
     }
 }
 
+/**
+ * Library and scanning: sort order, ignored material and the density switches. Same Glasmio card
+ * language, one page per group.
+ */
 @Composable
-private fun PlaceholderPage(label: String) {
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(label, color = XvoxTheme.colors.secondaryText, fontSize = 15.sp)
+fun XvoxStageLibraryPage(
+    prefs: UserPreferencesRepository,
+    backdrop: Backdrop,
+    onBack: () -> Unit
+) {
+    val scope = rememberCoroutineScope()
+    val sortOrder by prefs.sortOrder.collectAsState(initial = "A-Z")
+    val hideRecents by prefs.hideRecentlyPlayed.collectAsState(initial = false)
+    val fourRows by prefs.fourRowsGrid.collectAsState(initial = false)
+    val ignoreBelowSec by prefs.ignoreBelowSec.collectAsState(initial = 0)
+
+    GlasmioPinnedListPage(
+        title = "Library & scanning",
+        onNavigateBack = onBack,
+        bottomPadding = 132.dp,
+        backgroundColor = Color.Transparent,
+        modifier = Modifier.fillMaxSize()
+    ) {
+        item {
+            GlasmioPreferenceGroupTitle("Sorting")
+            CardGroup(backdrop) { cardBackdrop ->
+                PickerRow(
+                    title = "Default sort",
+                    options = listOf("A-Z" to "Title A–Z", "Z-A" to "Title Z–A", "Newest" to "Newest first", "Oldest" to "Oldest first"),
+                    selected = sortOrder,
+                    onSelected = { scope.launch { prefs.setSortOrder(it) } },
+                    backdrop = cardBackdrop,
+                    showTopSeparator = false
+                )
+            }
+        }
+        item {
+            GlasmioPreferenceGroupTitle("Scanning")
+            CardGroup(backdrop) { cardBackdrop ->
+                PickerRow(
+                    title = "Ignore songs shorter than",
+                    options = listOf(0 to "Off", 30 to "30 s", 60 to "60 s", 90 to "90 s"),
+                    selected = ignoreBelowSec,
+                    onSelected = { scope.launch { prefs.setIgnoreBelowSec(it) } },
+                    backdrop = cardBackdrop,
+                    showTopSeparator = false
+                )
+            }
+        }
+        item {
+            GlasmioPreferenceGroupTitle("List density")
+            CardGroup(backdrop) { cardBackdrop ->
+                GlasmioSwitchPreference(
+                    title = { Text("Four rows per grid row") },
+                    description = "Tighter artwork grid",
+                    checked = fourRows,
+                    onCheckedChange = { scope.launch { prefs.setFourRowsGrid(it) } },
+                    showTopSeparator = false
+                )
+                GlasmioSwitchPreference(
+                    title = { Text("Hide recently played") },
+                    description = "Also hides the Home row",
+                    checked = hideRecents,
+                    onCheckedChange = { scope.launch { prefs.setHideRecentlyPlayed(it) } }
+                )
+            }
+        }
     }
 }
 
+/**
+ * Interface: the typeface, display size, orientation lock and status-bar policy, all as Glasmio
+ * controls with their current value shown on the row.
+ */
 @Composable
-fun XvoxStageLibraryPage(prefs: UserPreferencesRepository, backdrop: Backdrop, onBack: () -> Unit) {
-    PlaceholderPage("Library and scanning")
-}
+fun XvoxStageInterfacePage(
+    prefs: UserPreferencesRepository,
+    backdrop: Backdrop,
+    onBack: () -> Unit
+) {
+    val scope = rememberCoroutineScope()
+    val fontFamily by prefs.fontFamily.collectAsState(initial = "inter")
+    val displaySize by prefs.displaySize.collectAsState(initial = "medium")
+    val orientation by prefs.appOrientation.collectAsState(initial = "auto")
+    val hideStatusBar by prefs.hideStatusBar.collectAsState(initial = false)
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val safeGraphics = com.xvox.music.core.XvoxGraphicsGuard.safe.value
 
-@Composable
-fun XvoxStageInterfacePage(prefs: UserPreferencesRepository, backdrop: Backdrop, onBack: () -> Unit) {
-    PlaceholderPage("Interface")
+    GlasmioPinnedListPage(
+        title = "Interface",
+        onNavigateBack = onBack,
+        bottomPadding = 132.dp,
+        backgroundColor = Color.Transparent,
+        modifier = Modifier.fillMaxSize()
+    ) {
+        item {
+            GlasmioPreferenceGroupTitle("Type")
+            CardGroup(backdrop) { cardBackdrop ->
+                PickerRow(
+                    title = "Typeface",
+                    options = XvoxFontOptions.map { it.key to it.label },
+                    selected = fontFamily,
+                    onSelected = { scope.launch { prefs.setFontFamily(it) } },
+                    backdrop = cardBackdrop,
+                    showTopSeparator = false
+                )
+                PickerRow(
+                    title = "Display size",
+                    options = listOf("small" to "Small", "medium" to "Medium", "large" to "Large"),
+                    selected = displaySize,
+                    onSelected = { scope.launch { prefs.setDisplaySize(it) } },
+                    backdrop = cardBackdrop
+                )
+            }
+        }
+        item {
+            GlasmioPreferenceGroupTitle("Graphics")
+            CardGroup(backdrop) { cardBackdrop ->
+                GlasmioSwitchPreference(
+                    title = { Text("Safe graphics") },
+                    description = "Skips the capture, blur and refraction layers. Turn this on if " +
+                        "the app closes itself on this device; turn it off to get liquid glass back.",
+                    checked = safeGraphics,
+                    onCheckedChange = { com.xvox.music.core.XvoxGraphicsGuard.set(context, it) },
+                    showTopSeparator = false
+                )
+            }
+        }
+        item {
+            GlasmioPreferenceGroupTitle("Window")
+            CardGroup(backdrop) { cardBackdrop ->
+                PickerRow(
+                    title = "Orientation",
+                    options = listOf("auto" to "Auto", "portrait" to "Portrait", "landscape" to "Landscape"),
+                    selected = orientation,
+                    onSelected = { scope.launch { prefs.setAppOrientation(it) } },
+                    backdrop = cardBackdrop,
+                    showTopSeparator = false
+                )
+                GlasmioSwitchPreference(
+                    title = { Text("Hide the status bar") },
+                    description = "Immersive, edge-to-edge pages",
+                    checked = hideStatusBar,
+                    onCheckedChange = { scope.launch { prefs.setHideStatusBar(it) } }
+                )
+            }
+        }
+    }
 }
