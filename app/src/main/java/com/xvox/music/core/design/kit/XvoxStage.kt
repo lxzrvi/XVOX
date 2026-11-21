@@ -231,7 +231,7 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
     val items = remember {
         listOf(
             GlasmioTabItem(HomeIndex, "Home", SfSymbol.HouseFilled),
-            GlasmioTabItem(LibraryIndex, "Library", SfSymbol.MusicNoteSquareStackFilled),
+            GlasmioTabItem(LibraryIndex, "Library", SfSymbol.MusicNoteList),
             GlasmioTabItem(ArtistsIndex, "Artists", SfSymbol.Microphone),
             GlasmioTabItem(SettingsIndex, "Settings", SfSymbol.Gearshape)
         )
