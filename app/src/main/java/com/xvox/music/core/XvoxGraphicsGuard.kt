@@ -28,9 +28,35 @@ object XvoxGraphicsGuard {
         val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         store = prefs
         // Also honour the existing GPU guard so one switch can cover both.
-        safe.value = prefs.getBoolean(KEY_SAFE, false) ||
-            com.xvox.music.core.ui.blur.XvoxGpuGuard.safeMode
+        val saved = prefs.getBoolean(KEY_SAFE, false)
+        val native = nativeCrashDetected(context)
+        if (native && !saved) {
+            prefs.edit().putBoolean(KEY_SAFE, true).apply()
+        }
+        safe.value = saved || native || com.xvox.music.core.ui.blur.XvoxGpuGuard.safeMode
     }
+
+    /**
+     * A SIGSEGV never reaches a Java handler, so the crash recorder cannot see it. The platform
+     * exit history can: if the previous process died from a native signal, the layer stack is
+     * armed off before the first frame of this launch.
+     */
+    private fun nativeCrashDetected(context: Context): Boolean = runCatching {
+        val manager = context.getSystemService(android.app.ActivityManager::class.java) ?: return false
+        val infos = manager.getHistoricalProcessExitInfos().orElse(emptyList())
+        infos.asSequence().take(4).any { info ->
+            val native = info.reason == android.app.ApplicationExitInfo.REASON_CRASH_NATIVE ||
+                info.reason == android.app.ApplicationExitInfo.REASON_SIGNALED
+            if (!native) return@any false
+            val description = runCatching { info.description }.getOrNull().orEmpty()
+            val trace = runCatching {
+                info.traceInputStream?.bufferedReader()?.use { it.readText() }
+            }.getOrNull().orEmpty()
+            description.contains("SIGSEGV", true) || description.contains("SIGSYS", true) ||
+                trace.contains("SIGSEGV", true) || trace.contains("libhwui", true) ||
+                trace.contains("promotedToLayer", true)
+        }
+    }.getOrDefault(false)
 
     fun set(context: Context, value: Boolean) {
         val prefs = store ?: context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
