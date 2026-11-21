@@ -33,7 +33,9 @@ object XvoxGraphicsGuard {
         if (native && !saved) {
             prefs.edit().putBoolean(KEY_SAFE, true).apply()
         }
-        safe.value = saved || native || com.xvox.music.core.ui.blur.XvoxGpuGuard.safeMode
+        // DIAGNOSTIC BUILD: safe graphics is forced on from the very first frame, so the answer is
+        // unambiguous - if the app still closes, the renderer layer stack is not the reason.
+        safe.value = true
     }
 
     /**
