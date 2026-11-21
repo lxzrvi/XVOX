@@ -140,7 +140,7 @@ private const val ArtistsIndex = 2
 private const val SettingsIndex = 3
 
 /** Expanded navigation bar width: centred and narrower than the screen. */
-private val StageBarMaxWidth = 320.dp
+private val StageBarMaxWidth = 368.dp
 
 /** Glasmio's navigation surface height; the compact circles and the mini player match it. */
 private val StageControlHeight = 62.dp
@@ -413,30 +413,6 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
                                             }
                                         }
                                 ) {
-                                    // BitChord's glass rim on the bar and its search circle (hidden once the
-                                    // bar compacts into two separate circles).
-                                    Box(
-                                        Modifier
-                                            .align(Alignment.CenterStart)
-                                            .fillMaxWidth()
-                                            .height(StageControlHeight)
-                                            .graphicsLayer { alpha = 1f - navigationScroll.compactProgress.value.coerceIn(0f, 1f) }
-                                    ) {
-                                        Box(
-                                            Modifier
-                                                .align(Alignment.CenterStart)
-                                                .fillMaxWidth()
-                                                .padding(end = StageControlHeight + StageControlGap)
-                                                .height(StageControlHeight)
-                                                .xvoxGlassRim(RoundedCornerShape(50))
-                                        )
-                                        Box(
-                                            Modifier
-                                                .align(Alignment.CenterEnd)
-                                                .size(StageControlHeight)
-                                                .xvoxGlassRim(CircleShape)
-                                        )
-                                    }
                                     GlasmioNavigationBarWithTrailingItem(
                                         items = items,
                                         trailingItem = searchItem,
@@ -451,8 +427,12 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
                                         onExpand = onExpand,
                                         compactProgress = navigationScroll.compactProgress,
                                         compactSize = StageControlHeight,
+                                        // BitChord's rim is drawn on the bar's own node: the border
+                                        // and the selection pill therefore share one geometry and
+                                        // can never drift apart while the bar scrolls or compacts.
                                         modifier = Modifier
                                             .fillMaxWidth()
+                                            .xvoxGlassRim(RoundedCornerShape(50))
                                             .glasmioNavigationScrollHint(navigationScroll.scrollHintProgress),
                                         backdrop = floatingBackdrop,
                                         onItemBoundsChanged = { key, bounds ->

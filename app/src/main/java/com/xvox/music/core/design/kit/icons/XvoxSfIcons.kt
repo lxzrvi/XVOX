@@ -358,6 +358,47 @@ object XvoxSfIcons {
         }.build()
     }
 
+    /** SF Symbol: music.microphone */
+    val MusicMicrophone: ImageVector by lazy {
+        ImageVector.Builder(
+            name = "MusicMicrophone",
+            defaultWidth = 24.dp,
+            defaultHeight = 24.dp,
+            viewportWidth = 32.0f,
+            viewportHeight = 32.0f,
+        ).apply {
+            path(fill = SolidColor(Color.Black)) {
+                moveTo(15.9872f, 29.5385f)
+                curveTo(16.641f, 29.5385f, 17.1538f, 29.0256f, 17.1538f, 28.3846f)
+                lineTo(17.1538f, 18.8718f)
+                lineTo(20.9872f, 15.3333f)
+                curveTo(22.4487f, 15.5256f, 23.9872f, 14.9231f, 25.3333f, 13.5769f)
+                lineTo(18.282f, 6.5128f)
+                curveTo(16.9231f, 7.859f, 16.359f, 9.3718f, 16.5641f, 10.8462f)
+                lineTo(4.641f, 23.6795f)
+                curveTo(4.1538f, 24.2051f, 4.0769f, 24.9359f, 4.6795f, 25.5385f)
+                lineTo(3.0385f, 27.6538f)
+                curveTo(2.8846f, 27.859f, 2.8718f, 28.1538f, 3.1026f, 28.3846f)
+                lineTo(3.4744f, 28.7692f)
+                curveTo(3.6923f, 28.9872f, 3.9872f, 29f, 4.218f, 28.8205f)
+                lineTo(6.3333f, 27.1667f)
+                curveTo(6.9103f, 27.7692f, 7.6538f, 27.6923f, 8.1667f, 27.2051f)
+                lineTo(14.8205f, 21.0513f)
+                lineTo(14.8205f, 28.3846f)
+                curveTo(14.8205f, 29.0256f, 15.3333f, 29.5385f, 15.9872f, 29.5385f)
+                moveTo(5.9615f, 24.7308f)
+                lineTo(17.2692f, 12.7308f)
+                curveTo(17.4872f, 13.1026f, 17.7436f, 13.4487f, 18.0641f, 13.7949f)
+                curveTo(18.3718f, 14.1154f, 18.7308f, 14.4103f, 19.0641f, 14.6154f)
+                lineTo(7.141f, 25.9103f)
+                moveTo(19.5641f, 5.218f)
+                lineTo(26.6282f, 12.2821f)
+                curveTo(28.8846f, 10.0513f, 28.9743f, 7.1923f, 26.8077f, 5.0385f)
+                curveTo(24.6538f, 2.9103f, 21.8205f, 2.9616f, 19.5641f, 5.218f)
+            }
+        }.build()
+    }
+
     private fun chevron(name: String, vararg pts: Float): ImageVector =
         ImageVector.Builder(
             name = name,
@@ -528,7 +569,8 @@ object XvoxSfIcons {
             systemName.startsWith("circle.lefthalf") -> CircleHalfFill
             systemName.startsWith("house") -> HouseFill
             systemName.startsWith("magnifyingglass") -> Magnifyingglass
-            systemName == "mic" || systemName.startsWith("microphone") -> MicrophoneFill
+            systemName.startsWith("music.microphone") || systemName == "mic" ||
+                systemName.startsWith("microphone") -> MusicMicrophone
             // Albums: Glasmio's stacked-square symbol, drawn as the disc SF geometry.
             systemName.startsWith("music.note.square.stack") -> LibraryFill
             systemName.contains("stack") -> OpticaldiscFill

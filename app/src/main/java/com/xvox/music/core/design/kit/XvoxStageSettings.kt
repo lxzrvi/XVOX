@@ -138,6 +138,7 @@ fun XvoxStageSettingsPage(
     val design by values.design
     val hapticsEnabled by values.haptics
     var accentPickerOpen by remember { mutableStateOf(false) }
+    var audioOpen by remember { mutableStateOf(false) }
     val colors = com.xvox.music.core.design.theme.XvoxTheme.colors
     val glass = LocalGlassColors.current
     val textSizes = remember { listOf("XS" to .70f, "S" to .80f, "M" to .90f, "L" to 1.00f) }
@@ -195,6 +196,17 @@ fun XvoxStageSettingsPage(
             }
         }
         item {
+            GlasmioPreferenceGroupTitle("Playback")
+            CardGroup(backdrop) { backdrop ->
+                GlasmioListRow(
+                    title = "Audio & playback",
+                    subtitle = "Crossfade, equalizer, effects",
+                    showTopSeparator = false,
+                    onClick = { audioOpen = true }
+                )
+            }
+        }
+        item {
             GlasmioPreferenceGroupTitle("Feedback")
             CardGroup(backdrop) { backdrop ->
                 GlasmioSwitchPreference(
@@ -235,6 +247,12 @@ fun XvoxStageSettingsPage(
             )
         }
     }
+    }
+
+    if (audioOpen) {
+        Box(Modifier.fillMaxSize()) {
+            XvoxStageAudioPage(prefs = prefs, backdrop = backdrop, onBack = { audioOpen = false })
+        }
     }
 
     GlasmioColorPicker(

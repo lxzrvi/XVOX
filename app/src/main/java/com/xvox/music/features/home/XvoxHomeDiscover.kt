@@ -80,8 +80,10 @@ private const val QuickPickRows = 4
 @Composable
 fun XvoxHomeLogo(modifier: Modifier = Modifier) {
     val colors = XvoxTheme.colors
-    val tile = RoundedCornerShape(12.dp)
-    // 44 dp like the profile button, centred on the same line: status bar + 11 dp + 22 dp.
+    // One monochrome mark built from the launcher icon artwork itself: black on a light theme,
+    // white on a dark one. No coloured tile, so the logo reads on every wallpaper.
+    val tint = if (colors.isLight) androidx.compose.ui.graphics.Color.Black
+    else androidx.compose.ui.graphics.Color.White
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -90,26 +92,19 @@ fun XvoxHomeLogo(modifier: Modifier = Modifier) {
             .height(44.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // The launcher icon itself: its background colour tile with the foreground PNG on top.
-        // The adaptive foreground is a 108 dp canvas whose artwork lives in the middle 72 dp, so it
-        // is drawn 1.5x and cropped by the tile.
-        Box(
-            Modifier.size(44.dp).clip(tile).background(androidx.compose.ui.res.colorResource(R.color.xvox_launcher_background)),
-            contentAlignment = Alignment.Center
-        ) {
-            androidx.compose.foundation.Image(
-                painter = androidx.compose.ui.res.painterResource(R.mipmap.ic_launcher_foreground),
-                contentDescription = "XVOX",
-                modifier = Modifier.requiredSize(66.dp)
-            )
-        }
+        androidx.compose.material3.Icon(
+            painter = androidx.compose.ui.res.painterResource(R.drawable.ic_launcher_foreground_vector),
+            contentDescription = "XVOX",
+            tint = tint,
+            modifier = Modifier.size(34.dp)
+        )
         Text(
             "XVOX",
-            color = colors.primaryText,
+            color = tint,
             fontWeight = FontWeight.Bold,
             fontSize = 21.sp,
             letterSpacing = 1.6.sp,
-            modifier = Modifier.padding(start = 10.dp)
+            modifier = Modifier.padding(start = 8.dp)
         )
     }
 }
