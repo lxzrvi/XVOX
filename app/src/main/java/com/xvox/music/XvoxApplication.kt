@@ -42,6 +42,7 @@ class XvoxApplication : Application() {
         super.onCreate()
         // Before anything else: a silent process death still leaves a readable trace behind.
         com.xvox.music.core.XvoxCrashGuard.install(this)
+        com.xvox.music.core.XvoxGraphicsGuard.install(this)
         armReminders()
 
         SingletonImageLoader.setSafe { context ->

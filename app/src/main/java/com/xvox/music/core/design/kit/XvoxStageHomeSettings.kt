@@ -299,6 +299,8 @@ fun XvoxStageInterfacePage(
     val displaySize by prefs.displaySize.collectAsState(initial = "medium")
     val orientation by prefs.appOrientation.collectAsState(initial = "auto")
     val hideStatusBar by prefs.hideStatusBar.collectAsState(initial = false)
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val safeGraphics = com.xvox.music.core.XvoxGraphicsGuard.safe.value
 
     GlasmioPinnedListPage(
         title = "Interface",
@@ -324,6 +326,19 @@ fun XvoxStageInterfacePage(
                     selected = displaySize,
                     onSelected = { scope.launch { prefs.setDisplaySize(it) } },
                     backdrop = cardBackdrop
+                )
+            }
+        }
+        item {
+            GlasmioPreferenceGroupTitle("Graphics")
+            CardGroup(backdrop) { cardBackdrop ->
+                GlasmioSwitchPreference(
+                    title = { Text("Safe graphics") },
+                    description = "Skips the capture, blur and refraction layers. Turn this on if " +
+                        "the app closes itself on this device; turn it off to get liquid glass back.",
+                    checked = safeGraphics,
+                    onCheckedChange = { com.xvox.music.core.XvoxGraphicsGuard.set(context, it) },
+                    showTopSeparator = false
                 )
             }
         }

@@ -235,13 +235,16 @@ fun XvoxAppRoot(
         // Keep normal surfaces and root-hosted overlays on separate capture layers. A glass card
         // samples the wallpaper/photo behind the app, while a sheet can blur the real live page it
         // covers. Neither effect is nested inside the Sky it samples.
+        // When the renderer has already blown its stack once, the capture layers are skipped for
+        // good until the user turns them back on in Settings > Interface.
+        val graphicsSafe = com.xvox.music.core.XvoxGraphicsGuard.safe.value
         val surfaceSky = rememberSky()
         val overlaySky = rememberSky()
         val photoWallpaperOn = com.xvox.music.core.ui.chrome.XvoxBackgroundMode.Off ==
             com.xvox.music.core.ui.chrome.XvoxBackgroundMode.Custom
         val wallpaperGlass = com.xvox.music.core.ui.blur.rememberBlurredWallpaper(
             uri = backgroundImage,
-            enabled = photoWallpaperOn && effectiveChrome.glassBlurEnabled,
+            enabled = !graphicsSafe && photoWallpaperOn && effectiveChrome.glassBlurEnabled,
             dim = (1f - backgroundBrightness).coerceIn(0f, .95f)
         )
         CompositionLocalProvider(
@@ -282,7 +285,9 @@ fun XvoxAppRoot(
                 animationSpec = tween(if (sheetBlurTarget > 0.dp) 240 else 200),
                 label = "appSheetBlur"
             )
-            val appBlurMod = if (sheetBlur > 0.dp) Modifier.blur(sheetBlur, androidx.compose.ui.draw.BlurredEdgeTreatment.Rectangle) else Modifier
+            val appBlurMod = if (!graphicsSafe && sheetBlur > 0.dp) {
+                Modifier.blur(sheetBlur, androidx.compose.ui.draw.BlurredEdgeTreatment.Rectangle)
+            } else Modifier
             // The design engine owns presentation: in iOS mode it publishes Glasmio's glass
             // backdrop (the real wallpaper/gradient layer below) so every kit surface samples
             // live pixels; Material mode passes straight through to ExpressiveLab.
@@ -293,14 +298,21 @@ fun XvoxAppRoot(
                 // The image is blurred only when the master blur setting is enabled; scaling it
                 // slightly avoids hard image edges during the platform blur and keeps this static
                 // source cheap while page/chrome motion uses its own local Sky layers.
-                Box(modifier = Modifier.fillMaxSize().then(appBlurMod).sky(surfaceSky).xvoxGlassSource()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .then(appBlurMod)
+                        .then(if (graphicsSafe) Modifier else Modifier.sky(surfaceSky))
+                        .xvoxGlassSource()
+                ) {
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
                             .background(colors.background)
                     ) {
                         // Background blur slider: blurs ONLY the wallpaper (photo or generated art).
-                        val bgBlurDp = if (com.xvox.music.core.ui.blur.XvoxGpuGuard.safeMode) 0.dp else (effectiveChrome.bgImageBlur * 36f).dp
+                        val bgBlurDp = if (graphicsSafe || com.xvox.music.core.ui.blur.XvoxGpuGuard.safeMode) 0.dp
+                        else (effectiveChrome.bgImageBlur * 36f).dp
                         val bgMode = com.xvox.music.core.ui.chrome.XvoxBackgroundMode.Off
                         if (bgMode == com.xvox.music.core.ui.chrome.XvoxBackgroundMode.Gradient) {
                             com.xvox.music.core.ui.chrome.XvoxGeneratedBackground(

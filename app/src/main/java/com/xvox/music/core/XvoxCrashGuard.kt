@@ -29,6 +29,7 @@ object XvoxCrashGuard {
                     appendLine(Log.getStackTraceString(error))
                 }
                 File(appContext.filesDir, FILE_NAME).writeText(text)
+                XvoxGraphicsGuard.markAfterCrash(appContext, text)
             }
             previous?.uncaughtException(thread, error)
         }
