@@ -326,7 +326,8 @@ fun SearchScreen(
                     contentPadding = PaddingValues(start = 10.dp, end = 10.dp, top = topInset + 2.dp, bottom = bottomInset + 16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    item(key = "land_search_bar") {
+                    // Sticky: the field stays at the top while results scroll beneath it.
+                    stickyHeader(key = "land_search_bar") {
                         SearchBarComponent(
                             query = query,
                             onQueryChange = { query = it },

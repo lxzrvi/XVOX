@@ -18,7 +18,7 @@ enum class XvoxNavTab(
     @DrawableRes val icon: Int
 ) {
     HOME("Home", R.drawable.ic_xvox_home),
-    ARTIST("Artist", R.drawable.ic_xvox_artist),
+    ARTIST("Artist", R.drawable.ic_xvox_nav_artist),
     ALBUM("Album", R.drawable.ic_xvox_disc),
-    PLAYLIST("Playlist", R.drawable.ic_xvox_playlist)
+    PLAYLIST("Playlist", R.drawable.ic_xvox_nav_library)
 }
