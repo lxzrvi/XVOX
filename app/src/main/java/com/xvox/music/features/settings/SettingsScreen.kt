@@ -1,6 +1,9 @@
 // EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/features/settings/SettingsScreen.kt
 package com.xvox.music.features.settings
 
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.collectAsState
 import androidx.compose.foundation.layout.fillMaxHeight
 import android.app.Activity
 import android.content.ClipData
@@ -582,6 +585,53 @@ private fun AppearanceSectionCard(
                     selectedKey = selectedScale,
                     onSelect = { key ->
                         scaleOptions.firstOrNull { it.first == key }?.let { viewModel.setFontSizeScale(it.third) }
+                    }
+                )
+            }
+
+            SettingsField("Glass blur") {
+                // One knob for every glass surface: navbar, mini player, cards, long-press plates.
+                val blurLevel = when {
+                    !state.chromeStyle.glassBlurEnabled -> "clear"
+                    state.chromeStyle.glassBlurIntensity < .5f -> "small"
+                    state.chromeStyle.glassBlurIntensity < .85f -> "regular"
+                    else -> "large"
+                }
+                XvoxSegmentedPill(
+                    options = listOf(
+                        "clear" to "Clear",
+                        "small" to "Small",
+                        "regular" to "Regular",
+                        "large" to "Large"
+                    ),
+                    selectedKey = blurLevel,
+                    onSelect = { key ->
+                        val intensity = when (key) {
+                            "small" -> .35f
+                            "regular" -> .65f
+                            "large" -> 1f
+                            else -> 0f
+                        }
+                        viewModel.setChromeStyle {
+                            it.copy(glassBlurEnabled = key != "clear", glassBlurIntensity = intensity)
+                        }
+                    }
+                )
+            }
+
+            SettingsField("Header logo") {
+                val logoContext = LocalContext.current
+                val logoPrefs = remember {
+                    com.xvox.music.data.preferences.UserPreferencesRepository(logoContext)
+                }
+                val logoSize by logoPrefs.headerLogoSize.collectAsState(initial = 30)
+                val logoScope = rememberCoroutineScope()
+                val logoOptions = listOf(24 to "S", 30 to "M", 38 to "L", 46 to "XL")
+                XvoxSegmentedPill(
+                    options = logoOptions.map { it.first.toString() to it.second },
+                    selectedKey = logoOptions.minByOrNull { kotlin.math.abs(logoSize - it.first) }?.first?.toString(),
+                    onSelect = { key ->
+                        key.toIntOrNull()?.let { dp -> logoScope.launch { logoPrefs.setHeaderLogoSize(dp) } }
                     }
                 )
             }

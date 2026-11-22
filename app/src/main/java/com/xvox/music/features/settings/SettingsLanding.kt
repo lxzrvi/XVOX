@@ -1,6 +1,10 @@
 // NAYI FILE BANAO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/features/settings/SettingsLanding.kt
 package com.xvox.music.features.settings
 
+import com.xvox.music.core.ui.blur.LocalXvoxSurfaceSky
+import com.xvox.music.core.ui.blur.LocalXvoxShellContentSky
+import com.xvox.music.core.ui.blur.XvoxBlurLevel
+import com.xvox.music.core.ui.blur.xvoxLiveBlur
 import com.xvox.music.core.design.kit.XvoxTextInput
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -199,8 +203,18 @@ fun SettingsPageTitle(title: String, onBack: (() -> Unit)? = null) {
     val colors = XvoxTheme.colors
     Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 6.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         if (onBack != null) {
+            // Live blur behind the back chip: it frosts whatever the sub-page has scrolled under it.
+            val backSky = LocalXvoxShellContentSky.current ?: LocalXvoxSurfaceSky.current
             Box(
                 Modifier.size(40.dp).clip(CircleShape)
+                    .xvoxLiveBlur(
+                        shape = CircleShape,
+                        level = XvoxBlurLevel.Chrome,
+                        baseColor = colors.background.copy(alpha = .34f),
+                        sky = backSky,
+                        borderAlpha = .10f,
+                        borderWidth = .5.dp
+                    )
                     .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onBack),
                 contentAlignment = Alignment.Center
             ) { Icon(painterResource(R.drawable.ic_xvox_arrow_left), "Back", tint = colors.primaryText, modifier = Modifier.size(22.dp)) }
