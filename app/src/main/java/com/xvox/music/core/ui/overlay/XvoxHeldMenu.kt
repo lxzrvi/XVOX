@@ -98,6 +98,10 @@ fun XvoxHeldMenuHost(
     // A held card: lift it out of the list. A three-dot open has no held card and falls through
     // to the centred layout below.
     val held = remember { XvoxLongPressOrigin.consume() }
+    androidx.compose.runtime.DisposableEffect(held) {
+        XvoxLongPressOrigin.lifted = held?.bounds
+        onDispose { XvoxLongPressOrigin.lifted = null }
+    }
     if (held != null) {
         XvoxLiftedMenu(
             held = held,
@@ -170,7 +174,7 @@ private fun XvoxLiftedMenu(
 ) {
     val colors = XvoxTheme.colors
     val dark = !colors.isLight
-    val plate = (if (dark) Color.Black else Color.White).copy(alpha = .5f)
+    val plate = (if (dark) Color.Black else Color.White).copy(alpha = com.xvox.music.core.ui.effects.XvoxGlassLevel.plateAlpha)
     val hairline = if (dark) Color.White.copy(alpha = .10f) else Color.Black.copy(alpha = .06f)
     val cardShape = RoundedCornerShape(LiftCardRadius)
     val platePadding = 8.dp

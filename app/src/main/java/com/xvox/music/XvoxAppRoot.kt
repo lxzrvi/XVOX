@@ -363,7 +363,8 @@ fun XvoxAppRoot(
                         .fillMaxSize()
                         .then(appBlurMod)
                 ) {
-                    if (com.xvox.music.core.design.kit.XvoxStage.OnlyBackgroundAndNavBar) {
+                    // First launch shows the full setup page; the stage takes over once it is finished.
+                    if (state != AppUiState.Setup && com.xvox.music.core.design.kit.XvoxStage.OnlyBackgroundAndNavBar) {
                         // Rebuild staging: only the gradient backdrop and the iOS navigation bar.
                         // Every existing screen stays composed-off, never deleted.
                         com.xvox.music.core.design.kit.XvoxStageScaffold()

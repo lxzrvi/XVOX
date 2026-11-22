@@ -84,6 +84,7 @@ class UserPreferencesRepository(
         val lastPlayedSongId = longPreferencesKey("last_played_song_id")
         val fullscreenLyricsGradient = booleanPreferencesKey("fullscreen_lyrics_gradient")
         val hapticFeedbackEnabled = booleanPreferencesKey("haptic_feedback_enabled")
+        val glassMaterial = stringPreferencesKey("glass_material")
         val hapticIntensity = stringPreferencesKey("haptic_intensity")
         val recentSearches = stringPreferencesKey("recent_searches")
 
@@ -753,6 +754,9 @@ class UserPreferencesRepository(
     suspend fun setAppVolume(v: Float) { context.xvoxDataStore.edit { it[Keys.appVolume] = v.coerceIn(0f, 2f) } }
     suspend fun setVolumeLimit(v: Float) { context.xvoxDataStore.edit { it[Keys.volumeLimit] = v } }
 
+    /** Glass blur level of XVOX's own glass: clear, small, regular or large. */
+    val glassMaterial: Flow<String> = context.xvoxDataStore.data.map { it[Keys.glassMaterial] ?: "large" }.distinctUntilChanged()
+    suspend fun setGlassMaterial(v: String) { context.xvoxDataStore.edit { it[Keys.glassMaterial] = v } }
     suspend fun setHapticFeedbackEnabled(v: Boolean) { context.xvoxDataStore.edit { it[Keys.hapticFeedbackEnabled] = v } }
     suspend fun setHapticIntensity(v: String) { context.xvoxDataStore.edit { it[Keys.hapticIntensity] = v } }
     suspend fun setTheme(v: String) { context.xvoxDataStore.edit { it[Keys.theme] = v } }

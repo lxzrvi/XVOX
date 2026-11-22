@@ -103,10 +103,17 @@ fun Modifier.xvoxSongPress(
     } else Modifier
 
     val capture = remember { XvoxHoldCapture() }
+    // The lifted copy is drawn by the menu; the original steps aside so there is never a twin.
+    val stepAside = Modifier.graphicsLayer {
+        val lifted = XvoxLongPressOrigin.lifted
+        val at = capture.coordinates?.takeIf { it.isAttached }?.positionInWindow()
+        alpha = if (lifted != null && at != null &&
+            kotlin.math.abs(lifted.left - at.x) < 3f && kotlin.math.abs(lifted.top - at.y) < 3f) 0f else 1f
+    }
     val graphicsContext = LocalGraphicsContext.current
     val density = LocalDensity.current
 
-    val clickable = modifier.combinedClickable(
+    val clickable = stepAside.then(modifier).combinedClickable(
         hapticFeedbackEnabled = false,
         interactionSource = interaction,
         indication = null,

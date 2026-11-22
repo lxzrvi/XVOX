@@ -30,6 +30,9 @@ object XvoxLongPressOrigin {
     /** True while a held card's picture is being taken, so its own ⋮ can step out of the shot. */
     internal var capturing: Boolean by mutableStateOf(false)
 
+    /** Bounds of the card currently lifted into a menu; its original steps aside meanwhile. */
+    var lifted: Rect? by mutableStateOf(null)
+
     internal fun record(item: XvoxHeldItem) {
         held = item
         recordedAt = System.nanoTime()

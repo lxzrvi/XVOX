@@ -15,8 +15,8 @@ android {
         targetSdk = 37
 
         // v1.02.8: Glasmio native navigation bar with live-reflecting glass pill.
-        versionCode = 10251
-        versionName = "1.02.51"
+        versionCode = 10252
+        versionName = "1.02.52"
     }
 
     compileOptions {
@@ -109,6 +109,11 @@ dependencies {
     implementation(libs.glasmio.ui)
     implementation(libs.glasmio.scaffold)
     implementation(libs.glasmio.preference)
+    // BitChord's SF Symbols as Compose vectors: only used for the Library tab's music.note.house.
+    // Without its own dependencies, exactly as BitChord pulls it in.
+    implementation("com.github.cosmictaserdev-creator.Jetpack_SF_Symbols:sfsymbols-android:1.1.1") {
+        isTransitive = false
+    }
     // Design engine, half one: Material 3 Expressive components, springs and shapes.
     implementation(libs.expressivelab)
 }

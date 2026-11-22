@@ -1,9 +1,18 @@
 package com.xvox.music.core.design.kit
 
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.snap
+import androidx.compose.runtime.SideEffect
 import androidx.compose.animation.core.Spring
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
+import com.xvox.music.core.ui.effects.XvoxGlassLevel
+import io.github.neoruaa.glasmio.glass.NavigationGlassMaterial
 import androidx.compose.ui.zIndex
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.clickable
@@ -207,6 +216,37 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
     val floatingBackdrop = if (capturePage) rememberCombinedBackdrop(backdrop, pageBackdrop) else backdrop
     // Preferences are read here, once, so Settings opens with every control already in place.
     val settings = rememberXvoxStageSettings(prefs)
+    // The blur level chosen in Settings is shared with the mini player and the long-press plates.
+    val glassLevel by prefs.glassMaterial.collectAsState(initial = "large")
+    SideEffect { XvoxGlassLevel.key = glassLevel }
+    var exitDialog by remember { mutableStateOf(false) }
+    // Back on Home asks before closing the app. Composed before the pages, so any page or detail
+    // that handles Back itself (they are composed later) wins over it.
+    BackHandler(enabled = pageIndex == HomeIndex && !searchActive) { exitDialog = true }
+    if (exitDialog) {
+        AlertDialog(
+            onDismissRequest = { exitDialog = false },
+            title = { Text("Close XVOX?") },
+            text = { Text("The app will close. Playback stops unless it is running in the background.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    exitDialog = false
+                    (context as? android.app.Activity)?.finish()
+                }) { Text("Close") }
+            },
+            dismissButton = { TextButton(onClick = { exitDialog = false }) { Text("Stay") } }
+        )
+    }
+    // Bar remount, see the navigation bar below.
+    var barKey by remember { mutableIntStateOf(0) }
+    var barSettledFor by remember { mutableIntStateOf(HomeIndex) }
+    LaunchedEffect(selectedIndex) {
+        if (barSettledFor != selectedIndex) {
+            delay(800)
+            barSettledFor = selectedIndex
+            if (!searchActive) barKey++
+        }
+    }
     val onExpand = remember(navigationScroll) { { navigationScroll.expand() } }
     val searchTransition = rememberGlasmioSearchTransition(searchActive)
     val morph by searchTransition.progressState
@@ -237,7 +277,7 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
     val items = remember {
         listOf(
             GlasmioTabItem(HomeIndex, "Home", SfSymbol.HouseFilled),
-            GlasmioTabItem(LibraryIndex, "Library", SfSymbol.MusicNoteList),
+            GlasmioTabItem(LibraryIndex, "Library", SfSymbol.MusicNoteSquareStackFilled),
             GlasmioTabItem(ArtistsIndex, "Artists", SfSymbol.Microphone),
             GlasmioTabItem(SettingsIndex, "Settings", SfSymbol.Gearshape)
         )
@@ -317,6 +357,12 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
                                     }
                                 }
                             }
+                            // Library / Artists / Settings go back to Home. Pages inside them (details,
+                            // Settings sub-pages) are composed later and take Back first.
+                            BackHandler(enabled = pageIndex != HomeIndex && detailMode == null && !searchActive) {
+                                selectedIndex = HomeIndex
+                                pageIndex = HomeIndex
+                            }
                             // Settings is built when it is opened, never during launch. The old pre-warm
                             // frame composed the whole tree 1.2s after start and that frame is what took
                             // the renderer down, so the cost now lands on the first open instead.
@@ -354,6 +400,10 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
 
                         // Search is its own page, over Home / Library.
                         if (searchActive) {
+                            BackHandler {
+                                searchActive = false
+                                query = TextFieldValue()
+                            }
                             StageSearchPage(
                                 query = query.text,
                                 songs = homeSongs,
@@ -419,6 +469,9 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
                                             }
                                         }
                                 ) {
+                                    // Remounted a moment after every tab change: the pill is rebuilt at its
+                                    // rest shape, so it can never stay half-stretched.
+                                    androidx.compose.runtime.key(barKey) {
                                     GlasmioNavigationBarWithTrailingItem(
                                         items = items,
                                         trailingItem = searchItem,
@@ -438,11 +491,13 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .glasmioNavigationScrollHint(navigationScroll.scrollHintProgress),
-                                        backdrop = floatingBackdrop,
+                                        // Frosts only the wallpaper / app background, never the page content.
+                                        backdrop = backdrop,
                                         onItemBoundsChanged = { key, bounds ->
                                             if (key == SearchKey) searchBounds = bounds
                                         }
                                     )
+                                    }
                                 }
                             }
                         }
@@ -593,7 +648,14 @@ private fun BoxScope.StageMiniPlayer(
     val glass = LocalGlassColors.current
     val shape = RoundedCornerShape(50)
     var drag by remember { mutableFloatStateOf(0f) }
-    val shift by animateFloatAsState(drag, tween(120), label = "miniSwipe")
+    var dragging by remember { mutableStateOf(false) }
+    // While a finger is down the card sits exactly under it; on release it springs back.
+    val shift by animateFloatAsState(
+        targetValue = drag,
+        animationSpec = if (dragging) snap() else spring(dampingRatio = .72f, stiffness = Spring.StiffnessMedium),
+        label = "miniSwipe"
+    )
+    var rowCoordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
     // Tap or swipe up: the bar itself lifts, grows and hands over to Now Playing.
     var opening by remember { mutableStateOf(false) }
     val openLift by animateFloatAsState(
@@ -627,6 +689,7 @@ private fun BoxScope.StageMiniPlayer(
             }
             .graphicsLayer {
                 val l = openLift
+                translationX = shift
                 scaleX = 1f + .06f * l
                 scaleY = 1f + .06f * l
                 alpha = 1f - .85f * l
@@ -635,7 +698,13 @@ private fun BoxScope.StageMiniPlayer(
             .xvoxGlassRim(shape),
         backdrop = backdrop,
         shape = shape,
-        style = GlassSurfaceStyle.Navigation
+        style = GlassSurfaceStyle.Navigation,
+        material = when (XvoxGlassLevel.key) {
+            "clear" -> NavigationGlassMaterial.Clear
+            "small" -> NavigationGlassMaterial.RegularSmall
+            "regular" -> NavigationGlassMaterial.RegularMedium
+            else -> NavigationGlassMaterial.RegularLarge
+        }
     ) {
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val showText = maxWidth > 250.dp
@@ -643,11 +712,17 @@ private fun BoxScope.StageMiniPlayer(
                 modifier = Modifier
                     .fillMaxSize()
                     // One detector: horizontal swipes change track, an upward swipe hands over.
+                    .onGloballyPositioned { rowCoordinates = it }
                     .pointerInput(Unit) {
                         var totalX = 0f
                         var totalY = 0f
+                        var startRootX = 0f
                         detectDragGestures(
-                            onDragStart = { totalX = 0f; totalY = 0f },
+                            onDragStart = { offset ->
+                                totalX = 0f; totalY = 0f
+                                dragging = true
+                                startRootX = rowCoordinates?.localToRoot(offset)?.x ?: 0f
+                            },
                             onDragEnd = {
                                 if (totalY < -46f && kotlin.math.abs(totalY) > kotlin.math.abs(totalX)) {
                                     opening = true
@@ -657,17 +732,20 @@ private fun BoxScope.StageMiniPlayer(
                                     direction = 1; onNext()
                                 }
                                 totalX = 0f; totalY = 0f; drag = 0f
+                                dragging = false
                             },
-                            onDragCancel = { totalX = 0f; totalY = 0f; drag = 0f },
+                            onDragCancel = { totalX = 0f; totalY = 0f; drag = 0f; dragging = false },
                             onDrag = { change, amount ->
                                 change.consume()
-                                totalX += amount.x
                                 totalY += amount.y
-                                drag = (totalX / 4f).coerceIn(-24f, 24f)
+                                // Measured in root coordinates: the card moves under the finger, so
+                                // local deltas would shrink as it follows.
+                                val rootX = rowCoordinates?.localToRoot(change.position)?.x
+                                totalX = if (rootX != null) rootX - startRootX else totalX + amount.x
+                                drag = (totalX * .92f).coerceIn(-120f, 120f)
                             }
                         )
                     }
-                    .graphicsLayer { translationX = shift }
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,

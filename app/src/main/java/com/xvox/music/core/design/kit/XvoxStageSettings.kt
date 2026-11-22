@@ -191,6 +191,24 @@ fun XvoxStageSettingsPage(
                     onSelected = { scope.launch { prefs.setDesignLanguage(it) } },
                     backdrop = backdrop
                 )
+                val glassLevel by prefs.glassMaterial.collectAsState(initial = "large")
+                PickerRow(
+                    title = "Glass blur",
+                    options = listOf(
+                        "clear" to "Clear",
+                        "small" to "Regular Small",
+                        "regular" to "Regular",
+                        "large" to "Regular Large"
+                    ),
+                    selected = glassLevel,
+                    onSelected = { scope.launch { prefs.setGlassMaterial(it) } },
+                    backdrop = backdrop
+                )
+                GlasmioListRow(
+                    title = "Interface",
+                    subtitle = "Typeface, display size, orientation",
+                    onClick = { overlay = "interface" }
+                )
             }
         }
         item {
@@ -218,11 +236,6 @@ fun XvoxStageSettingsPage(
                     subtitle = "Sort order, ignored songs, hidden rows",
                     onClick = { overlay = "library" }
                 )
-                GlasmioListRow(
-                    title = "Interface",
-                    subtitle = "Typeface, display size, orientation",
-                    onClick = { overlay = "interface" }
-                )
             }
         }
         item {
@@ -242,7 +255,7 @@ fun XvoxStageSettingsPage(
             CardGroup(backdrop) { backdrop ->
                 GlasmioListRow(
                     title = "Version",
-                    detail = "1.02.16",
+                    detail = "1.02.52",
                     showTopSeparator = false
                 )
             }
@@ -268,6 +281,7 @@ fun XvoxStageSettingsPage(
     }
     }
 
+    androidx.activity.compose.BackHandler(enabled = overlay != null) { overlay = null }
     if (overlay != null) {
         // A sub-page is its own screen: it paints the app background, so the Settings list behind it
         // never shows through the page's glass while it scrolls.

@@ -25,6 +25,8 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.draw.blur
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -97,14 +99,11 @@ fun XvoxHomeLogo(modifier: Modifier = Modifier) {
     ) {
         // Just the mark, no tile behind it, tinted with the text colour (black on light, white on
         // dark) and drawn at the wordmark's own height so the two read as one lockup.
-        val headerContext = androidx.compose.ui.platform.LocalContext.current
-        val headerPrefs = remember { com.xvox.music.data.preferences.UserPreferencesRepository(headerContext) }
-        val logoSize by headerPrefs.headerLogoSize.collectAsState(initial = 30)
         Icon(
             painter = androidx.compose.ui.res.painterResource(R.drawable.xvox),
             contentDescription = "XVOX",
             tint = colors.primaryText,
-            modifier = Modifier.size(logoSize.dp)
+            modifier = Modifier.size(24.dp)
         )
         Text(
             "XVOX",
@@ -428,32 +427,36 @@ private fun TopSongCard(
     onLongClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Box(
+    BoxWithConstraints(
         modifier
             .aspectRatio(1f)
             .clip(RoundedCornerShape(18.dp))
             .xvoxSongPress(onClick = onClick, onLongClick = onLongClick, pressedScale = .95f)
     ) {
+        val side = maxWidth
         XvoxSongArtwork(
             artwork = song.artworkUri,
             requestSize = 384,
             modifier = Modifier.fillMaxSize()
         )
-        // A scrim, not a captured layer: reads as the blurred foot of the cover without adding any
-        // extra render layer to the row.
+        // The foot of the cover is the same artwork, blurred: only the song name sits on it.
         Box(
             Modifier
                 .fillMaxWidth()
-                .fillMaxHeight(.42f)
+                .height(38.dp)
                 .align(Alignment.BottomCenter)
-                .background(
-                    Brush.verticalGradient(
-                        0f to Color.Transparent,
-                        .55f to Color.Black.copy(alpha = .34f),
-                        1f to Color.Black.copy(alpha = .62f)
-                    )
-                )
-        )
+                .clip(RectangleShape)
+        ) {
+            XvoxSongArtwork(
+                artwork = song.artworkUri,
+                requestSize = 96,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .requiredSize(side)
+                    .blur(18.dp)
+            )
+            Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .32f)))
+        }
         Text(
             song.title,
             color = if (current) XvoxTheme.colors.primaryAccent else Color.White,

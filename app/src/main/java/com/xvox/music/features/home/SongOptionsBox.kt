@@ -75,7 +75,7 @@ fun SongOptionsBox(
 ) {
     val colors = XvoxTheme.colors
     val dark = !colors.isLight
-    val plate = (if (dark) Color.Black else Color.White).copy(alpha = if (dark) .5f else .5f)
+    val plate = (if (dark) Color.Black else Color.White).copy(alpha = com.xvox.music.core.ui.effects.XvoxGlassLevel.plateAlpha)
     val hairline = if (dark) Color.White.copy(alpha = .10f) else Color.Black.copy(alpha = .08f)
     val coverShape = RoundedCornerShape(22.dp)
     val panelShape = RoundedCornerShape(22.dp)

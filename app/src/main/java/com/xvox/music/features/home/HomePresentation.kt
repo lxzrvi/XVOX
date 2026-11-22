@@ -33,7 +33,8 @@ data class HomePresentation(
 ) {
     /** Resolves the persisted orientation-specific count at the actual rendering boundary. */
     fun columnsFor(isLandscape: Boolean): Int =
-        if (isLandscape) landscapeColumns.coerceIn(8, 10) else portraitColumns.coerceIn(3, 6)
+        // All songs is always a five-column grid, in either orientation.
+        5
 }
 
 object HomeSections {

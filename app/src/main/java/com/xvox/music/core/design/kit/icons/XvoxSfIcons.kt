@@ -9,6 +9,8 @@ import androidx.compose.ui.graphics.vector.PathBuilder
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.unit.dp
+import com.composables.sfsymbols.SfSymbols
+import com.composables.sfsymbols.monochrome.SFMusicNoteHouse
 import io.github.neoruaa.glasmio.icons.GlasmioIconResolver
 
 /**
@@ -438,23 +440,8 @@ object XvoxSfIcons {
         close()
     }
 
-    /** books.vertical.fill - three spines on a shelf, the right-hand one leaning. */
-    val LibraryFill: ImageVector by lazy {
-        ImageVector.Builder(
-            name = "LibraryFill", defaultWidth = 24.dp, defaultHeight = 24.dp,
-            viewportWidth = 24f, viewportHeight = 24f,
-        ).apply {
-            path(fill = SolidColor(Color.Black)) {
-                roundRect(2.8f, 3f, 8.0f, 21f, 1.3f)
-                roundRect(9.6f, 3f, 14.8f, 21f, 1.3f)
-                moveTo(14.01f, 4.07f)
-                lineTo(18.41f, 2.73f)
-                lineTo(23.79f, 20.33f)
-                lineTo(19.39f, 21.67f)
-                close()
-            }
-        }.build()
-    }
+    /** BitChord's Library mark: SF Symbols music.note.house, straight from the same package. */
+    val LibraryFill: ImageVector by lazy { com.composables.sfsymbols.SfSymbols.Monochrome.SFMusicNoteHouse }
 
     /** sun.max.fill - disc with eight round rays. */
     val SunFill: ImageVector by lazy {
