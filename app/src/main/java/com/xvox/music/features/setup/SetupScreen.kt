@@ -1,5 +1,6 @@
 package com.xvox.music.features.setup
 
+import androidx.compose.foundation.layout.size
 import android.Manifest
 import android.app.Activity
 import android.content.pm.PackageManager
@@ -154,16 +155,30 @@ fun SetupScreen(
             // ambiguous with the child receiver.
             val setupWidth = maxWidth
 
-            Text(
-                text = "XVOX",
+            // Lockup: the monogram above an oversized wordmark, both tinted with the text colour.
+            Column(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
-                    .offset(y = screenHeight * 0.13f - 32.dp),
-                color = colors.primaryText,
-                fontFamily = XvoxLogoFont,
-                fontSize = 31.sp,
-                textAlign = TextAlign.Center
-            )
+                    .offset(y = screenHeight * 0.11f - 32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                androidx.compose.material3.Icon(
+                    painter = androidx.compose.ui.res.painterResource(com.xvox.music.R.drawable.xvox),
+                    contentDescription = null,
+                    tint = colors.primaryText,
+                    modifier = Modifier.size(38.dp)
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "XVOX",
+                    color = colors.primaryText,
+                    fontFamily = XvoxLogoFont,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 40.sp,
+                    letterSpacing = 2.sp,
+                    textAlign = TextAlign.Center
+                )
+            }
 
             Column(
                 modifier = Modifier
@@ -173,20 +188,35 @@ fun SetupScreen(
                     .graphicsLayer { translationY = -keyboardShift },
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
+                // iOS-style hierarchy: tiny tracked eyebrow, decisive title, quiet subtitle.
                 Text(
-                    text = "Let's get to know you",
+                    text = "MADE FOR YOU",
                     color = colors.secondaryText,
-                    fontSize = 14.sp,
+                    fontSize = 11.sp,
+                    letterSpacing = 1.8.sp,
+                    fontWeight = FontWeight.SemiBold,
                     textAlign = TextAlign.Center
                 )
 
-                Spacer(modifier = Modifier.height(5.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
                 Text(
-                    text = "Personalize your xvox",
+                    text = "Personalize your XVOX",
                     color = colors.primaryText,
                     fontFamily = XvoxPersonalFont,
-                    fontSize = 23.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 27.sp,
+                    letterSpacing = (-.3).sp,
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Text(
+                    text = "Your library, your taste, your rules.",
+                    color = colors.secondaryText,
+                    fontSize = 13.sp,
+                    lineHeight = 18.sp,
                     textAlign = TextAlign.Center
                 )
 

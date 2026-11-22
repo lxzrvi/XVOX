@@ -31,7 +31,7 @@ import com.xvox.music.core.ui.effects.hiddenWhileHeld
 import com.xvox.music.core.ui.icons.painterResource
 import com.xvox.music.features.home.XvoxSongArtwork
 
-/** All songs as big vertical cards, three per row: cover, title below it, then the three-dot button. */
+/** All songs as square cards, four per row: cover, title below it, then the artist. */
 fun LazyListScope.allSongsGridItems(
     songs: List<Song>,
     currentSongId: Long?,
@@ -50,7 +50,7 @@ fun LazyListScope.allSongsGridItems(
         }
         return
     }
-    val rows = songs.chunked(3)
+    val rows = songs.chunked(4)
     items(
         count = rows.size,
         key = { "grid_row_${rows[it].first().id}" },
@@ -70,7 +70,7 @@ fun LazyListScope.allSongsGridItems(
                     modifier = Modifier.weight(1f)
                 )
             }
-            repeat(3 - rows[index].size) { Box(Modifier.weight(1f)) }
+            repeat(4 - rows[index].size) { Box(Modifier.weight(1f)) }
         }
     }
 }

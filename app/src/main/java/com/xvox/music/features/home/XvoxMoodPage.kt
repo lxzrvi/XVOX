@@ -62,7 +62,7 @@ fun XvoxMoodPage(
                 Brush.verticalGradient(
                     0f to mood.from.copy(alpha = .95f),
                     .22f to mood.to.copy(alpha = .70f),
-                    .55f to Color.Transparent
+                    .55f to colors.background
                 )
             )
         )
