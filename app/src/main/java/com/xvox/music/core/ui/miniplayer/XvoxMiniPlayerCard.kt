@@ -1,6 +1,10 @@
 // EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/core/ui/miniplayer/XvoxMiniPlayerCard.kt
 package com.xvox.music.core.ui.miniplayer
 
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -116,6 +120,14 @@ fun XvoxMiniPlayerCard(
     )
     val miniBlur = chrome.miniCoverBlur.coerceIn(12f, 50f).dp
 
+    // Drag: the card travels with the finger and springs back, so the surface answers touch
+    // instead of sitting still until the gesture is decided.
+    var dragTarget by remember { mutableFloatStateOf(0f) }
+    val dragOffset by animateFloatAsState(
+        targetValue = dragTarget,
+        animationSpec = tween(180, easing = XvoxPlayerTransitionMotion.easing),
+        label = "miniDragFollow"
+    )
     val controlInteraction = remember { MutableInteractionSource() }
 
     val progress = if (duration > 0L) {
@@ -128,6 +140,19 @@ fun XvoxMiniPlayerCard(
         modifier = modifier
             .fillMaxWidth()
             .height(56.dp)
+            .graphicsLayer { translationY = dragOffset }
+            .pointerInput(song.id) {
+                detectVerticalDragGestures(
+                    onDragEnd = { dragTarget = 0f },
+                    onDragCancel = { dragTarget = 0f },
+                    onVerticalDrag = { change, amount ->
+                        change.consume()
+                        // Down is resisted harder than up: up hints at opening the player.
+                        val next = dragTarget + amount * if (amount < 0f) 1f else .45f
+                        dragTarget = next.coerceIn(-34f, 18f)
+                    }
+                )
+            }
             .then(
                 if (miniCoverStyle == "default") {
                     Modifier.xvoxLiveBlur(

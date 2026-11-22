@@ -1,6 +1,7 @@
 // EXACT CODE REPLACE KARO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/features/settings/SettingsScreen.kt
 package com.xvox.music.features.settings
 
+import androidx.compose.foundation.layout.fillMaxHeight
 import android.app.Activity
 import android.content.ClipData
 import android.content.Context
@@ -284,7 +285,18 @@ fun SettingsScreen(
             }
 
             item(key = "settings_body", span = { GridItemSpan(maxLineSpan) }) {
-                Column(Modifier.fillMaxWidth()) {
+                // A sub-page is its own screen: it paints the app background so the landing list can
+                // never show through the glass behind it.
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .then(
+                            if (settingsPage != null) Modifier
+                                .fillMaxHeight()
+                                .background(colors.background)
+                            else Modifier
+                        )
+                ) {
                     when (settingsPage) {
                         null -> {
                             SettingsSearchBar(settingsQuery) { settingsQuery = it }

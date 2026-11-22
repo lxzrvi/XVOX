@@ -1,5 +1,7 @@
 package com.xvox.music.features.settings.sections
 
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.collectAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -267,6 +269,89 @@ fun AppearanceSettingsSection(
                             text = label,
                             color = if (isSelected) colors.background else colors.primaryText,
                             fontSize = 12.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                        )
+                    }
+                }
+            }
+        }
+        SettingsAccordionItem(
+            title = "Glass blur",
+            expanded = expandedGroup == "Glass blur",
+            onToggle = { toggle("Glass blur") }
+        ) {
+            // One knob for every glass surface: navbar, mini player, cards and long-press plates.
+            val blurOptions = listOf(
+                Triple("clear", "Clear", 0f),
+                Triple("small", "Small", .35f),
+                Triple("regular", "Regular", .65f),
+                Triple("large", "Large", 1f)
+            )
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                blurOptions.forEach { (key, label, intensity) ->
+                    val isSelected = if (key == "clear") !state.chromeStyle.glassBlurEnabled
+                    else state.chromeStyle.glassBlurEnabled &&
+                        kotlin.math.abs(state.chromeStyle.glassBlurIntensity - intensity) < .12f
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(AppearanceChoicePillHeight)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(if (isSelected) colors.primaryAccent else colors.cardElevated)
+                            .then(
+                                if (!isSelected) Modifier.border(0.8.dp, colors.cardBorder, RoundedCornerShape(10.dp))
+                                else Modifier
+                            )
+                            .xvoxPressScale {
+                                viewModel.setChromeStyle {
+                                    it.copy(glassBlurEnabled = key != "clear", glassBlurIntensity = intensity)
+                                }
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = label,
+                            color = if (isSelected) colors.background else colors.primaryText,
+                            fontSize = 11.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                        )
+                    }
+                }
+            }
+        }
+
+        SettingsAccordionItem(
+            title = "Header logo",
+            expanded = expandedGroup == "Header logo",
+            onToggle = { toggle("Header logo") }
+        ) {
+            val appearanceContext = androidx.compose.ui.platform.LocalContext.current
+            val appearancePrefs = remember {
+                com.xvox.music.data.preferences.UserPreferencesRepository(appearanceContext)
+            }
+            val logoSize by appearancePrefs.headerLogoSize.collectAsState(initial = 30)
+            val appearanceScope = androidx.compose.runtime.rememberCoroutineScope()
+            val sizes = listOf("Small" to 24, "Regular" to 30, "Large" to 38, "XL" to 46)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                sizes.forEach { (label, dp) ->
+                    val isSelected = logoSize == dp
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(AppearanceChoicePillHeight)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(if (isSelected) colors.primaryAccent else colors.cardElevated)
+                            .then(
+                                if (!isSelected) Modifier.border(0.8.dp, colors.cardBorder, RoundedCornerShape(10.dp))
+                                else Modifier
+                            )
+                            .xvoxPressScale { appearanceScope.launch { appearancePrefs.setHeaderLogoSize(dp) } },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = label,
+                            color = if (isSelected) colors.background else colors.primaryText,
+                            fontSize = 11.sp,
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                         )
                     }

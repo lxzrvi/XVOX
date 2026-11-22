@@ -1,6 +1,8 @@
 // NAYI FILE BANAO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/features/home/XvoxHomeDiscover.kt
 package com.xvox.music.features.home
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.collectAsState
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.aspectRatio
@@ -95,11 +97,14 @@ fun XvoxHomeLogo(modifier: Modifier = Modifier) {
     ) {
         // Just the mark, no tile behind it, tinted with the text colour (black on light, white on
         // dark) and drawn at the wordmark's own height so the two read as one lockup.
+        val headerContext = androidx.compose.ui.platform.LocalContext.current
+        val headerPrefs = remember { com.xvox.music.data.preferences.UserPreferencesRepository(headerContext) }
+        val logoSize by headerPrefs.headerLogoSize.collectAsState(initial = 30)
         Icon(
             painter = androidx.compose.ui.res.painterResource(R.drawable.xvox),
             contentDescription = "XVOX",
             tint = colors.primaryText,
-            modifier = Modifier.size(30.dp)
+            modifier = Modifier.size(logoSize.dp)
         )
         Text(
             "XVOX",

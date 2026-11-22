@@ -15,8 +15,8 @@ android {
         targetSdk = 37
 
         // v1.02.8: Glasmio native navigation bar with live-reflecting glass pill.
-        versionCode = 10247
-        versionName = "1.02.47"
+        versionCode = 10248
+        versionName = "1.02.48"
     }
 
     compileOptions {
