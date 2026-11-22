@@ -237,16 +237,6 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
             dismissButton = { TextButton(onClick = { exitDialog = false }) { Text("Stay") } }
         )
     }
-    // Bar remount, see the navigation bar below.
-    var barKey by remember { mutableIntStateOf(0) }
-    var barSettledFor by remember { mutableIntStateOf(HomeIndex) }
-    LaunchedEffect(selectedIndex) {
-        if (barSettledFor != selectedIndex) {
-            delay(320)
-            barSettledFor = selectedIndex
-            if (!searchActive) barKey++
-        }
-    }
     val onExpand = remember(navigationScroll) { { navigationScroll.expand() } }
     val searchLayer = rememberLayerBackdrop()
     val searchBackdrop = rememberCombinedBackdrop(backdrop, searchLayer)
@@ -474,9 +464,6 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
                                             }
                                         }
                                 ) {
-                                    // Remounted a moment after every tab change: the pill is rebuilt at its
-                                    // rest shape, so it can never stay half-stretched.
-                                    androidx.compose.runtime.key(barKey) {
                                     GlasmioNavigationBarWithTrailingItem(
                                         items = items,
                                         trailingItem = searchItem,

@@ -1,6 +1,6 @@
 [versions]
 cloudy = "1.0.0-alpha01"
-glasmio = "0.1.3"
+glasmio = "0.1.4"
 expressivelab = "1.2.0"
 
 [libraries]
