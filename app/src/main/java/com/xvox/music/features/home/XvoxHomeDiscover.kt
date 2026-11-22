@@ -99,11 +99,15 @@ fun XvoxHomeLogo(modifier: Modifier = Modifier) {
     ) {
         // Just the mark, no tile behind it, tinted with the text colour (black on light, white on
         // dark) and drawn at the wordmark's own height so the two read as one lockup.
+        // Size is the Appearance slider (defaults to the wordmark's own height).
+        val headerContext = androidx.compose.ui.platform.LocalContext.current
+        val logoSize by remember { com.xvox.music.data.preferences.UserPreferencesRepository(headerContext).headerLogoSize }
+            .collectAsState(initial = 24)
         Icon(
             painter = androidx.compose.ui.res.painterResource(R.drawable.xvox),
             contentDescription = "XVOX",
             tint = colors.primaryText,
-            modifier = Modifier.size(24.dp)
+            modifier = Modifier.size(logoSize.dp)
         )
         Text(
             "XVOX",
@@ -439,13 +443,22 @@ private fun TopSongCard(
             requestSize = 384,
             modifier = Modifier.fillMaxSize()
         )
-        // The foot of the cover is the same artwork, blurred: only the song name sits on it.
+        // The foot of the cover is the same artwork, blurred, and it fades in from the picture
+        // instead of starting at a hard edge. Name and artist sit on it.
         Box(
             Modifier
                 .fillMaxWidth()
-                .height(38.dp)
+                .height(72.dp)
                 .align(Alignment.BottomCenter)
                 .clip(RectangleShape)
+                .graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen }
+                .drawWithContent {
+                    drawContent()
+                    drawRect(
+                        brush = Brush.verticalGradient(0f to Color.Transparent, .62f to Color.Black, 1f to Color.Black),
+                        blendMode = androidx.compose.ui.graphics.BlendMode.DstIn
+                    )
+                }
         ) {
             XvoxSongArtwork(
                 artwork = song.artworkUri,
@@ -453,20 +466,31 @@ private fun TopSongCard(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .requiredSize(side)
-                    .blur(18.dp)
+                    .blur(22.dp)
             )
-            Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .32f)))
+            Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .30f)))
         }
-        Text(
-            song.title,
-            color = if (current) XvoxTheme.colors.primaryAccent else Color.White,
-            fontWeight = FontWeight.SemiBold,
-            fontSize = 12.sp,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier
+        Column(
+            Modifier
                 .align(Alignment.BottomStart)
+                .fillMaxWidth()
                 .padding(horizontal = 10.dp, vertical = 9.dp)
-        )
+        ) {
+            Text(
+                song.title,
+                color = if (current) XvoxTheme.colors.primaryAccent else Color.White,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 12.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                song.artist.ifBlank { "Unknown artist" },
+                color = Color.White.copy(alpha = .78f),
+                fontSize = 11.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
     }
 }

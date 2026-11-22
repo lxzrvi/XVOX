@@ -191,7 +191,7 @@ fun XvoxStageSettingsPage(
                     onSelected = { scope.launch { prefs.setDesignLanguage(it) } },
                     backdrop = backdrop
                 )
-                val glassLevel by prefs.glassMaterial.collectAsState(initial = "large")
+                val glassLevel by prefs.glassMaterial.collectAsState(initial = "clear")
                 PickerRow(
                     title = "Glass blur",
                     options = listOf(
@@ -204,6 +204,18 @@ fun XvoxStageSettingsPage(
                     onSelected = { scope.launch { prefs.setGlassMaterial(it) } },
                     backdrop = backdrop
                 )
+                val savedLogo by prefs.headerLogoSize.collectAsState(initial = 24)
+                var liveLogo by remember(savedLogo) { mutableStateOf(savedLogo.toFloat()) }
+                InlineSetting(title = "XVOX icon size", detail = "${liveLogo.toInt()} dp") {
+                    io.github.neoruaa.glasmio.ui.GlasmioSlider(
+                        value = liveLogo,
+                        onValueChange = { liveLogo = it },
+                        onValueChangeFinished = { scope.launch { prefs.setHeaderLogoSize(liveLogo.toInt()) } },
+                        valueRange = 18f..56f,
+                        backdrop = backdrop,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
                 GlasmioListRow(
                     title = "Interface",
                     subtitle = "Typeface, display size, orientation",
@@ -286,11 +298,28 @@ fun XvoxStageSettingsPage(
         // A sub-page is its own screen: it paints the app background, so the Settings list behind it
         // never shows through the page's glass while it scrolls.
         Box(Modifier.fillMaxSize().background(colors.background)) {
+            // Sub-pages carry the same liquid-glass back chip as Settings itself.
+            val closeSub = { overlay = null }
             when (overlay) {
                 "audio" -> XvoxStageAudioPage(prefs = prefs, backdrop = backdrop, onBack = { overlay = null })
                 "home" -> XvoxStageHomeLayoutPage(prefs = prefs, backdrop = backdrop, onBack = { overlay = null })
                 "library" -> XvoxStageLibraryPage(prefs = prefs, backdrop = backdrop, onBack = { overlay = null })
                 "interface" -> XvoxStageInterfacePage(prefs = prefs, backdrop = backdrop, onBack = { overlay = null })
+            }
+            Box(
+                Modifier
+                    .align(Alignment.TopStart)
+                    .statusBarsPadding()
+                    .padding(top = 11.dp, start = 16.dp)
+            ) {
+                io.github.neoruaa.glasmio.ui.GlasmioIconButton(onClick = closeSub, backdrop = chromeBackdrop, size = 44.dp) {
+                    Icon(
+                        imageVector = XvoxSfIcons.ChevronLeft,
+                        contentDescription = "Back",
+                        tint = glass.content,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
             }
         }
     }

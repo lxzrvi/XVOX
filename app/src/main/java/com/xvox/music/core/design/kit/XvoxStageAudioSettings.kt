@@ -55,7 +55,7 @@ fun XvoxStageAudioPage(
 
     GlasmioPinnedListPage(
         title = "Audio & playback",
-        onNavigateBack = onBack,
+        onNavigateBack = null,
         bottomPadding = 132.dp,
         backgroundColor = Color.Transparent,
         modifier = Modifier.fillMaxSize()

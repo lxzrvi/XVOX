@@ -61,7 +61,7 @@ fun XvoxStageHomeLayoutPage(
 
     GlasmioPinnedListPage(
         title = "Home layout",
-        onNavigateBack = onBack,
+        onNavigateBack = null,
         bottomPadding = 132.dp,
         backgroundColor = Color.Transparent,
         modifier = Modifier.fillMaxSize()
@@ -232,7 +232,7 @@ fun XvoxStageLibraryPage(
 
     GlasmioPinnedListPage(
         title = "Library & scanning",
-        onNavigateBack = onBack,
+        onNavigateBack = null,
         bottomPadding = 132.dp,
         backgroundColor = Color.Transparent,
         modifier = Modifier.fillMaxSize()
@@ -304,7 +304,7 @@ fun XvoxStageInterfacePage(
 
     GlasmioPinnedListPage(
         title = "Interface",
-        onNavigateBack = onBack,
+        onNavigateBack = null,
         bottomPadding = 132.dp,
         backgroundColor = Color.Transparent,
         modifier = Modifier.fillMaxSize()

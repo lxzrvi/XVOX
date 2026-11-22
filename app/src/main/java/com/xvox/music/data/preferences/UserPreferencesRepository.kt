@@ -565,7 +565,7 @@ class UserPreferencesRepository(
     val ignoreBelowKb: Flow<Int> = context.xvoxDataStore.data.map { it[Keys.ignoreBelowKb] ?: 0 }.distinctUntilChanged()
 
     /** Header monogram size in dp (18..56). */
-    val headerLogoSize: Flow<Int> = context.xvoxDataStore.data.map { (it[Keys.headerLogoSize] ?: 30).coerceIn(18, 56) }.distinctUntilChanged()
+    val headerLogoSize: Flow<Int> = context.xvoxDataStore.data.map { (it[Keys.headerLogoSize] ?: 24).coerceIn(18, 56) }.distinctUntilChanged()
 
     /** songId -> how many times it was started from the library. */
     val playCounts: Flow<Map<Long, Int>> = context.xvoxDataStore.data.map { prefs ->
@@ -755,7 +755,7 @@ class UserPreferencesRepository(
     suspend fun setVolumeLimit(v: Float) { context.xvoxDataStore.edit { it[Keys.volumeLimit] = v } }
 
     /** Glass blur level of XVOX's own glass: clear, small, regular or large. */
-    val glassMaterial: Flow<String> = context.xvoxDataStore.data.map { it[Keys.glassMaterial] ?: "large" }.distinctUntilChanged()
+    val glassMaterial: Flow<String> = context.xvoxDataStore.data.map { it[Keys.glassMaterial] ?: "clear" }.distinctUntilChanged()
     suspend fun setGlassMaterial(v: String) { context.xvoxDataStore.edit { it[Keys.glassMaterial] = v } }
     suspend fun setHapticFeedbackEnabled(v: Boolean) { context.xvoxDataStore.edit { it[Keys.hapticFeedbackEnabled] = v } }
     suspend fun setHapticIntensity(v: String) { context.xvoxDataStore.edit { it[Keys.hapticIntensity] = v } }

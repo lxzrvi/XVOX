@@ -217,7 +217,7 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
     // Preferences are read here, once, so Settings opens with every control already in place.
     val settings = rememberXvoxStageSettings(prefs)
     // The blur level chosen in Settings is shared with the mini player and the long-press plates.
-    val glassLevel by prefs.glassMaterial.collectAsState(initial = "large")
+    val glassLevel by prefs.glassMaterial.collectAsState(initial = "clear")
     SideEffect { XvoxGlassLevel.key = glassLevel }
     var exitDialog by remember { mutableStateOf(false) }
     // Back on Home asks before closing the app. Composed before the pages, so any page or detail
@@ -242,12 +242,14 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
     var barSettledFor by remember { mutableIntStateOf(HomeIndex) }
     LaunchedEffect(selectedIndex) {
         if (barSettledFor != selectedIndex) {
-            delay(800)
+            delay(320)
             barSettledFor = selectedIndex
             if (!searchActive) barKey++
         }
     }
     val onExpand = remember(navigationScroll) { { navigationScroll.expand() } }
+    val searchLayer = rememberLayerBackdrop()
+    val searchBackdrop = rememberCombinedBackdrop(backdrop, searchLayer)
     val searchTransition = rememberGlasmioSearchTransition(searchActive)
     val morph by searchTransition.progressState
 
@@ -296,7 +298,8 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
                     active = searchActive,
                     query = query,
                     onQueryChange = { query = it },
-                    onSearch = { searchActive = false },
+                    // Keyboard Search keeps the results page open.
+                    onSearch = { },
                     onDismiss = {
                         searchActive = false
                         query = TextFieldValue()
@@ -305,7 +308,8 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
                     cancelLabel = "Cancel",
                     // Tapping search never raises the keyboard.
                     autoFocus = false,
-                    backdrop = floatingBackdrop,
+                    // The field frosts the search page it sits on, never the Home page behind it.
+                    backdrop = searchBackdrop,
                     transition = searchTransition,
                     sourceBoundsInWindow = searchBounds
                 ) {
@@ -405,6 +409,7 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
                                 query = TextFieldValue()
                             }
                             StageSearchPage(
+                                modifier = Modifier.layerBackdrop(searchLayer),
                                 query = query.text,
                                 songs = homeSongs,
                                 currentSongId = currentId,
@@ -655,7 +660,6 @@ private fun BoxScope.StageMiniPlayer(
         animationSpec = if (dragging) snap() else spring(dampingRatio = .72f, stiffness = Spring.StiffnessMedium),
         label = "miniSwipe"
     )
-    var rowCoordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
     // Tap or swipe up: the bar itself lifts, grows and hands over to Now Playing.
     var opening by remember { mutableStateOf(false) }
     val openLift by animateFloatAsState(
@@ -687,6 +691,33 @@ private fun BoxScope.StageMiniPlayer(
                     placeable.place((c.maxWidth - w) / 2, StageControlHeight.roundToPx() - h)
                 }
             }
+            // Sits outside the moving layer, so its coordinates never shift under the finger: the
+            // card follows the finger one-to-one and the swipe is measured from the real touch.
+            .pointerInput(Unit) {
+                var totalX = 0f
+                var totalY = 0f
+                detectDragGestures(
+                    onDragStart = { totalX = 0f; totalY = 0f; dragging = true },
+                    onDragEnd = {
+                        dragging = false
+                        if (totalY < -46f && kotlin.math.abs(totalY) > kotlin.math.abs(totalX)) {
+                            opening = true
+                        } else if (totalX > 80f) {
+                            direction = -1; onPrevious()
+                        } else if (totalX < -80f) {
+                            direction = 1; onNext()
+                        }
+                        totalX = 0f; totalY = 0f; drag = 0f
+                    },
+                    onDragCancel = { dragging = false; totalX = 0f; totalY = 0f; drag = 0f },
+                    onDrag = { change, amount ->
+                        change.consume()
+                        totalX += amount.x
+                        totalY += amount.y
+                        drag = (totalX * .92f).coerceIn(-120f, 120f)
+                    }
+                )
+            }
             .graphicsLayer {
                 val l = openLift
                 translationX = shift
@@ -712,40 +743,6 @@ private fun BoxScope.StageMiniPlayer(
                 modifier = Modifier
                     .fillMaxSize()
                     // One detector: horizontal swipes change track, an upward swipe hands over.
-                    .onGloballyPositioned { rowCoordinates = it }
-                    .pointerInput(Unit) {
-                        var totalX = 0f
-                        var totalY = 0f
-                        var startRootX = 0f
-                        detectDragGestures(
-                            onDragStart = { offset ->
-                                totalX = 0f; totalY = 0f
-                                dragging = true
-                                startRootX = rowCoordinates?.localToRoot(offset)?.x ?: 0f
-                            },
-                            onDragEnd = {
-                                if (totalY < -46f && kotlin.math.abs(totalY) > kotlin.math.abs(totalX)) {
-                                    opening = true
-                                } else if (totalX > 70f) {
-                                    direction = -1; onPrevious()
-                                } else if (totalX < -70f) {
-                                    direction = 1; onNext()
-                                }
-                                totalX = 0f; totalY = 0f; drag = 0f
-                                dragging = false
-                            },
-                            onDragCancel = { totalX = 0f; totalY = 0f; drag = 0f; dragging = false },
-                            onDrag = { change, amount ->
-                                change.consume()
-                                totalY += amount.y
-                                // Measured in root coordinates: the card moves under the finger, so
-                                // local deltas would shrink as it follows.
-                                val rootX = rowCoordinates?.localToRoot(change.position)?.x
-                                totalX = if (rootX != null) rootX - startRootX else totalX + amount.x
-                                drag = (totalX * .92f).coerceIn(-120f, 120f)
-                            }
-                        )
-                    }
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,

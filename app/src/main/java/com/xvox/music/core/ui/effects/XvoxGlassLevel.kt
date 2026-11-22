@@ -10,14 +10,14 @@ import androidx.compose.runtime.setValue
  * the same choice without threading it through every call.
  */
 object XvoxGlassLevel {
-    var key: String by mutableStateOf("large")
+    var key: String by mutableStateOf("clear")
 
     /** Opacity of a frosted plate: more blur level, more body. */
     val plateAlpha: Float
         get() = when (key) {
-            "clear" -> .18f
-            "small" -> .32f
-            "regular" -> .42f
-            else -> .50f
+            "clear" -> .10f
+            "small" -> .20f
+            "regular" -> .30f
+            else -> .42f
         }
 }

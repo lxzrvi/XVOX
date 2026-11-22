@@ -18,6 +18,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -80,7 +83,27 @@ private fun StageNowPlayingContent(
         visible = player.nowPlayingPrepared,
         enter = EnterTransition.None,
         exit = ExitTransition.None,
-        modifier = modifier.fillMaxSize()
+        modifier = modifier
+            .fillMaxSize()
+            // A pull down from the top of the screen closes Now Playing. It only watches (never
+            // consumes), so scrolling and the player's own gestures keep working.
+            .pointerInput(Unit) {
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                    val topZone = down.position.y < size.height * .4f
+                    while (true) {
+                        val event = awaitPointerEvent(PointerEventPass.Initial)
+                        val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                        if (!change.pressed) break
+                        val dy = change.position.y - down.position.y
+                        val dx = change.position.x - down.position.x
+                        if (topZone && dy > size.height * .16f && dy > kotlin.math.abs(dx) * 1.6f) {
+                            playerVm.closeNowPlaying()
+                            break
+                        }
+                    }
+                }
+            }
     ) {
         ProvideXvoxNowPlayingChrome {
             XvoxNowPlaying(

@@ -98,8 +98,11 @@ fun XvoxHeldMenuHost(
     // A held card: lift it out of the list. A three-dot open has no held card and falls through
     // to the centred layout below.
     val held = remember { XvoxLongPressOrigin.consume() }
-    androidx.compose.runtime.DisposableEffect(held) {
-        XvoxLongPressOrigin.lifted = held?.bounds
+    // The original steps aside only once the lifted copy has its picture, so there is never a
+    // frame with neither (that gap was the flicker).
+    val heldImage = held?.image
+    androidx.compose.runtime.DisposableEffect(held, heldImage != null) {
+        XvoxLongPressOrigin.lifted = if (heldImage != null) held?.bounds else null
         onDispose { XvoxLongPressOrigin.lifted = null }
     }
     if (held != null) {
