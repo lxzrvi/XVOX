@@ -309,8 +309,9 @@ fun XvoxBottomBar(
     val colors = XvoxTheme.colors
     val haptics = LocalXvoxHaptics.current
     val chrome = LocalXvoxChromeStyle.current
-    // Sits above the moving page: blur the live page (+ wallpaper underneath it).
-    val contentSky = LocalXvoxShellContentSky.current ?: LocalXvoxSurfaceSky.current
+    // Frost comes from the wallpaper only. Sampling the moving page made Home blur and shimmer
+    // under the bar and the search circle, which read as the app blurring itself.
+    val contentSky = LocalXvoxSurfaceSky.current
     val navBarHeight = chrome.navigationBarHeight.coerceIn(52f, 88f).dp
     val searchExtra = if (onSearch != null) navBarHeight + 8.dp else 0.dp
     val availableWidth = (LocalConfiguration.current.screenWidthDp.dp - 24.dp - searchExtra).coerceAtLeast(190.dp)
@@ -482,7 +483,10 @@ private fun LiquidBar(
                     currentIndex = targetIndex
                     onSelectedUpdated(targetIndex)
                 }
-                updateValue(targetIndex.toFloat())
+                // Settle on the settled index unconditionally. When a swipe ended on its starting
+                // tab the old code skipped this and the pill stayed half-way, holding a stretched
+                // shape until the next drag.
+                updateValue(currentIndex.toFloat())
                 animationScope.launch {
                     offsetAnimation.animateTo(0f, spring(1f, 300f, 0.5f))
                 }
