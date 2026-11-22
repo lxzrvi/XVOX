@@ -201,7 +201,22 @@ fun SettingsLandingRow(iconRes: Int, title: String, subtitle: String? = null, on
 @Composable
 fun SettingsPageTitle(title: String, onBack: (() -> Unit)? = null) {
     val colors = XvoxTheme.colors
-    Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 6.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+    // Live-blurred top strip: the sub-page scrolls under it, so the title reads on frosted glass.
+    val titleSky = LocalXvoxShellContentSky.current ?: LocalXvoxSurfaceSky.current
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .xvoxLiveBlur(
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
+                level = XvoxBlurLevel.Chrome,
+                baseColor = colors.background.copy(alpha = .55f),
+                sky = titleSky,
+                borderAlpha = 0f,
+                borderWidth = 0.dp
+            )
+            .padding(start = 12.dp, end = 12.dp, top = 6.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
         if (onBack != null) {
             // Live blur behind the back chip: it frosts whatever the sub-page has scrolled under it.
             val backSky = LocalXvoxShellContentSky.current ?: LocalXvoxSurfaceSky.current

@@ -120,14 +120,8 @@ fun XvoxMiniPlayerCard(
     )
     val miniBlur = chrome.miniCoverBlur.coerceIn(12f, 50f).dp
 
-    // Drag: the card travels with the finger and springs back, so the surface answers touch
-    // instead of sitting still until the gesture is decided.
-    var dragTarget by remember { mutableFloatStateOf(0f) }
-    val dragOffset by animateFloatAsState(
-        targetValue = dragTarget,
-        animationSpec = tween(180, easing = XvoxPlayerTransitionMotion.easing),
-        label = "miniDragFollow"
-    )
+    // The card itself carries no gesture: XvoxMiniPlayer already follows the finger on both axes
+    // and commits on release. A second detector here only stole those drags.
     val controlInteraction = remember { MutableInteractionSource() }
 
     val progress = if (duration > 0L) {
@@ -140,19 +134,6 @@ fun XvoxMiniPlayerCard(
         modifier = modifier
             .fillMaxWidth()
             .height(56.dp)
-            .graphicsLayer { translationY = dragOffset }
-            .pointerInput(song.id) {
-                detectVerticalDragGestures(
-                    onDragEnd = { dragTarget = 0f },
-                    onDragCancel = { dragTarget = 0f },
-                    onVerticalDrag = { change, amount ->
-                        change.consume()
-                        // Down is resisted harder than up: up hints at opening the player.
-                        val next = dragTarget + amount * if (amount < 0f) 1f else .45f
-                        dragTarget = next.coerceIn(-34f, 18f)
-                    }
-                )
-            }
             .then(
                 if (miniCoverStyle == "default") {
                     Modifier.xvoxLiveBlur(
