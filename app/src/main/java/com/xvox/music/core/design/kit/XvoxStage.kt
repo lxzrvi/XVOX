@@ -489,7 +489,6 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
                                             if (key == SearchKey) searchBounds = bounds
                                         }
                                     )
-                                    }
                                 }
                             }
                         }
