@@ -185,6 +185,8 @@ class UserPreferencesRepository(
 
         val ignoreBelowSec = intPreferencesKey("ignore_below_sec")
         val ignoreBelowKb = intPreferencesKey("ignore_below_kb")
+        /** "id=count;id=count" - the only source for the Top songs row. */
+        val playCounts = stringPreferencesKey("play_counts")
         val ignoredFolders = stringPreferencesKey("ignored_folders")
 
         val widgetTransparency = floatPreferencesKey("widget_transparency")
@@ -558,6 +560,11 @@ class UserPreferencesRepository(
 
     val ignoreBelowSec: Flow<Int> = context.xvoxDataStore.data.map { it[Keys.ignoreBelowSec] ?: 0 }.distinctUntilChanged()
     val ignoreBelowKb: Flow<Int> = context.xvoxDataStore.data.map { it[Keys.ignoreBelowKb] ?: 0 }.distinctUntilChanged()
+
+    /** songId -> how many times it was started from the library. */
+    val playCounts: Flow<Map<Long, Int>> = context.xvoxDataStore.data.map { prefs ->
+        decodePlayCounts(prefs[Keys.playCounts].orEmpty())
+    }.distinctUntilChanged()
     val ignoredFolders: Flow<Set<String>> = context.xvoxDataStore.data.map {
         it[Keys.ignoredFolders].orEmpty().split("\n").map { s -> s.trim() }.filter { s -> s.isNotEmpty() }.toSet()
     }.distinctUntilChanged()
@@ -856,6 +863,31 @@ class UserPreferencesRepository(
 
     suspend fun setIgnoreBelowSec(sec: Int) { context.xvoxDataStore.edit { it[Keys.ignoreBelowSec] = sec.coerceIn(0, 86400) } }
     suspend fun setIgnoreBelowKb(kb: Int) { context.xvoxDataStore.edit { it[Keys.ignoreBelowKb] = kb.coerceIn(0, 10485760) } }
+
+    /**
+     * One tick per start. The map is trimmed to the two hundred best-played songs so the persisted
+     * string stays tiny and every write stays cheap.
+     */
+    suspend fun recordPlayCount(songId: Long) {
+        context.xvoxDataStore.edit { prefs ->
+            val counts = decodePlayCounts(prefs[Keys.playCounts].orEmpty()).toMutableMap()
+            counts[songId] = (counts[songId] ?: 0) + 1
+            prefs[Keys.playCounts] = counts.entries
+                .sortedByDescending { it.value }
+                .take(200)
+                .joinToString(";") { "${it.key}=${it.value}" }
+        }
+    }
+
+    private fun decodePlayCounts(raw: String): Map<Long, Int> =
+        raw.split(';').mapNotNull { entry ->
+            val eq = entry.indexOf('=')
+            if (eq <= 0) null else {
+                val id = entry.substring(0, eq).toLongOrNull()
+                val count = entry.substring(eq + 1).toIntOrNull()
+                if (id == null || count == null) null else id to count
+            }
+        }.toMap()
     suspend fun toggleIgnoredFolder(folder: String) {
         context.xvoxDataStore.edit { prefs ->
             val current = prefs[Keys.ignoredFolders].orEmpty().split("\n").map { it.trim() }.filter { it.isNotEmpty() }.toMutableSet()

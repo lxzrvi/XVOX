@@ -1,6 +1,9 @@
 // NAYI FILE BANAO (poori file) - koi extra kaam nahi. Path: app/src/main/java/com/xvox/music/features/home/XvoxHomeDiscover.kt
 package com.xvox.music.features.home
 
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -180,9 +183,30 @@ fun LazyListScope.homeDiscoverItems(
     onLongClick: (Song) -> Unit,
     onMoodOpen: (XvoxMood) -> Unit = {},
     quickPicksVisible: Boolean = true,
-    moodsVisible: Boolean = true
+    moodsVisible: Boolean = true,
+    /** Most-played songs, already sorted; the row renders the first three. */
+    topSongs: List<Song> = emptyList()
 ) {
     if (songs.isEmpty()) return
+    if (topSongs.isNotEmpty()) item(key = "home_top_songs", contentType = "top_songs") {
+        Column(Modifier.padding(bottom = 14.dp)) {
+            XvoxDiscoverHeading("On repeat", "Top songs", "The three you keep coming back to.")
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                topSongs.take(3).forEach { song ->
+                    TopSongCard(
+                        song = song,
+                        current = song.id == currentSongId,
+                        onClick = { onPlay(song, topSongs, "Top songs") },
+                        onLongClick = { onLongClick(song) },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+        }
+    }
     if (quickPicksVisible) item(key = "home_quick_picks", contentType = "quick_picks") {
         val picks = remember(songs.size) { songs.shuffled(Random(SessionSeed)).take(QuickPickCount) }
         Column(Modifier.padding(bottom = 14.dp)) {
@@ -384,5 +408,57 @@ fun XvoxDiscoverHeading(eyebrow: String, title: String, text: String, modifier: 
         Text(eyebrow.uppercase(), color = colors.primaryAccent, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp)
         Text(title, color = colors.primaryText, fontSize = 26.sp, lineHeight = 30.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp, modifier = Modifier.padding(top = 2.dp))
         Text(text, color = colors.secondaryText, fontSize = 13.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 2.dp))
+    }
+}
+
+/**
+ * Top songs card: the cover runs edge to edge and only the name sits on a soft blurred-looking
+ * strip at the bottom, so the artwork is never cropped by text.
+ */
+@Composable
+private fun TopSongCard(
+    song: Song,
+    current: Boolean,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier
+            .aspectRatio(1f)
+            .clip(RoundedCornerShape(18.dp))
+            .xvoxSongPress(onClick = onClick, onLongClick = onLongClick, pressedScale = .95f)
+    ) {
+        XvoxSongArtwork(
+            artwork = song.artworkUri,
+            requestSize = 384,
+            modifier = Modifier.fillMaxSize()
+        )
+        // A scrim, not a captured layer: reads as the blurred foot of the cover without adding any
+        // extra render layer to the row.
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .fillMaxHeight(.42f)
+                .align(Alignment.BottomCenter)
+                .background(
+                    Brush.verticalGradient(
+                        0f to Color.Transparent,
+                        .55f to Color.Black.copy(alpha = .34f),
+                        1f to Color.Black.copy(alpha = .62f)
+                    )
+                )
+        )
+        Text(
+            song.title,
+            color = if (current) XvoxTheme.colors.primaryAccent else Color.White,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 12.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(horizontal = 10.dp, vertical = 9.dp)
+        )
     }
 }

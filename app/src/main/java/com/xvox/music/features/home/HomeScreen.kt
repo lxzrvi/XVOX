@@ -129,6 +129,15 @@ fun HomeScreen(
         }
     }
     val config by viewModel.homePresentation.collectAsState()
+    // Top songs: play counts from the preferences store, resolved against the current library so a
+    // deleted song cannot leave a hole in the row.
+    val playCounts by prefs.playCounts.collectAsState(initial = emptyMap())
+    val topSongs = remember(state.songs, playCounts) {
+        state.songs
+            .filter { (playCounts[it.id] ?: 0) > 0 }
+            .sortedByDescending { playCounts[it.id] ?: 0 }
+            .take(3)
+    }
     val likedArtistNames by viewModel.likedArtists.collectAsState()
     val likedPlaylistIds by viewModel.likedPlaylistIds.collectAsState()
 
@@ -1060,7 +1069,8 @@ fun HomeScreen(
                                         isPlaying = isPlaying,
                                         onPlay = { song, list, source -> handleSongClick(song, list, source) },
                                         onLongClick = { song -> if (isSelectionMode) handleSongLongClick(song, "All Songs") else openSingleSongOptions(song) },
-                                        onMoodOpen = { openMood = it }
+                                        onMoodOpen = { openMood = it },
+                                        topSongs = topSongs
                                     )
                                     val allSongsSelected = if (selectionCategoryName == "All Songs" || selectionCategoryName == null) selectedSongIds else emptySet()
                                     allSongsGridItems(

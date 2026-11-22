@@ -705,6 +705,8 @@ class HomeViewModel(
 
     /** [source] is the collection the song was started from; it is what the badge reports later. */
     fun recordPlayedFromLibrary(song: Song, currentSongId: Long?, source: String? = null) {
+        // Counted before the early return so a replay of the current song still counts.
+        viewModelScope.launch { preferencesRepository.recordPlayCount(song.id) }
         if (song.id == currentSongId) return
         transitionId++
         promote(song, RecentTransitionRequest(id = transitionId, songId = song.id, mode = RecentTransitionMode.LIBRARY), source)
