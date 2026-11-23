@@ -75,7 +75,9 @@ fun XvoxHeldMenuHost(
     val dismiss by rememberUpdatedState(onDismiss)
     val ctl = LocalXvoxOverlayController.current
 
-    if (liveScrim) {
+    val held = remember { XvoxLongPressOrigin.consume() }
+    // A held card always blurs the live page behind it, like BitChord's held menu.
+    if (liveScrim || held != null) {
         LaunchedEffect(closing) { ctl.sheetBlurActive = !closing }
         DisposableEffect(Unit) { onDispose { ctl.sheetBlurActive = false } }
     }
@@ -83,9 +85,9 @@ fun XvoxHeldMenuHost(
     LaunchedEffect(closing) {
         if (!closing) {
             // Under-damped on purpose: the small overshoot is the "pop" of the item coming off the page.
-            progress.animateTo(1f, spring(dampingRatio = .74f, stiffness = 430f))
+            progress.animateTo(1f, spring(dampingRatio = .8f, stiffness = 760f))
         } else {
-            progress.animateTo(0f, tween(durationMillis = 190, easing = FastOutSlowInEasing))
+            progress.animateTo(0f, tween(durationMillis = 160, easing = FastOutSlowInEasing))
             dismiss()
         }
     }
@@ -97,7 +99,6 @@ fun XvoxHeldMenuHost(
 
     // A held card: lift it out of the list. A three-dot open has no held card and falls through
     // to the centred layout below.
-    val held = remember { XvoxLongPressOrigin.consume() }
     // The original steps aside only once the lifted copy has its picture, so there is never a
     // frame with neither (that gap was the flicker).
     val heldImage = held?.image

@@ -314,6 +314,13 @@ fun XvoxAppRoot(
                         val bgBlurDp = if (graphicsSafe || com.xvox.music.core.ui.blur.XvoxGpuGuard.safeMode) 0.dp
                         else (effectiveChrome.bgImageBlur * 36f).dp
                         val bgMode = com.xvox.music.core.ui.chrome.XvoxBackgroundMode.Off
+                        if (bgMode == com.xvox.music.core.ui.chrome.XvoxBackgroundMode.Off) {
+                            com.xvox.music.core.ui.chrome.XvoxShapeBackdrop(
+                                accent = colors.primaryAccent,
+                                isLight = colors.isLight,
+                                blurred = !graphicsSafe && android.os.Build.VERSION.SDK_INT >= 31
+                            )
+                        }
                         if (bgMode == com.xvox.music.core.ui.chrome.XvoxBackgroundMode.Gradient) {
                             com.xvox.music.core.ui.chrome.XvoxGeneratedBackground(
                                 accent = colors.primaryAccent,

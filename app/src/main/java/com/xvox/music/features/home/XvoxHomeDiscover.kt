@@ -113,9 +113,8 @@ fun XvoxHomeLogo(modifier: Modifier = Modifier) {
         Text(
             "XVOX",
             color = colors.primaryText,
-            fontFamily = com.xvox.music.core.design.theme.XvoxLogoFont,
             fontWeight = FontWeight.Bold,
-            fontSize = logoSize.sp,
+            fontSize = 24.sp,
             letterSpacing = 0.sp,
             style = XvoxCompactLine,
             modifier = Modifier.padding(start = 2.dp)

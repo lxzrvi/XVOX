@@ -360,6 +360,33 @@ object XvoxSfIcons {
         }.build()
     }
 
+    /** mic.fill: solid capsule, open pickup arc, stem and foot. */
+    val MicFill: ImageVector by lazy {
+        ImageVector.Builder(
+            name = "MicFill", defaultWidth = 24.dp, defaultHeight = 24.dp,
+            viewportWidth = 24f, viewportHeight = 24f
+        ).apply {
+            path(fill = SolidColor(Color.Black)) {
+                moveTo(9f, 6f)
+                arcTo(3f, 3f, 0f, false, true, 15f, 6f)
+                lineTo(15f, 12f)
+                arcTo(3f, 3f, 0f, false, true, 9f, 12f)
+                close()
+            }
+            path(
+                fill = null, stroke = SolidColor(Color.Black), strokeLineWidth = 1.9f,
+                strokeLineCap = androidx.compose.ui.graphics.StrokeCap.Round
+            ) {
+                moveTo(5.6f, 11f)
+                arcTo(6.4f, 6.4f, 0f, false, false, 18.4f, 11f)
+                moveTo(12f, 17.6f)
+                lineTo(12f, 21f)
+                moveTo(8.6f, 21f)
+                lineTo(15.4f, 21f)
+            }
+        }.build()
+    }
+
     /** SF Symbol: music.microphone */
     val MusicMicrophone: ImageVector by lazy {
         ImageVector.Builder(
@@ -556,7 +583,8 @@ object XvoxSfIcons {
             systemName.startsWith("circle.lefthalf") -> CircleHalfFill
             systemName.startsWith("house") -> HouseFill
             systemName.startsWith("magnifyingglass") -> Magnifyingglass
-            systemName.startsWith("music.microphone") || systemName == "mic" ||
+            systemName == "mic" || systemName.startsWith("mic.") -> MicFill
+            systemName.startsWith("music.microphone") ||
                 systemName.startsWith("microphone") -> MusicMicrophone
             // Albums: Glasmio's stacked-square symbol, drawn as the disc SF geometry.
             systemName.startsWith("music.note.square.stack") -> LibraryFill
