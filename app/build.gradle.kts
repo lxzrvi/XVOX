@@ -15,8 +15,8 @@ android {
         targetSdk = 37
 
         // v1.02.8: Glasmio native navigation bar with live-reflecting glass pill.
-        versionCode = 10259
-        versionName = "1.02.59"
+        versionCode = 10260
+        versionName = "1.02.60"
     }
 
     compileOptions {
@@ -105,6 +105,8 @@ dependencies {
 
     // Design engine, half two: iOS 27 liquid glass material, optics and motion (Glasmio).
     implementation(libs.glasmio.core)
+    implementation("dev.chrisbanes.haze:haze:1.3.1")
+    implementation("dev.chrisbanes.haze:haze-materials:1.3.1")
     implementation(libs.glasmio.glass)
     implementation(libs.glasmio.ui)
     implementation(libs.glasmio.scaffold)

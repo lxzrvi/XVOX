@@ -2,6 +2,8 @@
 package com.xvox.music.features.home
 
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.collectAsState
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.heightIn
@@ -244,7 +246,20 @@ fun LazyListScope.homeDiscoverItems(
         }
     }
     if (moodsVisible) item(key = "home_moods", contentType = "moods") {
-        val moods = remember(songs.size) { buildMoods(songs) }
+        val moodContext = androidx.compose.ui.platform.LocalContext.current
+        var customNames by remember { mutableStateOf(loadCustomMoods(moodContext)) }
+        var creating by remember { mutableStateOf(false) }
+        val moods = remember(songs.size, customNames) { buildMoods(songs) + customNames.map { customMood(it, songs) } }
+        if (creating) NewMoodDialog(
+            onDismiss = { creating = false },
+            onCreate = { name ->
+                creating = false
+                if (customNames.none { it.equals(name, true) }) {
+                    customNames = customNames + name
+                    saveCustomMoods(moodContext, customNames)
+                }
+            }
+        )
         if (moods.isNotEmpty()) Column(Modifier.padding(bottom = 14.dp)) {
             XvoxDiscoverHeading("Browse", "Find your mood", "Pick a feeling and we line up the songs that fit it.")
             LazyRow(
@@ -254,6 +269,7 @@ fun LazyListScope.homeDiscoverItems(
                 items(moods, key = { it.title }) { mood ->
                     MoodCard(mood) { onMoodOpen(mood) }
                 }
+                item(key = "new_mood") { NewMoodCard { creating = true } }
             }
         }
     }
@@ -417,10 +433,9 @@ fun MoodMotion(variant: Int, modifier: Modifier = Modifier) {
 @Composable
 fun XvoxDiscoverHeading(eyebrow: String, title: String, text: String, modifier: Modifier = Modifier) {
     val colors = XvoxTheme.colors
-    Column(modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 12.dp)) {
-        Text(eyebrow.uppercase(), color = colors.primaryAccent, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp)
-        Text(title, color = colors.primaryText, fontSize = 26.sp, lineHeight = 30.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp, modifier = Modifier.padding(top = 2.dp))
-        Text(text, color = colors.secondaryText, fontSize = 13.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 2.dp))
+    // Just the section name, small: no eyebrow and no descriptive line.
+    Column(modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 8.dp)) {
+        Text(title, color = colors.primaryText, fontSize = 18.sp, lineHeight = 22.sp, fontWeight = FontWeight.Bold, style = XvoxCompactLine)
     }
 }
 
@@ -518,3 +533,73 @@ val XvoxCompactLine: androidx.compose.ui.text.TextStyle
             )
         )
     )
+
+private const val CustomMoodPrefs = "xvox_custom_moods"
+
+private fun loadCustomMoods(context: android.content.Context): List<String> =
+    context.getSharedPreferences(CustomMoodPrefs, android.content.Context.MODE_PRIVATE)
+        .getString("names", "").orEmpty().split('\u001F').filter { it.isNotBlank() }
+
+private fun saveCustomMoods(context: android.content.Context, names: List<String>) {
+    context.getSharedPreferences(CustomMoodPrefs, android.content.Context.MODE_PRIVATE)
+        .edit().putString("names", names.joinToString("\u001F")).apply()
+}
+
+/** A mood the user named: it collects the songs whose title, file or folder mention the name. */
+private fun customMood(name: String, all: List<Song>): XvoxMood {
+    val hue = ((name.lowercase().hashCode() and 0x7fffffff) % 360).toFloat()
+    val words = name.lowercase().split(' ').filter { it.length > 1 }.ifEmpty { listOf(name.lowercase()) }
+    return XvoxMood(
+        title = name,
+        subtitle = "Your mood",
+        from = Color.hsv(hue, .62f, .86f),
+        to = Color.hsv((hue + 42f) % 360f, .70f, .70f),
+        songs = all.filter { it.matches(words) }
+    )
+}
+
+/** The card at the end of the mood row: a plus that asks for a new mood's name. */
+@Composable
+private fun NewMoodCard(onClick: () -> Unit) {
+    val colors = XvoxTheme.colors
+    val shape = RoundedCornerShape(18.dp)
+    Box(
+        modifier = Modifier
+            .width(166.dp)
+            .height(244.dp)
+            .xvoxSongPress(onClick = onClick, pressedScale = .96f)
+            .clip(shape)
+            .background(colors.card)
+            .xvoxGlassRim(shape),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text("+", color = colors.primaryAccent, fontSize = 44.sp, fontWeight = FontWeight.Light)
+            Text("New mood", color = colors.secondaryText, fontSize = 13.sp, style = XvoxCompactLine)
+        }
+    }
+}
+
+@Composable
+private fun NewMoodDialog(onDismiss: () -> Unit, onCreate: (String) -> Unit) {
+    var name by remember { mutableStateOf("") }
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("New mood") },
+        text = {
+            androidx.compose.material3.OutlinedTextField(
+                value = name,
+                onValueChange = { name = it.take(24) },
+                singleLine = true,
+                placeholder = { Text("Mood name") }
+            )
+        },
+        confirmButton = {
+            androidx.compose.material3.TextButton(
+                onClick = { name.trim().takeIf { it.isNotEmpty() }?.let(onCreate) },
+                enabled = name.isNotBlank()
+            ) { Text("Create") }
+        },
+        dismissButton = { androidx.compose.material3.TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
+}

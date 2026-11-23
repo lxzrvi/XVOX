@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.lerp
 import androidx.compose.ui.unit.sp
+import com.xvox.music.core.ui.blur.xvoxGlassRim
 import com.xvox.music.core.ui.effects.XvoxGlassLevel
 import io.github.neoruaa.glasmio.core.LocalGlassColors
 import io.github.neoruaa.glasmio.glass.GlassEmphasis
@@ -118,7 +119,8 @@ internal fun BoxScope.StageNavBar(
         val left = (maxWidth - barTotal) / 2
 
         GlassSurface(
-            modifier = Modifier.offset(x = left).width(capsuleW).height(controlHeight),
+            modifier = Modifier.offset(x = left).width(capsuleW).height(controlHeight)
+                .xvoxGlassRim(RoundedCornerShape(50)),
             backdrop = backdrop,
             shape = RoundedCornerShape(50),
             style = GlassSurfaceStyle.Navigation,
@@ -235,6 +237,7 @@ internal fun BoxScope.StageNavBar(
             modifier = Modifier
                 .offset(x = left + barTotal - controlHeight)
                 .size(controlHeight)
+                .xvoxGlassRim(CircleShape)
                 .onGloballyPositioned { onSearchBounds(it.boundsInWindow()) },
             backdrop = backdrop,
             shape = CircleShape,

@@ -2,6 +2,7 @@ package com.xvox.music.features.home.allsongs
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -57,8 +58,8 @@ fun LazyListScope.allSongsGridItems(
         contentType = { "grid_row" }
     ) { index ->
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 3.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             rows[index].forEach { song ->
                 GridSongCard(
@@ -87,15 +88,23 @@ private fun GridSongCard(
     val colors = XvoxTheme.colors
     val shape = RoundedCornerShape(16.dp)
     Column(modifier.xvoxSongPress(onClick = onClick, onLongClick = onMore, pressedScale = .95f)) {
-        XvoxSongArtwork(
-            artwork = song.artworkUri,
-            requestSize = 384,
-            modifier = Modifier
+        // A hairline border with only a sliver between it and the cover.
+        Box(
+            Modifier
                 .fillMaxWidth()
                 .aspectRatio(1f)
-                .clip(shape)
-                .background(if (selected) colors.accentSoft else colors.card)
-        )
+                .border(1.dp, colors.primaryText.copy(alpha = if (current) .5f else .16f), shape)
+                .padding(2.5.dp)
+        ) {
+            XvoxSongArtwork(
+                artwork = song.artworkUri,
+                requestSize = 384,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(13.5.dp))
+                    .background(if (selected) colors.accentSoft else colors.card)
+            )
+        }
         // Title and artist are exactly as wide as the cover and end in an ellipsis.
         Text(
             song.title,

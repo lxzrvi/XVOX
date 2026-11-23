@@ -3,7 +3,6 @@ package com.xvox.music.features.home
 
 import com.xvox.music.core.design.theme.XvoxTheme
 import androidx.compose.ui.draw.clip
-import com.xvox.music.core.ui.chrome.xvoxHeaderWash
 import androidx.compose.foundation.clickable
 import android.app.Activity
 import android.net.Uri
@@ -986,18 +985,7 @@ fun HomeScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .then(
-                        if (onDetailPage && detailWash != null) Modifier.background(detailWash!!)
-                        else if (targetArtist == null && targetPlaylist == null &&
-                            (targetKey as? XvoxHomeLibraryMode ?: XvoxHomeLibraryMode.ALL_SONGS) == XvoxHomeLibraryMode.ALL_SONGS
-                        ) Modifier.xvoxHeaderWash(
-                            accent = XvoxTheme.colors.primaryAccent,
-                            isLight = XvoxTheme.colors.isLight,
-                            scroll = {
-                                if (listState.firstVisibleItemIndex == 0) listState.firstVisibleItemScrollOffset
-                                else Int.MAX_VALUE / 2
-                            }
-                        )
-                        else Modifier
+                        if (onDetailPage && detailWash != null) Modifier.background(detailWash!!) else Modifier
                     )
                     .xvoxStatusBarFade(
                         enabled = !(targetArtist != null || targetPlaylist != null ||

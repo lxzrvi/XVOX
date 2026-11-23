@@ -16,8 +16,11 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
-import io.github.neoruaa.glasmio.glass.render.drawBackdrop
-import io.github.neoruaa.glasmio.glass.render.effects.blur
+import dev.chrisbanes.haze.ExperimentalHazeApi
+import dev.chrisbanes.haze.HazeInputScale
+import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.materials.ExperimentalHazeMaterialsApi
+import dev.chrisbanes.haze.materials.HazeMaterials
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -79,7 +82,7 @@ fun XvoxHeldMenuHost(
 
     val held = remember { XvoxLongPressOrigin.consume() }
     // A held card always blurs the live page behind it, like BitChord's held menu.
-    val pageBackdrop = com.xvox.music.core.ui.effects.XvoxPageBackdrop.backdrop
+    val pageBackdrop = com.xvox.music.core.ui.effects.XvoxPageBackdrop.haze
     // With the page recorded, a held card blurs it through Glasmio's backdrop pipeline; the
     // app-level blur is only the fallback when there is no recorded page.
     if (liveScrim || (held != null && pageBackdrop == null)) {
@@ -165,7 +168,7 @@ fun XvoxHeldMenuHost(
 val LocalXvoxHeldLifted = compositionLocalOf { false }
 
 private val MenuPlateRadius = 30.dp
-private val LiftCardRadius = 20.dp
+private val LiftCardRadius = 18.dp
 private val LiftMenuWidth = 262.dp
 
 /**
@@ -173,11 +176,12 @@ private val LiftMenuWidth = 262.dp
  * frosted plate while the page behind blurs; the actions hang off it, below by preference and above
  * when the card is low on screen. Under-damped spring = the small overshoot is the "pop".
  */
+@OptIn(ExperimentalHazeApi::class, ExperimentalHazeMaterialsApi::class)
 @Composable
 private fun XvoxLiftedMenu(
     held: XvoxHeldItem,
     progress: () -> Float,
-    pageBackdrop: io.github.neoruaa.glasmio.glass.render.Backdrop?,
+    pageBackdrop: dev.chrisbanes.haze.HazeState?,
     scrimColor: Color,
     onScrimClick: () -> Unit,
     modifier: Modifier,
@@ -188,7 +192,7 @@ private fun XvoxLiftedMenu(
     val plate = (if (dark) Color.Black else Color.White).copy(alpha = com.xvox.music.core.ui.effects.XvoxGlassLevel.plateAlpha)
     val hairline = if (dark) Color.White.copy(alpha = .10f) else Color.Black.copy(alpha = .06f)
     val cardShape = RoundedCornerShape(LiftCardRadius)
-    val platePadding = 8.dp
+    val platePadding = 4.dp
     val pictureShape = RoundedCornerShape(LiftCardRadius - platePadding)
     val insets = WindowInsets.safeDrawing
     var overlayOffset by remember { mutableStateOf(Offset.Zero) }
@@ -205,14 +209,13 @@ private fun XvoxLiftedMenu(
                     .graphicsLayer { alpha = progress().coerceIn(0f, 1f) }
                     .then(
                         if (pageBackdrop != null) {
-                            // BitChord's ultra-thin frost: the live page, blurred wide.
-                            Modifier.drawBackdrop(
-                                backdrop = pageBackdrop,
-                                shape = { androidx.compose.ui.graphics.RectangleShape },
-                                effects = { blur(24.dp.toPx()) },
-                                highlight = null,
-                                shadow = null
-                            )
+                            // BitChord's held-menu blur, unchanged: Haze ultra-thin over the live page.
+                            Modifier.hazeEffect(
+                                state = pageBackdrop,
+                                style = HazeMaterials.ultraThin(colors.background)
+                            ) {
+                                inputScale = HazeInputScale.Fixed(0.33f)
+                            }
                         } else {
                             Modifier.xvoxLiveBlur(
                                 shape = RoundedCornerShape(0.dp),
@@ -243,7 +246,7 @@ private fun XvoxLiftedMenu(
                         bitmap = image,
                         contentDescription = null,
                         contentScale = ContentScale.FillBounds,
-                        modifier = Modifier.fillMaxSize().padding(platePadding).clip(pictureShape)
+                        modifier = Modifier.fillMaxSize().padding(platePadding)
                     )
                 }
             }

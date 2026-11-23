@@ -103,6 +103,8 @@ import com.xvox.music.core.design.kit.icons.XvoxSfIcons
 import com.xvox.music.core.design.theme.XvoxTheme
 import com.xvox.music.core.model.Song
 import com.xvox.music.core.ui.blur.xvoxGlassRim
+import dev.chrisbanes.haze.hazeSource
+import com.xvox.music.core.ui.chrome.xvoxHeaderWash
 import com.xvox.music.core.ui.effects.xvoxSongPress
 import com.xvox.music.core.ui.icons.painterResource
 import com.xvox.music.core.ui.navigation.LocalXvoxBottomInset
@@ -219,9 +221,10 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
     // The blur level chosen in Settings is shared with the mini player and the long-press plates.
     val glassLevel by prefs.glassMaterial.collectAsState(initial = "clear")
     SideEffect { XvoxGlassLevel.key = glassLevel }
-    androidx.compose.runtime.DisposableEffect(capturePage, pageBackdrop) {
-        com.xvox.music.core.ui.effects.XvoxPageBackdrop.backdrop = if (capturePage) pageBackdrop else null
-        onDispose { com.xvox.music.core.ui.effects.XvoxPageBackdrop.backdrop = null }
+    val pageHaze = remember { dev.chrisbanes.haze.HazeState() }
+    androidx.compose.runtime.DisposableEffect(capturePage, pageHaze) {
+        com.xvox.music.core.ui.effects.XvoxPageBackdrop.haze = if (capturePage) pageHaze else null
+        onDispose { com.xvox.music.core.ui.effects.XvoxPageBackdrop.haze = null }
     }
     var exitDialog by remember { mutableStateOf(false) }
     // Back on Home asks before closing the app. Composed before the pages, so any page or detail
@@ -321,7 +324,23 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
                             Modifier
                                 .fillMaxSize()
                                 .then(if (capturePage) Modifier.layerBackdrop(pageBackdrop) else Modifier)
+                                .then(if (capturePage) Modifier.hazeSource(pageHaze) else Modifier)
                         ) {
+                            if (pageIndex == HomeIndex && detailMode == null) {
+                                // Attached to Home: it rides up with the list and is never dimmed.
+                                Box(
+                                    Modifier.fillMaxSize().xvoxHeaderWash(
+                                        accent = colors.primaryAccent,
+                                        isLight = colors.isLight,
+                                        scroll = {
+                                            val l = activeList
+                                            if (l == null) 0
+                                            else if (l.firstVisibleItemIndex == 0) l.firstVisibleItemScrollOffset
+                                            else Int.MAX_VALUE / 2
+                                        }
+                                    )
+                                )
+                            }
                             if (pageIndex != SettingsIndex) {
                                 StageAmbientGlow(
                                     accent = colors.primaryAccent,
