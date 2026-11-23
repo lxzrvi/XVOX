@@ -219,6 +219,10 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
     // The blur level chosen in Settings is shared with the mini player and the long-press plates.
     val glassLevel by prefs.glassMaterial.collectAsState(initial = "clear")
     SideEffect { XvoxGlassLevel.key = glassLevel }
+    androidx.compose.runtime.DisposableEffect(capturePage, pageBackdrop) {
+        com.xvox.music.core.ui.effects.XvoxPageBackdrop.backdrop = if (capturePage) pageBackdrop else null
+        onDispose { com.xvox.music.core.ui.effects.XvoxPageBackdrop.backdrop = null }
+    }
     var exitDialog by remember { mutableStateOf(false) }
     // Back on Home asks before closing the app. Composed before the pages, so any page or detail
     // that handles Back itself (they are composed later) wins over it.
@@ -538,6 +542,14 @@ private fun StageAmbientGlow(accent: Color, modifier: Modifier = Modifier) {
                     colors = listOf(accent.copy(alpha = .10f), Color.Transparent),
                     center = Offset(w * (.50f - .22f * (pb - .5f)), h * (.10f + .08f * pa)),
                     radius = w * .70f
+                )
+            )
+            // Under the floating bar: something for the glass to refract at rest.
+            drawRect(
+                Brush.radialGradient(
+                    colors = listOf(accent.copy(alpha = .22f), accent.copy(alpha = .06f), Color.Transparent),
+                    center = Offset(w * (.50f + .25f * (pb - .5f)), h * 1.02f),
+                    radius = w * .85f
                 )
             )
         }

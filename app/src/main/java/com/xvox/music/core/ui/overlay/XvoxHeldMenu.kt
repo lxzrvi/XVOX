@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import io.github.neoruaa.glasmio.glass.render.drawBackdrop
+import io.github.neoruaa.glasmio.glass.render.effects.blur
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -77,7 +79,10 @@ fun XvoxHeldMenuHost(
 
     val held = remember { XvoxLongPressOrigin.consume() }
     // A held card always blurs the live page behind it, like BitChord's held menu.
-    if (liveScrim || held != null) {
+    val pageBackdrop = com.xvox.music.core.ui.effects.XvoxPageBackdrop.backdrop
+    // With the page recorded, a held card blurs it through Glasmio's backdrop pipeline; the
+    // app-level blur is only the fallback when there is no recorded page.
+    if (liveScrim || (held != null && pageBackdrop == null)) {
         LaunchedEffect(closing) { ctl.sheetBlurActive = !closing }
         DisposableEffect(Unit) { onDispose { ctl.sheetBlurActive = false } }
     }
@@ -110,6 +115,7 @@ fun XvoxHeldMenuHost(
         XvoxLiftedMenu(
             held = held,
             progress = { progress.value },
+            pageBackdrop = pageBackdrop,
             scrimColor = scrimColor,
             onScrimClick = ::close,
             modifier = modifier,
@@ -171,6 +177,7 @@ private val LiftMenuWidth = 262.dp
 private fun XvoxLiftedMenu(
     held: XvoxHeldItem,
     progress: () -> Float,
+    pageBackdrop: io.github.neoruaa.glasmio.glass.render.Backdrop?,
     scrimColor: Color,
     onScrimClick: () -> Unit,
     modifier: Modifier,
@@ -196,12 +203,25 @@ private fun XvoxLiftedMenu(
                 Modifier
                     .fillMaxSize()
                     .graphicsLayer { alpha = progress().coerceIn(0f, 1f) }
-                    .xvoxLiveBlur(
-                        shape = RoundedCornerShape(0.dp),
-                        level = XvoxBlurLevel.SheetBackdrop,
-                        baseColor = scrimColor,
-                        sky = null,
-                        borderWidth = 0.dp
+                    .then(
+                        if (pageBackdrop != null) {
+                            // BitChord's ultra-thin frost: the live page, blurred wide.
+                            Modifier.drawBackdrop(
+                                backdrop = pageBackdrop,
+                                shape = { androidx.compose.ui.graphics.RectangleShape },
+                                effects = { blur(24.dp.toPx()) },
+                                highlight = null,
+                                shadow = null
+                            )
+                        } else {
+                            Modifier.xvoxLiveBlur(
+                                shape = RoundedCornerShape(0.dp),
+                                level = XvoxBlurLevel.SheetBackdrop,
+                                baseColor = scrimColor,
+                                sky = null,
+                                borderWidth = 0.dp
+                            )
+                        }
                     )
                     .drawBehind { drawRect(scrimColor, alpha = if (dark) .30f else .10f) }
                     .clickable(remember { MutableInteractionSource() }, indication = null) { onScrimClick() }
