@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.lerp
 import androidx.compose.ui.unit.sp
 import com.xvox.music.core.ui.effects.XvoxGlassLevel
 import io.github.neoruaa.glasmio.core.LocalGlassColors
+import io.github.neoruaa.glasmio.glass.GlassEmphasis
 import io.github.neoruaa.glasmio.glass.GlassSurface
 import io.github.neoruaa.glasmio.glass.GlassSurfaceStyle
 import io.github.neoruaa.glasmio.glass.NavigationGlassMaterial
@@ -136,15 +137,20 @@ internal fun BoxScope.StageNavBar(
                 val pillH = controlHeight - inset * 2
                 val pillW = lerp(slotW, controlHeight - inset * 2, p)
                 val pillCenter = lerp(inset + slotW * (pillPos.value + .5f), capsuleW / 2, p)
-                Box(
-                    Modifier
+                // The pill is itself a piece of liquid glass, lifted a step above the bar.
+                GlassSurface(
+                    modifier = Modifier
                         .offset(x = pillCenter - pillW / 2, y = inset)
                         .size(pillW, pillH)
-                        .graphicsLayer { scaleX = pillScale; scaleY = pillScale }
-                        .clip(CircleShape)
-                        .background(glass.content.copy(alpha = .13f))
-                        .border(.5.dp, glass.content.copy(alpha = .14f), CircleShape)
-                )
+                        .graphicsLayer { scaleX = pillScale; scaleY = pillScale },
+                    backdrop = backdrop,
+                    shape = CircleShape,
+                    style = GlassSurfaceStyle.Navigation,
+                    emphasis = GlassEmphasis.Prominent,
+                    material = material
+                ) {
+                    Box(Modifier.fillMaxSize().background(glass.content.copy(alpha = .08f)))
+                }
 
                 entries.forEachIndexed { index, entry ->
                     val isSelected = index == selectedIndex

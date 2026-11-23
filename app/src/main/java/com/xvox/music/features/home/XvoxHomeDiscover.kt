@@ -508,9 +508,13 @@ private fun TopSongCard(
  * Text style for stacked card labels: line boxes are trimmed to the glyphs, so a title and the line
  * under it sit close together instead of carrying the font's own extra leading.
  */
-val XvoxCompactLine = androidx.compose.ui.text.TextStyle(
-    lineHeightStyle = androidx.compose.ui.text.style.LineHeightStyle(
-        alignment = androidx.compose.ui.text.style.LineHeightStyle.Alignment.Center,
-        trim = androidx.compose.ui.text.style.LineHeightStyle.Trim.Both
+val XvoxCompactLine: androidx.compose.ui.text.TextStyle
+    @androidx.compose.runtime.Composable
+    get() = androidx.compose.material3.LocalTextStyle.current.merge(
+        androidx.compose.ui.text.TextStyle(
+            lineHeightStyle = androidx.compose.ui.text.style.LineHeightStyle(
+                alignment = androidx.compose.ui.text.style.LineHeightStyle.Alignment.Center,
+                trim = androidx.compose.ui.text.style.LineHeightStyle.Trim.Both
+            )
+        )
     )
-)
