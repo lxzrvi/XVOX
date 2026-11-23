@@ -274,7 +274,14 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
             GlasmioTabItem(SettingsIndex, "Settings", SfSymbol.Gearshape)
         )
     }
-    val searchItem = remember { GlasmioTabItem(SearchKey, "Search", SfSymbol.Search) }
+    val navEntries = remember {
+        listOf(
+            StageNavEntry(HomeIndex, "Home", SfSymbol.HouseFilled),
+            StageNavEntry(LibraryIndex, "Library", SfSymbol.MusicNoteSquareStackFilled),
+            StageNavEntry(ArtistsIndex, "Artists", SfSymbol.Microphone),
+            StageNavEntry(SettingsIndex, "Settings", SfSymbol.Gearshape)
+        )
+    }
 
     val statusTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
@@ -442,54 +449,29 @@ fun XvoxStageScaffold(modifier: Modifier = Modifier) {
                                     onOpen = { playerVm.openNowPlaying() },
                                     backdrop = floatingBackdrop
                                 )
-                                // Width follows the scroll: 320 dp while expanded, the full row once
-                                // compact, so the two remaining circles sit far apart (left and right)
-                                // and Glasmio's own drop-separation animation plays between them.
-                                Box(
-                                    Modifier
-                                        .align(Alignment.BottomCenter)
-                                        .fillMaxWidth()
-                                        .layout { measurable, c ->
-                                            val margin = StageSideMargin.roundToPx() * 2
-                                            val full = (c.maxWidth - margin).coerceAtLeast(0)
-                                            val expanded = StageBarMaxWidth.roundToPx().coerceAtMost(full)
-                                            val w = lerp(
-                                                expanded,
-                                                full,
-                                                navigationScroll.compactProgress.value.coerceIn(0f, 1f)
-                                            )
-                                            val placeable = measurable.measure(Constraints(w, w, 0, c.maxHeight))
-                                            layout(c.maxWidth, placeable.height) {
-                                                placeable.place((c.maxWidth - placeable.width) / 2, 0)
-                                            }
-                                        }
-                                ) {
-                                    GlasmioNavigationBarWithTrailingItem(
-                                        items = items,
-                                        trailingItem = searchItem,
-                                        selectedKey = selectedIndex,
-                                        onSelected = { key ->
-                                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                            when (key) {
-                                                SearchKey -> searchActive = true
-                                                else -> selectedIndex = key
-                                            }
-                                        },
-                                        onExpand = onExpand,
-                                        compactProgress = navigationScroll.compactProgress,
-                                        compactSize = StageControlHeight,
-                                        // No drawn border on the bar: the pill and the search capsule
-                                        // stand on the glass alone, nothing outlines them.
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .glasmioNavigationScrollHint(navigationScroll.scrollHintProgress),
-                                        // Frosts only the wallpaper / app background, never the page content.
-                                        backdrop = backdrop,
-                                        onItemBoundsChanged = { key, bounds ->
-                                            if (key == SearchKey) searchBounds = bounds
-                                        }
-                                    )
-                                }
+                                // XVOX's own bar (same glass and blur level as the mini player). It folds
+                                // into a circle plus the search button as the page scrolls.
+                                StageNavBar(
+                                    entries = navEntries,
+                                    selectedKey = selectedIndex,
+                                    compactProgress = { navigationScroll.compactProgress.value },
+                                    onSelect = { key ->
+                                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                        selectedIndex = key
+                                    },
+                                    onExpand = onExpand,
+                                    onSearch = {
+                                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                        searchActive = true
+                                    },
+                                    onSearchBounds = { searchBounds = it },
+                                    // Frosts only the wallpaper / app background, never the page content.
+                                    backdrop = backdrop,
+                                    maxBarWidth = StageBarMaxWidth,
+                                    controlHeight = StageControlHeight,
+                                    gap = StageControlGap,
+                                    sideMargin = StageSideMargin
+                                )
                             }
                         }
                     }
@@ -716,12 +698,7 @@ private fun BoxScope.StageMiniPlayer(
         backdrop = backdrop,
         shape = shape,
         style = GlassSurfaceStyle.Navigation,
-        material = when (XvoxGlassLevel.key) {
-            "clear" -> NavigationGlassMaterial.Clear
-            "small" -> NavigationGlassMaterial.RegularSmall
-            "regular" -> NavigationGlassMaterial.RegularMedium
-            else -> NavigationGlassMaterial.RegularLarge
-        }
+        material = xvoxNavMaterial()
     ) {
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val showText = maxWidth > 250.dp

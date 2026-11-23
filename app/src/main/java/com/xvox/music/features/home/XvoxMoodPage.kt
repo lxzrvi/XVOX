@@ -93,8 +93,8 @@ fun XvoxMoodPage(
                         requestSize = 128
                     )
                     Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                        Text(song.title, color = if (song.id == currentSongId) colors.primaryAccent else colors.primaryText, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(song.artist.ifBlank { "Unknown artist" }, color = colors.secondaryText, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(song.title, color = if (song.id == currentSongId) colors.primaryAccent else colors.primaryText, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, lineHeight = 17.sp, style = XvoxCompactLine, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(song.artist.ifBlank { "Unknown artist" }, color = colors.secondaryText, fontSize = 12.sp, lineHeight = 14.sp, style = XvoxCompactLine, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     Box(Modifier.size(36.dp).hiddenWhileHeld().xvoxSongPress(onClick = { onMore(song) }, pressedScale = .8f), contentAlignment = Alignment.Center) {
                         Icon(painterResource(R.drawable.ic_xvox_more), "More", tint = colors.secondaryText, modifier = Modifier.size(20.dp))

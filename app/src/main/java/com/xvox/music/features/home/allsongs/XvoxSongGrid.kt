@@ -102,6 +102,8 @@ private fun GridSongCard(
             color = if (current) colors.primaryAccent else colors.primaryText,
             fontWeight = FontWeight.SemiBold,
             fontSize = 13.sp,
+            lineHeight = 15.sp,
+            style = com.xvox.music.features.home.XvoxCompactLine,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.fillMaxWidth().padding(top = 6.dp)
@@ -110,6 +112,8 @@ private fun GridSongCard(
             song.artist.ifBlank { "Unknown artist" },
             color = colors.secondaryText,
             fontSize = 11.sp,
+            lineHeight = 13.sp,
+            style = com.xvox.music.features.home.XvoxCompactLine,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.fillMaxWidth()

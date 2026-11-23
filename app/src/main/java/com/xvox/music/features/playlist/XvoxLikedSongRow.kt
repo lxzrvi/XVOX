@@ -93,8 +93,7 @@ fun XvoxLikedSongRow(
             Text(
                 text = song.title,
                 color = colors.primaryText,
-                fontSize = 13.sp,
-                lineHeight = 16.sp,
+                fontSize = 13.sp, lineHeight = 16.sp, style = com.xvox.music.features.home.XvoxCompactLine,
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -103,8 +102,7 @@ fun XvoxLikedSongRow(
             Text(
                 text = if (current && playing) "${song.artist} • Playing" else song.artist,
                 color = colors.secondaryText,
-                fontSize = 10.sp,
-                lineHeight = 13.sp,
+                fontSize = 10.sp, lineHeight = 12.sp, style = com.xvox.music.features.home.XvoxCompactLine,
                 fontWeight = FontWeight.Normal,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis

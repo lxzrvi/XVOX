@@ -564,8 +564,8 @@ class UserPreferencesRepository(
     val ignoreBelowSec: Flow<Int> = context.xvoxDataStore.data.map { it[Keys.ignoreBelowSec] ?: 0 }.distinctUntilChanged()
     val ignoreBelowKb: Flow<Int> = context.xvoxDataStore.data.map { it[Keys.ignoreBelowKb] ?: 0 }.distinctUntilChanged()
 
-    /** Header monogram size in dp (18..56). */
-    val headerLogoSize: Flow<Int> = context.xvoxDataStore.data.map { (it[Keys.headerLogoSize] ?: 24).coerceIn(18, 56) }.distinctUntilChanged()
+    /** Header monogram size in dp (18..96). */
+    val headerLogoSize: Flow<Int> = context.xvoxDataStore.data.map { (it[Keys.headerLogoSize] ?: 24).coerceIn(18, 96) }.distinctUntilChanged()
 
     /** songId -> how many times it was started from the library. */
     val playCounts: Flow<Map<Long, Int>> = context.xvoxDataStore.data.map { prefs ->
@@ -873,7 +873,7 @@ class UserPreferencesRepository(
     suspend fun setIgnoreBelowSec(sec: Int) { context.xvoxDataStore.edit { it[Keys.ignoreBelowSec] = sec.coerceIn(0, 86400) } }
     suspend fun setIgnoreBelowKb(kb: Int) { context.xvoxDataStore.edit { it[Keys.ignoreBelowKb] = kb.coerceIn(0, 10485760) } }
 
-    suspend fun setHeaderLogoSize(dp: Int) { context.xvoxDataStore.edit { it[Keys.headerLogoSize] = dp.coerceIn(18, 56) } }
+    suspend fun setHeaderLogoSize(dp: Int) { context.xvoxDataStore.edit { it[Keys.headerLogoSize] = dp.coerceIn(18, 96) } }
 
     /**
      * One tick per start. The map is trimmed to the two hundred best-played songs so the persisted

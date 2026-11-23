@@ -206,20 +206,23 @@ private fun XvoxLiftedMenu(
                     .clickable(remember { MutableInteractionSource() }, indication = null) { onScrimClick() }
             )
             // 1: the held card on its plate.
-            Box(
-                Modifier
-                    .pointerInput(Unit) {}
-                    .clip(cardShape)
-                    .background(plate)
-                    .xvoxGlassRim(cardShape, hairlineColor = hairline)
-                    .padding(platePadding)
-            ) {
+            Box(Modifier.pointerInput(Unit) {}) {
+                // Only the frosted plate fades in; the picture is opaque from the first frame, so it
+                // replaces the original card exactly instead of dipping through transparency.
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .graphicsLayer { alpha = progress().coerceIn(0f, 1f) }
+                        .clip(cardShape)
+                        .background(plate)
+                        .xvoxGlassRim(cardShape, hairlineColor = hairline)
+                )
                 held.image?.let { image ->
                     Image(
                         bitmap = image,
                         contentDescription = null,
                         contentScale = ContentScale.FillBounds,
-                        modifier = Modifier.fillMaxSize().clip(pictureShape)
+                        modifier = Modifier.fillMaxSize().padding(platePadding).clip(pictureShape)
                     )
                 }
             }
@@ -292,8 +295,6 @@ private fun XvoxLiftedMenu(
                 scaleY = scale
                 translationX = lerp(fromDx, 0f, p)
                 translationY = lerp(fromDy, 0f, p)
-                // Quick, because it starts over the very card it copies.
-                alpha = (p * 3f).coerceIn(0f, 1f)
             }
             menu.placeWithLayer(menuX, menuY) {
                 val p = progress()

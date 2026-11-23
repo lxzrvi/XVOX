@@ -4,6 +4,7 @@ package com.xvox.music.features.home
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.collectAsState
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.animation.core.LinearEasing
@@ -94,7 +95,7 @@ fun XvoxHomeLogo(modifier: Modifier = Modifier) {
             .fillMaxWidth()
             .windowInsetsPadding(WindowInsets.statusBars)
             .padding(top = 11.dp, start = 16.dp)
-            .height(44.dp),
+            .heightIn(min = 44.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         // Just the mark, no tile behind it, tinted with the text colour (black on light, white on
@@ -114,9 +115,10 @@ fun XvoxHomeLogo(modifier: Modifier = Modifier) {
             color = colors.primaryText,
             fontFamily = com.xvox.music.core.design.theme.XvoxLogoFont,
             fontWeight = FontWeight.Bold,
-            fontSize = 24.sp,
-            letterSpacing = .5.sp,
-            modifier = Modifier.padding(start = 10.dp)
+            fontSize = logoSize.sp,
+            letterSpacing = 0.sp,
+            style = XvoxCompactLine,
+            modifier = Modifier.padding(start = 2.dp)
         )
     }
 }
@@ -284,6 +286,8 @@ private fun QuickPickRow(song: Song, current: Boolean, playing: Boolean, onClick
                 color = if (current) colors.primaryAccent else colors.primaryText,
                 fontWeight = FontWeight.SemiBold,
                 fontSize = 14.sp,
+                lineHeight = 17.sp,
+                style = XvoxCompactLine,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -291,6 +295,8 @@ private fun QuickPickRow(song: Song, current: Boolean, playing: Boolean, onClick
                 song.artist.ifBlank { "Unknown artist" } + if (playing) " · Playing" else "",
                 color = colors.secondaryText,
                 fontSize = 12.sp,
+                lineHeight = 14.sp,
+                style = XvoxCompactLine,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -324,9 +330,9 @@ private fun MoodCard(mood: XvoxMood, onClick: () -> Unit) {
     ) {
         MoodMotion(mood.motionVariant, Modifier.matchParentSize())
         Column(Modifier.align(Alignment.BottomStart).padding(16.dp)) {
-            Text(mood.title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 21.sp, lineHeight = 24.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            Text(mood.subtitle, color = Color.White.copy(alpha = .86f), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
-            Text("${mood.songs.size} songs", color = Color.White.copy(alpha = .7f), fontSize = 11.sp, modifier = Modifier.padding(top = 6.dp))
+            Text(mood.title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 21.sp, lineHeight = 23.sp, style = XvoxCompactLine, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(mood.subtitle, color = Color.White.copy(alpha = .86f), fontSize = 12.sp, lineHeight = 14.sp, style = XvoxCompactLine, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 1.dp))
+            Text("${mood.songs.size} songs", color = Color.White.copy(alpha = .7f), fontSize = 11.sp, lineHeight = 13.sp, style = XvoxCompactLine, modifier = Modifier.padding(top = 3.dp))
         }
     }
 }
@@ -474,13 +480,15 @@ private fun TopSongCard(
             Modifier
                 .align(Alignment.BottomStart)
                 .fillMaxWidth()
-                .padding(horizontal = 10.dp, vertical = 9.dp)
+                .padding(start = 10.dp, end = 10.dp, bottom = 8.dp)
         ) {
             Text(
                 song.title,
                 color = if (current) XvoxTheme.colors.primaryAccent else Color.White,
                 fontWeight = FontWeight.SemiBold,
                 fontSize = 12.sp,
+                lineHeight = 14.sp,
+                style = XvoxCompactLine,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -488,9 +496,22 @@ private fun TopSongCard(
                 song.artist.ifBlank { "Unknown artist" },
                 color = Color.White.copy(alpha = .78f),
                 fontSize = 11.sp,
+                lineHeight = 13.sp,
+                style = XvoxCompactLine,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
         }
     }
 }
+
+/**
+ * Text style for stacked card labels: line boxes are trimmed to the glyphs, so a title and the line
+ * under it sit close together instead of carrying the font's own extra leading.
+ */
+val XvoxCompactLine = androidx.compose.ui.text.TextStyle(
+    lineHeightStyle = androidx.compose.ui.text.style.LineHeightStyle(
+        alignment = androidx.compose.ui.text.style.LineHeightStyle.Alignment.Center,
+        trim = androidx.compose.ui.text.style.LineHeightStyle.Trim.Both
+    )
+)

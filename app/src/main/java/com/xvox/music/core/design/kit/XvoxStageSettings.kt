@@ -211,7 +211,7 @@ fun XvoxStageSettingsPage(
                         value = liveLogo,
                         onValueChange = { liveLogo = it },
                         onValueChangeFinished = { scope.launch { prefs.setHeaderLogoSize(liveLogo.toInt()) } },
-                        valueRange = 18f..56f,
+                        valueRange = 18f..96f,
                         backdrop = backdrop,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -267,7 +267,7 @@ fun XvoxStageSettingsPage(
             CardGroup(backdrop) { backdrop ->
                 GlasmioListRow(
                     title = "Version",
-                    detail = "1.02.52",
+                    detail = "1.02.56",
                     showTopSeparator = false
                 )
             }
